@@ -1,0 +1,16 @@
+{
+    "name": "Ashfall.UI",
+    "rootNamespace": "Ashfall.UI",
+    "references": [
+        "Ashfall.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

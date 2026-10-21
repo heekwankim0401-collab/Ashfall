@@ -1,0 +1,32 @@
+{
+    "name": "Ashfall.Tests.EditMode",
+    "rootNamespace": "Ashfall.Tests.EditMode",
+    "references": [
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Ashfall.Core",
+        "Ashfall.Player",
+        "Ashfall.Weapons",
+        "Ashfall.Inventory",
+        "Ashfall.AI",
+        "Ashfall.Raid",
+        "Ashfall.Hideout",
+        "Ashfall.UI",
+        "Ashfall.Audio"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

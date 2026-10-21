@@ -1,0 +1,16 @@
+{
+    "name": "Ashfall.Hideout",
+    "rootNamespace": "Ashfall.Hideout",
+    "references": [
+        "Ashfall.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
