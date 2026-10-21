@@ -266,6 +266,7 @@ Assets/
       Hideout/       # 보관함, 상인, 제작
       UI/
       Audio/
+      EditorTools/   # 에디터 전용 도구(씬·에셋 생성 메뉴). 빌드 제외
     Data/            # ScriptableObject 에셋(.asset)
     Prefabs/
     Scenes/          # Boot, MainMenu, Hideout, Raid_CrimsonBasin

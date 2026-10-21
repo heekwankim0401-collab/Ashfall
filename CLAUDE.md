@@ -1,0 +1,38 @@
+# Ashfall
+
+1인칭 싱글플레이 하드코어 익스트랙션 슈터. Unity 6 (6000.3.26f1), URP(3D), 새 Input System, UI Toolkit.
+**구현 기준은 [docs/GDD.md](docs/GDD.md)다.** 작업 전 §0 작업 규칙, §13 기술 스펙, 현재 마일스톤(§15)을 읽는다.
+
+## 현재 진행
+- 마일스톤: M0(프로젝트 셋업) 완료. 다음은 M1. 한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
+
+## 구조 (GDD §13.2)
+- `Assets/_Project/Scripts/<시스템>/` — 폴더마다 asmdef `Ashfall.<폴더명>`, 네임스페이스도 같다.
+  - `Core` — 공용(씬 이름, BootLoader, 이후 GameManager·이벤트 버스·세이브). 다른 Ashfall 어셈블리를 참조하지 않는다.
+  - `Player`, `Weapons`, `Inventory`, `AI`, `Raid`, `Hideout`, `UI`, `Audio` — `Ashfall.Core`만 참조. 기능끼리 직접 참조 금지(이벤트 버스).
+  - `EditorTools` — 에디터 전용(씬·에셋 생성 메뉴). `Ashfall/...` 메뉴.
+- `Assets/_Project/Data/` — ScriptableObject 에셋. `Scenes/` — `Boot`(빌드 첫 씬) → `MainMenu`.
+- `Assets/Tests/EditMode/`, `Assets/Tests/PlayMode/` — 테스트 asmdef는 모든 Ashfall 어셈블리를 참조한다.
+- `Assets/Settings/` — URP 에셋(`PC_RPAsset`이 Windows 기본), 볼륨 프로필. `Assets/InputSystem_Actions.inputactions` — 프로젝트 입력 액션.
+- `docs/` — `GDD.md`, `CHANGELOG_GDD.md`. `.claude/agents/` — GDD §16 에이전트 7종.
+
+## 작업 규칙
+- 에이전트는 유니티 에디터를 조작할 수 없다. C# 스크립트·asmdef·텍스트 파일을 고치고, 배치모드로 컴파일·테스트한다.
+- 수치는 하드코딩하지 않고 ScriptableObject(§14)로 뺀다. 로직은 순수 C# 클래스로 분리해 EditMode 테스트를 붙인다.
+- 입력은 새 Input System(`UnityEngine.InputSystem`)만. 옛 `Input.GetKey` 계열 금지.
+- 씬·프리팹·`.asset` YAML을 손으로 쓰지 않는다. 필요한 오브젝트·에셋을 만드는 에디터 스크립트(`EditorTools`, 메뉴 항목)를 쓰고 배치모드 `-executeMethod`로 실행한다.
+- 새 파일의 `.meta`는 만들지 않는다(유니티가 GUID를 생성). 기존 `.meta`의 GUID는 바꾸지 않는다. 유니티가 만든 `.meta`는 커밋한다.
+- 패키지에 기능을 쓸 때 해당 asmdef `references`에 패키지 어셈블리(예: `Unity.InputSystem`, `Unity.Cinemachine`)를 그때 추가한다.
+- 문서와 코드가 충돌하면 문서가 우선. 문서를 고칠 땐 `docs/CHANGELOG_GDD.md`에 사유를 먼저 기록한다.
+- 코드 식별자는 영어, 주석·문서는 한국어. 커밋 메시지는 한국어로 짧게, GDD ID(예: `SYS-PLR-01`)를 참조한다.
+- `Library/`, `Temp/`, `Logs/`, `UserSettings/`, `Builds/`는 git에 없다. 건드리지 않는다.
+- 작업이 끝나면 사람이 에디터에서 해야 할 일(메뉴 실행, 컴포넌트 연결, 확인 방법)을 짧게 정리해서 알려준다.
+
+## 배치모드 실행
+조건: **Unity Hub가 켜져 있어야** 라이선스가 잡힌다(꺼져 있으면 종료 코드 198). **에디터에 이 프로젝트가 열려 있으면 안 된다.**
+```
+"C:\Program Files\Unity\Hub\Editor\6000.3.26f1\Editor\Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults results.xml -logFile test.log
+```
+- PlayMode는 `-testPlatform PlayMode`. 종료 코드 0 = 통과, 2 = 실패 테스트 있음, 그 밖 = 실행·컴파일 오류(`test.log`에서 `error CS` 확인).
+- 에디터 메서드 실행: `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.SceneSetup.CreateM0Scenes -logFile setup.log`
+- 알려진 무해한 로그: 스크립트 없는 asmdef의 "will not be compiled" 경고, Cinemachine HDRP 샘플 asmref 경고, Addressables의 `DocExampleCode.TestStub` 테스트 1개.

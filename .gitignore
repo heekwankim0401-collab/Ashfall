@@ -46,6 +46,7 @@ crashlytics-build.properties
 # Unity batchmode test output
 /results.xml
 /test.log
+/setup.log
 
 # vmux agent worktrees
 .vmux/
