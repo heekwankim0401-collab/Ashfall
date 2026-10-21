@@ -42,3 +42,27 @@ MonoBehaviour:
   leanOffsetM: 0.3
   leanSpeed: 6
   groundStickSpeed: -2
+  headMaxHp: 35
+  thoraxMaxHp: 80
+  stomachMaxHp: 70
+  armMaxHp: 60
+  legMaxHp: 65
+  destroyedPartRedistribution: 0.7
+  stomachDestroyedDamageMultiplier: 1.5
+  armDestroyedAimSwayAdd: 1
+  legDestroyedSpeedMultiplier: 0.6
+  bleedHpPerSec: 1
+  heavyBleedHpPerSec: 3
+  bleedMinDamage: 10
+  heavyBleedChance: 0.15
+  bleedChance: 0.35
+  fractureMinDamage: 20
+  fractureChance: 0.2
+  fractureLegSpeedMultiplier: 0.8
+  fractureArmAimSwayAdd: 0.5
+  tierInjuredBelow: 0.75
+  tierCriticalBelow: 0.35
+  headZoneFrom: 0.87
+  thoraxZoneFrom: 0.62
+  stomachZoneFrom: 0.45
+  armZoneSideRatio: 0.6

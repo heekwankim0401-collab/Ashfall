@@ -31,7 +31,7 @@ namespace Ashfall.Tests.PlayMode
             Assert.AreEqual(100f, motor.Stamina.Current, 1e-3f, "입력 없이 서 있으면 스태미나 최대");
             Assert.AreEqual(Stance.Stand, motor.Locomotion.Stance);
             Assert.AreEqual(30, weapon.Model.Current.Rounds);
-            Assert.AreEqual(3, weapon.Model.Spares.Count, "시작 탄창 4개 = 장착 1 + 예비 3");
+            Assert.AreEqual(3, weapon.MagazineSource.Magazines.Count, "시작 탄창 4개 = 장착 1 + 예비 3");
             Assert.AreEqual(4, Object.FindObjectsByType<HitTarget>(FindObjectsSortMode.None).Length);
             Assert.IsNotNull(Object.FindFirstObjectByType<Terrain>(), "테스트 지형 없음");
             Assert.AreEqual(new Vector3(200f, 20f, 200f), Terrain.activeTerrain.terrainData.size);

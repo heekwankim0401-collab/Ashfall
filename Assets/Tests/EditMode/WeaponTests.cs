@@ -19,8 +19,13 @@ namespace Ashfall.Tests.EditMode
             mag30 = TestData.Magazine30();
         }
 
-        private WeaponModel NewRifle(int spareCount = 2) =>
-            new WeaponModel(rifle, Magazine.Full(mag30), Enumerable.Range(0, spareCount).Select(_ => Magazine.Full(mag30)));
+        private LocalMagazineSource source;
+
+        private WeaponModel NewRifle(int spareCount = 2)
+        {
+            source = new LocalMagazineSource(Enumerable.Range(0, spareCount).Select(_ => Magazine.Full(mag30)));
+            return new WeaponModel(new WeaponItem(rifle, Magazine.Full(mag30)), source);
+        }
 
         [Test]
         public void FireControl_650Rpm_FiresAtInterval()
@@ -71,7 +76,7 @@ namespace Ashfall.Tests.EditMode
 
             Assert.IsFalse(weapon.IsReloading);
             Assert.AreEqual(30, weapon.Current.Rounds);
-            Assert.Contains(first, weapon.Spares.ToList(), "일반 재장전은 탄창을 회수한다");
+            Assert.Contains(first, source.Magazines.ToList(), "일반 재장전은 탄창을 회수한다");
             Assert.AreEqual(25, first.Rounds, "탄창의 남은 탄 수가 그대로 저장된다");
         }
 
@@ -92,7 +97,7 @@ namespace Ashfall.Tests.EditMode
 
             Assert.IsFalse(weapon.IsReloading);
             Assert.AreSame(first, dropped);
-            Assert.IsEmpty(weapon.Spares);
+            Assert.IsEmpty(source.Magazines);
         }
 
         [Test]

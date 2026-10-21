@@ -12,7 +12,8 @@
         "Ashfall.Raid",
         "Ashfall.Hideout",
         "Ashfall.UI",
-        "Ashfall.Audio"
+        "Ashfall.Audio",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

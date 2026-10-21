@@ -38,6 +38,16 @@ namespace Ashfall.EditorTools
             CreateGreyboxScene();
         }
 
+        // 생성 코드가 바뀌었을 때 기존 씬을 같은 경로(같은 GUID)로 덮어쓴다.
+        [MenuItem("Ashfall/Setup/Recreate M1 Greybox Scene")]
+        public static void RecreateAll()
+        {
+            CreateData();
+            if (!Application.isBatchMode && !EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+                return;
+            CreateGreyboxScene();
+        }
+
         // ---------- 데이터 (§4.1, §5.2 표 값) ----------
 
         private static void CreatePlayerConfig()
@@ -138,6 +148,8 @@ namespace Ashfall.EditorTools
             player.transform.position = position;
             var controller = player.AddComponent<CharacterController>();
             controller.radius = 0.3f;
+            // 엔진 기본 minMoveDistance(1mm)는 고fps + 느린 이동에서 프레임당 이동을 버려 멈추게 한다.
+            controller.minMoveDistance = 0f;
             var motor = player.AddComponent<PlayerMotor>();
 
             var eye = new GameObject("Eye").transform;
@@ -198,37 +210,14 @@ namespace Ashfall.EditorTools
             block.transform.localScale = size;
         }
 
-        // ---------- 도우미 ----------
+        // ---------- 도우미 (SetupUtil로 이동, 동작 동일) ----------
 
         private static T CreateAssetIfMissing<T>(string path, System.Action<T> fill) where T : ScriptableObject
-        {
-            var existing = AssetDatabase.LoadAssetAtPath<T>(path);
-            if (existing != null)
-                return existing;
+            => SetupUtil.CreateAssetIfMissing(path, fill, "[M1Setup]");
 
-            EnsureFolder(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'));
-            var asset = ScriptableObject.CreateInstance<T>();
-            fill(asset);
-            AssetDatabase.CreateAsset(asset, path);
-            Debug.Log($"[M1Setup] 에셋 생성: {path}");
-            return asset;
-        }
-
-        private static void EnsureFolder(string folder)
-        {
-            if (AssetDatabase.IsValidFolder(folder))
-                return;
-            string parent = System.IO.Path.GetDirectoryName(folder).Replace('\\', '/');
-            EnsureFolder(parent);
-            AssetDatabase.CreateFolder(parent, System.IO.Path.GetFileName(folder));
-        }
+        private static void EnsureFolder(string folder) => SetupUtil.EnsureFolder(folder);
 
         private static void SetFields(Object target, params (string name, Object value)[] fields)
-        {
-            var so = new SerializedObject(target);
-            foreach (var (name, value) in fields)
-                so.FindProperty(name).objectReferenceValue = value;
-            so.ApplyModifiedPropertiesWithoutUndo();
-        }
+            => SetupUtil.SetFields(target, fields);
     }
 }

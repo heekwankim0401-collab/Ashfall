@@ -1,0 +1,43 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- 게임 중 UI 하나 (설계 §5.4). GameUIRoot가 이름으로 요소를 찾는다. 이름을 바꾸면 C# 상수도 바꾼다. -->
+    <Style src="Ashfall.uss" />
+    <ui:VisualElement name="game-ui" class="ash-root" picking-mode="Ignore">
+
+        <!-- §12 HUD: 허용된 일시 표시만 (F 프롬프트, RULE-04 탄창 확인 문구). 체력·탄수·미니맵·크로스헤어 없음. -->
+        <ui:VisualElement name="hud" class="hud" picking-mode="Ignore">
+            <ui:Label name="hud-prompt" class="hud-prompt" picking-mode="Ignore" />
+            <ui:Label name="hud-toast" class="hud-toast" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <!-- SYS-INV 인벤토리 (Tab). 패널 밖 어두운 곳에 놓으면 바닥에 버린다. -->
+        <ui:VisualElement name="inventory-screen" class="screen inventory-screen">
+            <ui:VisualElement name="inv-layout" class="inv-layout" picking-mode="Ignore">
+                <ui:VisualElement name="inv-equip-panel" class="panel inv-panel inv-equip-panel">
+                    <ui:Label text="장비" class="panel-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="inv-equip-slots" class="inv-equip-slots" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="inv-storage-panel" class="panel inv-panel inv-storage-panel">
+                    <ui:Label text="소지품" class="panel-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="inv-storage-grids" class="inv-storage-grids" picking-mode="Ignore" />
+                    <ui:Label text="퀵슬롯" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="inv-quick-slots" class="inv-quick-slots" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="inv-loot-panel" class="panel inv-panel inv-loot-panel">
+                    <ui:Label name="inv-loot-title" class="panel-title" picking-mode="Ignore" />
+                    <ui:Label name="inv-loot-status" class="loot-status" picking-mode="Ignore" />
+                    <ui:VisualElement name="inv-loot-grid-host" class="inv-loot-grid-host" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="inv-drag-layer" class="drag-layer" picking-mode="Ignore" />
+        </ui:VisualElement>
+
+        <!-- RULE-05 부위 상태 (H). 수치 없음. -->
+        <ui:VisualElement name="body-status-screen" class="screen body-status-screen">
+            <ui:VisualElement class="panel bs-panel">
+                <ui:Label text="부위 상태" class="panel-title" picking-mode="Ignore" />
+                <ui:VisualElement name="body-status-list" class="bs-list" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

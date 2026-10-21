@@ -1,0 +1,344 @@
+/* Ashfall 게임 UI 스타일 (설계 §5.4, GDD §10.1, §12).
+   색은 §10.1 팔레트 토큰만 쓴다. 텍스트는 Bone. 새 색이 필요하면 팔레트에서 고른다.
+   C#은 요소 이름·클래스만 알고 크기·색은 여기서 정한다(칸 크기 = --ash-cell-size). */
+
+:root, .ash-root {
+    /* §10.1 팔레트 */
+    --ash-black: #0D0807;
+    --dried-blood: #3A0B0B;
+    --rust-red: #6E1A14;
+    --ember: #B2321C;
+    --ash-grey: #5A524E;
+    --bone: #C9BBA8;
+    --toxic: #7A8A2A;
+    /* Ash_Black 반투명 (전체 화면 배경) */
+    --ash-black-dim: rgba(13, 8, 7, 0.88);
+
+    /* 배치 (TODO(GDD-?): 문서에 없음, 그레이박스 값) */
+    --ash-cell-size: 48px;
+    --ash-slot-width: 168px;
+    --ash-slot-height: 52px;
+    --ash-quick-width: 84px;
+}
+
+.ash-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    color: var(--bone);
+    font-size: 14px;
+}
+
+.ash-root Label {
+    color: var(--bone);
+}
+
+/* ── HUD: 일시 표시만 ─────────────────────────────── */
+
+.hud {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hud-prompt {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 58%;
+    font-size: 16px;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: var(--ash-black);
+}
+
+.hud-toast {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 12%;
+    font-size: 18px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: var(--ash-black);
+}
+
+/* ── 전체 화면 공통 ───────────────────────────────── */
+
+.screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--ash-black-dim);
+    align-items: center;
+    justify-content: center;
+}
+
+.panel {
+    background-color: var(--ash-black);
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    padding: 12px;
+    margin: 0 8px;
+}
+
+.panel-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    margin: 0 0 8px 0;
+    padding: 0;
+}
+
+/* ── 인벤토리 ─────────────────────────────────────── */
+
+.inv-layout {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.inv-equip-slots {
+    flex-direction: column;
+}
+
+.inv-slot {
+    width: var(--ash-slot-width);
+    height: var(--ash-slot-height);
+    margin-bottom: 6px;
+    padding: 2px 4px;
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    background-color: var(--ash-black);
+}
+
+.inv-slot.drop-ok {
+    border-color: var(--bone);
+}
+
+.inv-slot.drop-bad {
+    border-color: var(--ember);
+}
+
+.inv-slot-label {
+    font-size: 11px;
+    opacity: 0.6;
+    margin: 0;
+    padding: 0;
+}
+
+.inv-item--slot {
+    flex-grow: 1;
+}
+
+.inv-storage-grids {
+    flex-direction: column;
+}
+
+.inv-section {
+    margin-bottom: 10px;
+}
+
+.inv-section-title {
+    font-size: 12px;
+    margin: 0 0 4px 0;
+    padding: 0;
+}
+
+.inv-pocket-row {
+    flex-direction: row;
+}
+
+.inv-pocket-row > .inv-grid {
+    margin-right: 6px;
+}
+
+/* 그리드 폭 = 칸 수 × 칸 크기. 테두리·여백을 두지 않는다(뷰가 폭으로 칸 크기를 다시 잰다). */
+.inv-grid {
+    align-self: flex-start;
+    flex-shrink: 0;
+    flex-direction: column;
+    border-width: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.inv-grid-row {
+    flex-direction: row;
+    flex-shrink: 0;
+}
+
+.inv-cell {
+    width: var(--ash-cell-size);
+    height: var(--ash-cell-size);
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    background-color: var(--ash-black);
+}
+
+.inv-grid-items {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.inv-item {
+    margin: 0;
+    padding: 2px;
+    border-width: 1px;
+    border-color: var(--rust-red);
+    background-color: var(--dried-blood);
+    font-size: 11px;
+    white-space: normal;
+    overflow: hidden;
+    -unity-text-align: middle-center;
+}
+
+/* 검색 전 루트 아이템 "?" */
+.inv-item--hidden {
+    border-color: var(--ash-grey);
+    background-color: var(--ash-grey);
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.inv-item--drag-source {
+    opacity: 0.3;
+}
+
+.inv-ghost {
+    opacity: 0.85;
+    border-color: var(--bone);
+}
+
+/* 패널 밖 = 바닥에 버리기 */
+.inv-ghost--outside {
+    border-color: var(--ember);
+}
+
+.inv-drop-highlight {
+    opacity: 0.35;
+}
+
+.inv-drop-highlight.drop-ok {
+    background-color: var(--bone);
+}
+
+.inv-drop-highlight.drop-bad {
+    background-color: var(--ember);
+}
+
+.drag-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.inv-quick-slots {
+    flex-direction: row;
+}
+
+.inv-quick {
+    width: var(--ash-quick-width);
+    height: var(--ash-cell-size);
+    margin-right: 6px;
+    padding: 0 4px;
+    flex-direction: row;
+    align-items: center;
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    background-color: var(--ash-black);
+}
+
+.inv-quick-key {
+    font-size: 14px;
+    -unity-font-style: bold;
+    margin: 0 6px 0 0;
+    padding: 0;
+}
+
+.inv-quick-item {
+    font-size: 11px;
+    flex-shrink: 1;
+    white-space: normal;
+    margin: 0;
+    padding: 0;
+}
+
+.inv-loot-panel {
+    min-width: 120px;
+}
+
+.loot-status {
+    font-size: 12px;
+    -unity-font-style: italic;
+    margin: 0 0 6px 0;
+    padding: 0;
+}
+
+/* ── 부위 상태 (RULE-05) ──────────────────────────── */
+
+.bs-panel {
+    min-width: 360px;
+}
+
+.bs-row {
+    flex-direction: row;
+    align-items: center;
+    height: 32px;
+    border-bottom-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.bs-part {
+    width: 90px;
+}
+
+.bs-tier {
+    width: 64px;
+    margin-right: 10px;
+    padding: 2px 0;
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    -unity-text-align: middle-center;
+}
+
+.tier-healthy {
+    border-color: var(--bone);
+    background-color: var(--ash-black);
+}
+
+.tier-injured {
+    background-color: var(--dried-blood);
+}
+
+.tier-critical {
+    background-color: var(--rust-red);
+}
+
+.tier-destroyed {
+    background-color: var(--ember);
+    -unity-font-style: bold;
+}
+
+.bs-statuses {
+    flex-direction: row;
+}
+
+.bs-status {
+    margin: 0 4px 0 0;
+    padding: 1px 6px;
+    background-color: var(--rust-red);
+    font-size: 12px;
+}

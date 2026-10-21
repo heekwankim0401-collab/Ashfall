@@ -2,7 +2,8 @@
     "name": "Ashfall.UI",
     "rootNamespace": "Ashfall.UI",
     "references": [
-        "Ashfall.Core"
+        "Ashfall.Core",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

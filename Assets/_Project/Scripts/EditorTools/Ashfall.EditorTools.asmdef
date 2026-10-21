@@ -4,7 +4,9 @@
     "references": [
         "Ashfall.Core",
         "Ashfall.Player",
-        "Ashfall.Weapons"
+        "Ashfall.Weapons",
+        "Ashfall.Inventory",
+        "Ashfall.UI"
     ],
     "includePlatforms": [
         "Editor"

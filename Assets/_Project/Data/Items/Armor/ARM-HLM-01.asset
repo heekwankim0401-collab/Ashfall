@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9639a25270feeb2478f495eaf82cca73, type: 3}
+  m_Name: ARM-HLM-01
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.ArmorDefinitionSO
+  id: ARM-HLM-01
+  displayName: "\uD5EC\uBA67"
+  size: {x: 2, y: 2}
+  weightKg: 1.4
+  rarity: 0
+  basePrice: 0
+  icon: {fileID: 0}
+  armorClass: 3
+  maxDurability: 40
+  covers: 00000000
+  kind: 0

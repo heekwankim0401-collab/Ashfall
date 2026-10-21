@@ -1,3 +1,4 @@
+using Ashfall.Core;
 using UnityEngine;
 
 namespace Ashfall.Player
@@ -36,10 +37,15 @@ namespace Ashfall.Player
         }
 
         // 질주는 선 자세에서 움직일 때만, 40kg 이하, 스태미나가 남고 잠금이 아닐 때.
-        public bool CanSprint(bool moving, float carriedKg, StaminaModel stamina)
+        public bool CanSprint(bool moving, float carriedKg, StaminaModel stamina) =>
+            CanSprint(moving, carriedKg, stamina, ConditionModifiers.Healthy);
+
+        // §4.2 다리 파괴 시 질주 불가 (체력 상태 패널티 포함)
+        public bool CanSprint(bool moving, float carriedKg, StaminaModel stamina, in ConditionModifiers condition)
         {
             return Stance == Stance.Stand
                 && moving
+                && condition.SprintAllowed
                 && carriedKg <= config.sprintMaxWeightKg
                 && !stamina.SprintLocked
                 && stamina.Current > 0f;
@@ -48,7 +54,10 @@ namespace Ashfall.Player
         // TODO(GDD-?): 키 표 §12.1에 점프 키가 없어 Space를 쓴다. 웅크림·엎드림 중 점프는 막는다.
         public bool CanJump(bool grounded) => grounded && Stance == Stance.Stand;
 
-        public float Speed(bool sprinting, float carriedKg)
+        public float Speed(bool sprinting, float carriedKg) => Speed(sprinting, carriedKg, ConditionModifiers.Healthy);
+
+        // 기본 속도 × 무게 패널티 × 체력 상태 (§4.2 다리 파괴 -40%, §4.3 골절)
+        public float Speed(bool sprinting, float carriedKg, in ConditionModifiers condition)
         {
             float baseSpeed = Stance switch
             {
@@ -56,7 +65,7 @@ namespace Ashfall.Player
                 Stance.Prone => config.proneSpeed,
                 _ => sprinting ? config.sprintSpeed : config.walkSpeed,
             };
-            return baseSpeed * WeightMultiplier(carriedKg);
+            return baseSpeed * WeightMultiplier(carriedKg) * condition.MoveSpeedMultiplier;
         }
 
         // 서 있으면(이동 없음) 소음 0. 점프 소음은 JumpNoise로 따로 낸다.

@@ -1,37 +1,34 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using Ashfall.Core;
 
 namespace Ashfall.Weapons
 {
-    // 무기 하나의 상태: 장착 탄창, 예비 탄창, 발사, 재장전 (§5.1).
+    // 무기 하나의 상태: 발사, 재장전 (§5.1). 장착 탄창은 WeaponItem이, 예비 탄창은 IMagazineSource가 가진다.
     // TODO(GDD-?): 약실 탄(+1)은 다루지 않는다. 탄창 안의 탄만 쏜다.
     public sealed class WeaponModel
     {
-        private readonly WeaponDefinitionSO definition;
+        private readonly IMagazineSource source;
         private readonly FireControl fireControl;
-        private readonly List<Magazine> spares;
         private float reloadRemaining;
         private float reloadElapsed;
 
-        public Magazine Current { get; private set; }
-        public IReadOnlyList<Magazine> Spares => spares;
+        public WeaponItem Item { get; }
+        public Magazine Current => Item.LoadedMagazine;
         public bool IsReloading { get; private set; }
         public bool IsFastReload { get; private set; }
 
-        // 빠른 재장전으로 버려진 탄창. TODO(M2): 바닥에 줍기 가능한 아이템으로 떨어뜨린다.
+        // 무기에서 빠진 탄창이 바닥으로 가야 할 때: 빠른 재장전, 또는 일반 재장전인데 회수 공간이 없을 때.
         public event Action<Magazine> MagazineDropped;
 
-        public WeaponModel(WeaponDefinitionSO definition, Magazine current, IEnumerable<Magazine> spareMagazines)
+        public WeaponModel(WeaponItem item, IMagazineSource source)
         {
-            this.definition = definition;
-            Current = current;
-            spares = spareMagazines.ToList();
+            Item = item ?? throw new ArgumentNullException(nameof(item));
+            this.source = source ?? throw new ArgumentNullException(nameof(source));
+            WeaponDefinitionSO definition = item.Definition;
             fireControl = new FireControl(definition.rpm, definition.modes.Length > 0 ? definition.modes[0] : FireMode.Auto);
         }
 
-        public bool CanReload => spares.Any(m => !m.IsEmpty);
+        public bool CanReload => source.HasLoadable(Item.Definition.ammo);
 
         // 발사되면 true (탄 1발 소모).
         public bool TryFire(float now, bool triggerHeld)
@@ -49,7 +46,7 @@ namespace Ashfall.Weapons
                 if (IsFastReload)
                     return false;
                 IsFastReload = true;
-                reloadRemaining = Math.Max(0f, definition.fastReloadTimeSec - reloadElapsed);
+                reloadRemaining = Math.Max(0f, Item.Definition.fastReloadTimeSec - reloadElapsed);
                 return true;
             }
 
@@ -59,8 +56,15 @@ namespace Ashfall.Weapons
             IsReloading = true;
             IsFastReload = false;
             reloadElapsed = 0f;
-            reloadRemaining = definition.reloadTimeSec;
+            reloadRemaining = Item.Definition.reloadTimeSec;
             return true;
+        }
+
+        // 진행 중인 재장전을 버린다 (무기를 슬롯에서 뺄 때). 탄창은 그대로.
+        public void CancelReload()
+        {
+            IsReloading = false;
+            IsFastReload = false;
         }
 
         public void Tick(float dt)
@@ -76,23 +80,23 @@ namespace Ashfall.Weapons
 
         private void CompleteReload()
         {
+            bool fast = IsFastReload;
             IsReloading = false;
+            IsFastReload = false;
 
-            // 탄이 가장 많이 남은 예비 탄창을 꽂는다.
-            Magazine next = spares.Where(m => !m.IsEmpty).OrderByDescending(m => m.Rounds).FirstOrDefault();
+            // 탄이 가장 많이 남은 탄창을 저장 공간에서 꺼낸다. 그사이 없어졌으면 아무것도 안 바뀐다.
+            Magazine next = source.TakeFullest(Item.Definition.ammo);
             if (next == null)
                 return;
-            spares.Remove(next);
 
-            if (Current != null)
-            {
-                if (IsFastReload)
-                    MagazineDropped?.Invoke(Current);
-                else
-                    spares.Add(Current);
-            }
-            Current = next;
-            IsFastReload = false;
+            Magazine old = Item.LoadedMagazine;
+            Item.LoadedMagazine = next;
+
+            if (old == null)
+                return;
+            // 꺼낸 다음 회수하므로 꺼낸 자리를 회수에 쓸 수 있다.
+            if (fast || !source.TryStore(old))
+                MagazineDropped?.Invoke(old);
         }
     }
 }
