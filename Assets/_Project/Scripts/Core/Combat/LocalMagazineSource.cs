@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using Ashfall.Core;
 
-namespace Ashfall.Weapons
+namespace Ashfall.Core
 {
-    // 탄창 목록만으로 된 IMagazineSource. 인벤토리가 없는 M1 씬과 테스트용.
+    // 탄창 목록만으로 된 IMagazineSource. 인벤토리가 없는 M1 씬과 테스트용, M3 적 예비 탄창.
     // 회수(TryStore)는 공간 제한이 없어 항상 성공한다.
     public sealed class LocalMagazineSource : IMagazineSource
     {
@@ -17,7 +16,14 @@ namespace Ashfall.Weapons
 
         public IReadOnlyList<Magazine> Magazines => magazines;
 
-        public bool HasLoadable(AmmoType ammo) => magazines.Any(m => Fits(m, ammo));
+        // 적 사격 경로에서도 불리므로 람다·LINQ 없이 순회한다 (M3, 할당 없음).
+        public bool HasLoadable(AmmoType ammo)
+        {
+            for (int i = 0; i < magazines.Count; i++)
+                if (Fits(magazines[i], ammo))
+                    return true;
+            return false;
+        }
 
         public Magazine TakeFullest(AmmoType ammo)
         {

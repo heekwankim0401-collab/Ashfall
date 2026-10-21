@@ -51,6 +51,22 @@ namespace Ashfall.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        // 에셋 파일(텍스트 직렬화)에 필드가 실제로 기록돼 있는지. 읽기만 한다.
+        // 새 필드는 기존 에셋을 로드하면 초기값으로 보이지만 파일에는 SetDirty → SaveAssets 전까지 없다(M2 1단계 메모 5).
+        // M2DataSetup에 같은 private 함수가 있다(M3에서 공용으로 추가, 동작 같음).
+        public static bool IsFieldSerialized(string assetPath, string fieldName)
+        {
+            string fullPath = Path.GetFullPath(assetPath);
+            if (!File.Exists(fullPath))
+                return false;
+            foreach (string line in File.ReadLines(fullPath))
+            {
+                if (line.TrimStart().StartsWith(fieldName + ":"))
+                    return true;
+            }
+            return false;
+        }
+
         // 에셋을 경로로 불러온다. 없으면 에러 로그 후 null (씬 생성이 빈 참조로 조용히 진행되지 않게).
         public static T Load<T>(string path) where T : Object
         {

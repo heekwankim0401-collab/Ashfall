@@ -4,21 +4,26 @@
 **구현 기준은 [docs/GDD.md](docs/GDD.md)다.** 작업 전 §0 작업 규칙, §13 기술 스펙, 현재 마일스톤(§15)을 읽는다.
 
 ## 현재 진행
-- 마일스톤: M0 완료. M1(이동·사격)·M2(체력·인벤토리) 구현과 자동 테스트 완료, 둘 다 에디터에서 조작감 확인 대기. 다음은 M3.
+- 마일스톤: M0·M1(이동·사격)·M2(체력·인벤토리) 완료(자동 테스트 + 에디터 조작감 확인).
+  M3(적 AI) 구현과 자동 테스트 완료, 에디터 확인(행동·60fps) 대기. 다음은 M4.
   한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
 - 확인 씬(빌드 설정에는 없음): `Assets/_Project/Scenes/Test/M1_Greybox.unity`(`Ashfall/Setup/Recreate M1 Greybox Scene`),
-  `Assets/_Project/Scenes/Test/M2_HealthInventory.unity`(`Ashfall/Setup/Create M2 Data` → `Create M2 Test Scene`).
-- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
+  `Assets/_Project/Scenes/Test/M2_HealthInventory.unity`(`Ashfall/Setup/Create M2 Data` → `Create M2 Test Scene`),
+  `Assets/_Project/Scenes/Test/M3_AI.unity`·`M3_AIPerf.unity`(`Ashfall/Setup/Create M3 Test Scenes`, 데이터·NavMesh 포함).
+- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2 설계 결정", "M3 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
 - Windows 빌드: `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.BuildTools.BuildWindows64` → `Builds/Windows64/`.
 
 ## 구조 (GDD §13.2)
 - `Assets/_Project/Scripts/<시스템>/` — 폴더마다 asmdef `Ashfall.<폴더명>`, 네임스페이스도 같다.
   - `Core` — 공용(씬 이름, BootLoader, 아이템·무기·탄약·탄창 SO와 enum(`Data/`), `IDamageable`·`DamageInfo`·`IRecoilReceiver`(`Combat/`),
     유일한 싱글톤 `GameManager`(자동 생성)가 가진 `EventBus`(`Events/`)·`ServiceRegistry`와 기능 간 인터페이스(`Services/`),
-    런타임 아이템 `ItemInstance`·`Magazine`·`WeaponItem`·`MedicalItem`(`Items/`), 이후 세이브). 다른 Ashfall 어셈블리를 참조하지 않는다.
+    런타임 아이템 `ItemInstance`·`Magazine`·`WeaponItem`·`MedicalItem`·`LootRoller`(`Items/`),
+    플레이어·적이 같이 쓰는 무기 로직 `WeaponModel`·`FireControl`·`LocalMagazineSource`·`DamageRules`(`Combat/`), 이후 세이브). 다른 Ashfall 어셈블리를 참조하지 않는다.
     여러 기능이 같이 쓰는 타입은 여기 둔다. 기능 간 조회·명령은 레지스트리의 Core 인터페이스로, 변경 알림은 이벤트로.
   - `Player` — `PlayerConfigSO`, 순수 로직 `LocomotionModel`·`StaminaModel`·`BodyHealthModel`(부위 체력·상태이상)·`MedicalUseModel`, 얇은 `PlayerMotor`·`PlayerHealth`.
-  - `Weapons` — 순수 로직 `FireControl`·`WeaponModel`·`Ballistics`·`MagazineCheckModel`(RULE-04)·`AimSway`, `ProjectileSystem`, `WeaponController`, 그레이박스 `HitTarget`·`TestTurret`.
+  - `Weapons` — 순수 로직 `Ballistics`·`MagazineCheckModel`(RULE-04)·`AimSway`, `ProjectileSystem`(`IProjectileService`), `WeaponController`, 그레이박스 `HitTarget`·`TestTurret`.
+  - `AI` — 순수 로직 `EnemyBrain`(상태 머신)·`Squad`·전술(`ScavengerTactics`/`RaiderTactics`)·감각·`CoverSelector`·`EnemyBodyModel`,
+    얇은 `EnemyAgent`(NavMeshAgent)·`AiDirector`(틱 분산, 정적 인스턴스 없음)·`CoverPoint`·`PatrolRoute`. 적 루트는 씬 최상위에 둔다.
   - `Inventory` — 순수 로직 `ItemGrid`·`PlayerInventory`(`IInventoryService`·`IMagazineSource` 구현)·`LootContainerModel`, 얇은 `PlayerInventoryBehaviour`·`LootContainer`·`WorldItem`.
   - `UI` — UI Toolkit. 순수 모델·프레젠터(`GameUIPresenter` 등)와 뷰, `GameUIRoot`. UXML/USS는 `Assets/_Project/Art/UI/`.
   - `Player`, `Weapons`, `Inventory`, `AI`, `Raid`, `Hideout`, `UI`, `Audio` — `Ashfall.Core`만 참조. 기능끼리 직접 참조 금지(이벤트 버스).

@@ -119,6 +119,10 @@ namespace Ashfall.Player
         [Tooltip("흉부·복부 구간에서 |x| ≥ 반지름 × 이 값이면 팔")]
         public float armZoneSideRatio = 0.6f;
 
+        [Header("소음 발행 (M3 임시값)")]
+        [Tooltip("이동 중 발소리 소음(NoiseEmitted)을 내는 간격 (초). TODO(GDD-?)")]
+        public float noisePulseIntervalSec = 0.5f;
+
         // 부위 최대 HP (§4.2)
         public float MaxHp(BodyPart part)
         {

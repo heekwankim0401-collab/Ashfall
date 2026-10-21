@@ -18,6 +18,7 @@ namespace Ashfall.EditorTools
     // EventSystem은 넣지 않는다: Unity 6(2023.2+)의 UI Toolkit 런타임은 InputForUI + Input System의 InputSystemProvider로
     // 프로젝트 입력 액션의 UI 맵(Point/Click/...)을 직접 받는다(Input System 문서 understand-ui-compatibility.md: "UI Toolkit (2023.2+) — UI Input Module Not required").
     // 배치모드: -executeMethod Ashfall.EditorTools.M2SceneSetup.CreateAll
+    // CreatePanelSettings·CreatePlayer·CreateBlock·CreateGameUI는 M3SceneSetup이 재사용한다(internal, 동작 같음).
     public static class M2SceneSetup
     {
         private const string Tag = "[M2SceneSetup]";
@@ -71,7 +72,7 @@ namespace Ashfall.EditorTools
 
         // ---------- 공용 에셋 ----------
 
-        private static PanelSettings CreatePanelSettings()
+        internal static PanelSettings CreatePanelSettings()
         {
             return SetupUtil.CreateAssetIfMissing<PanelSettings>(PanelSettingsPath, ps =>
             {
@@ -136,7 +137,7 @@ namespace Ashfall.EditorTools
             Debug.Log($"{Tag} 씬 생성(덮어씀): {ScenePath}");
         }
 
-        private static GameObject CreatePlayer(Vector3 position, ProjectileSystem projectiles)
+        internal static GameObject CreatePlayer(Vector3 position, ProjectileSystem projectiles)
         {
             var config = SetupUtil.Load<PlayerConfigSO>(M2DataSetup.PlayerConfigPath);
 
@@ -350,16 +351,17 @@ namespace Ashfall.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void CreateBlock(string name, Vector3 center, Vector3 size)
+        internal static GameObject CreateBlock(string name, Vector3 center, Vector3 size)
         {
             var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
             block.name = name;
             block.transform.position = center;
             block.transform.localScale = size;
+            return block;
         }
 
         // UI (2b 메모): UIDocument(GameUI.uxml + GamePanelSettings) + GameUIRoot(config = HudConfig)
-        private static void CreateGameUI(PanelSettings panelSettings)
+        internal static GameObject CreateGameUI(PanelSettings panelSettings)
         {
             var go = new GameObject("GameUI");
             var document = go.AddComponent<UIDocument>();
@@ -367,6 +369,7 @@ namespace Ashfall.EditorTools
             document.visualTreeAsset = SetupUtil.Load<VisualTreeAsset>(GameUxmlPath);
             var root = go.AddComponent<GameUIRoot>();
             SetupUtil.SetFields(root, ("config", SetupUtil.Load<HudConfigSO>(M2DataSetup.HudConfigPath)));
+            return go;
         }
     }
 }

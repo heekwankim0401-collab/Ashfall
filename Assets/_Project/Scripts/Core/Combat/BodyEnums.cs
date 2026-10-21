@@ -28,4 +28,12 @@ namespace Ashfall.Core
         Critical,
         Destroyed,
     }
+
+    // AI 시야 배율(§7)용 플레이어 자세. Player의 Stance를 Core로 옮기지 않고 이것으로 옮겨 말한다 (M3).
+    public enum TargetPosture
+    {
+        Standing,
+        Crouching,
+        Prone,
+    }
 }

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Ashfall.Core
 {
-    // M2 기능 간 이벤트 (설계 §3.4). 전부 readonly struct, GameManager.Events로 발행한다.
+    // M2·M3 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3). 전부 readonly struct, GameManager.Events로 발행한다.
     // 이벤트는 기능 사이에서만 쓴다. 같은 어셈블리 안은 직접 참조한다.
 
     // ── Inventory → 다른 기능 ──────────────────────────────
@@ -168,6 +168,51 @@ namespace Ashfall.Core
         public PlayerDied(BodyPart cause)
         {
             Cause = cause;
+        }
+    }
+
+    // ── M3: 소음 (Player·Weapons → AI) ───────────────────
+
+    public enum NoiseKind
+    {
+        Footstep,
+        Jump,
+        Gunshot,
+    }
+
+    // 플레이어가 낸 소리 (§4.1 소음 반경, 사격) → AI 청각. 반경 안의 적이 듣는다.
+    public readonly struct NoiseEmitted : IGameEvent
+    {
+        public readonly Vector3 Position;
+        public readonly float RadiusM;
+        public readonly NoiseKind Kind;
+
+        public NoiseEmitted(Vector3 position, float radiusM, NoiseKind kind)
+        {
+            Position = position;
+            RadiusM = radiusM;
+            Kind = kind;
+        }
+    }
+
+    // ── M3: AI → 다른 기능 ────────────────────────────────
+
+    // 적 사망 → Inventory가 시체에 루트 컨테이너를 붙인다 (§6 시체). 이후 M4 레이드 통계·M6 오디오도 받을 수 있다.
+    public readonly struct EnemyKilled : IGameEvent
+    {
+        public readonly GameObject Corpse;       // 시체 루트 (콜라이더 유지)
+        public readonly string DisplayName;      // 프롬프트·루트 패널 이름 (EnemyArchetypeSO.corpseDisplayName)
+        public readonly ItemInstance[] Items;    // 배치 순서 = 검색으로 드러나는 순서
+        public readonly Vector3 Position;
+        public readonly string ArchetypeId;
+
+        public EnemyKilled(GameObject corpse, string displayName, ItemInstance[] items, Vector3 position, string archetypeId)
+        {
+            Corpse = corpse;
+            DisplayName = displayName;
+            Items = items;
+            Position = position;
+            ArchetypeId = archetypeId;
         }
     }
 

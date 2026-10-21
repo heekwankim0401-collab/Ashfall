@@ -1,6 +1,4 @@
-using Ashfall.Core;
-
-namespace Ashfall.Weapons
+namespace Ashfall.Core
 {
     // RPM에 맞춘 발사 간격. 자동은 누르고 있는 동안 연사, 반자동은 한 번 누를 때 한 발.
     public sealed class FireControl

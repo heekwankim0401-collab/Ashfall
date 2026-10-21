@@ -6,7 +6,9 @@
         "Ashfall.Player",
         "Ashfall.Weapons",
         "Ashfall.Inventory",
-        "Ashfall.UI"
+        "Ashfall.UI",
+        "Ashfall.AI",
+        "Unity.AI.Navigation"
     ],
     "includePlatforms": [
         "Editor"

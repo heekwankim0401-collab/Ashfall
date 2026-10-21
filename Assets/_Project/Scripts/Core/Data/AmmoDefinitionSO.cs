@@ -7,6 +7,7 @@ namespace Ashfall.Core
     public class AmmoDefinitionSO : ItemDefinitionSO
     {
         public AmmoType type;
+        [Tooltip("무기 damage가 0일 때 쓰는 기본 피해 (무기 없이 쏘는 터렛·테스트). M3 결정, DamageRules")]
         public float damage;
         public int penetration;
         [Tooltip("초기 속도 (m/s)")]

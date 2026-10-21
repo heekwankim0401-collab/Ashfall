@@ -31,5 +31,9 @@ namespace Ashfall.Inventory
         public float dropSpeed = 1.5f;
         [Tooltip("바닥 아이템 상자 크기 = 칸 수 × 이 값 (m). 그레이박스 표현")]
         public float worldItemCellM = 0.1f;
+
+        [Header("시체 루트 (M3 임시값)")]
+        [Tooltip("적 시체 루트 컨테이너 그리드 크기 (칸). TODO(GDD-?)")]
+        public Vector2Int corpseGridSize = new Vector2Int(6, 5);
     }
 }

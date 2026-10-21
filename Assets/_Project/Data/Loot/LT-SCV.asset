@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3b901c7174f1af45aeeec62c94c0cd7, type: 3}
+  m_Name: LT-SCV
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.LootTableSO
+  id: LT-SCV
+  entries:
+  - item: {fileID: 11400000, guid: a4a6060da2d9d2a4c9f31adccbbcc97a, type: 2}
+    weight: 3
+  - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+    weight: 3
+  - item: {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+    weight: 2
+  - item: {fileID: 11400000, guid: 958861534f1f9384a948671cb3b40cec, type: 2}
+    weight: 1
+  - item: {fileID: 11400000, guid: 4c7f104ea4721df46b6c549f1e6a891f, type: 2}
+    weight: 1
+  rollCount: {x: 1, y: 2}

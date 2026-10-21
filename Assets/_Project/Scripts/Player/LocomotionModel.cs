@@ -83,6 +83,14 @@ namespace Ashfall.Player
 
         public float JumpNoise => config.jumpNoise;
 
+        // AI 시야 배율(§7)용 자세. Stance를 Core로 옮기지 않고 Core의 TargetPosture로 옮겨 말한다 (M3).
+        public TargetPosture Posture => Stance switch
+        {
+            Stance.Crouch => TargetPosture.Crouching,
+            Stance.Prone => TargetPosture.Prone,
+            _ => TargetPosture.Standing,
+        };
+
         public float CapsuleHeight => Stance switch
         {
             Stance.Crouch => config.crouchHeight,

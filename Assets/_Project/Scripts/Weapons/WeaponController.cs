@@ -12,6 +12,7 @@ namespace Ashfall.Weapons
     //   없으면(M1 씬) 직렬화된 탄창 수만큼 지급한다 (LocalMagazineSource).
     // - Primary1만 따른다 (설계 D11). TODO(M7): 무기 교체 1/2/3.
     // - 버린 탄창 → ItemDropRequested, 화면 열림·사망 → 사격·조준·R·T 무시, 체력 → 조준 흔들림.
+    // M3: 피해는 DamageRules(무기 > 탄약), 쏠 때마다 NoiseEmitted(Gunshot) 발행.
     public sealed class WeaponController : MonoBehaviour
     {
         [SerializeField] private WeaponDefinitionSO weapon;
@@ -245,9 +246,17 @@ namespace Ashfall.Weapons
             Vector3 direction = Ballistics.ApplySpread(transform.forward, spread, random);
             Vector3 origin = muzzle != null ? muzzle.position : transform.position;
 
+            // 피해 = 무기 값(> 0) 또는 탄약 값 (M3 DamageRules, §5.2 무기별 피해 — 적과 같은 규칙)
             if (projectiles != null && ammo != null)
+            {
+                float damage = DamageRules.ProjectileDamage(weapon, ammo);
                 for (int i = 0; i < Mathf.Max(1, ammo.pelletCount); i++)
-                    projectiles.Fire(origin, direction, ammo, shooterRoot);
+                    projectiles.Fire(origin, direction, ammo, damage, shooterRoot);
+            }
+
+            // 사격 소음 → AI 청각 (M3, 발당 1회)
+            if (WeaponNoise.TryCreateShot(weapon, origin, out NoiseEmitted noise))
+                Publish(noise);
 
             Vector2 kick = Ballistics.RecoilKick(weapon.recoilV, weapon.recoilH, random);
             recoilReceiver?.AddRecoil(kick.x, kick.y);

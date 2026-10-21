@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11ec949032729e348840aa68abddef17, type: 3}
+  m_Name: AiConfig
+  m_EditorClassIdentifier: Ashfall.AI::Ashfall.AI.AiConfigSO
+  crouchSightMultiplier: 0.6
+  proneSightMultiplier: 0.3
+  suspiciousAt: 0.3
+  sightGainNearPerSec: 2.5
+  sightGainFarPerSec: 0.35
+  instantDetectRangeM: 4
+  awarenessDecayPerSec: 0.15
+  footstepAwarenessGain: 0.25
+  jumpAwarenessGain: 0.4
+  idleBeforePatrolSec: 2
+  patrolWaitSec: {x: 2, y: 4}
+  suspiciousLookSec: 5
+  alertTimeoutSec: 12
+  loseSightSec: 5
+  searchDurationSec: 25
+  searchRadiusM: 12
+  searchPointCount: 3
+  searchLookSec: 2
+  destroyedPartRedistribution: 0.7
+  legsDestroyedSpeedMultiplier: 0.6
+  headFrom: 0.85
+  bodyFrom: 0.45
+  standHeightM: 1.8
+  crouchHeightM: 1.2
+  standEyeHeightM: 1.6
+  crouchEyeHeightM: 1
+  turnSpeedDegPerSec: 360
+  fireMaxYawErrorDeg: 10
+  squadShareRangeM: 50
+  squadReportMinIntervalSec: 0.5
+  formationSpacingM: 2
+  formationUpdateSec: 0.5
+  flankCooldownSec: 8
+  coverSearchRadiusM: 25
+  coverProtectionHalfAngleDeg: 70
+  coverDistanceWeight: 1
+  coverRangeWeight: 0.5
+  coverAdvancePenalty: 5
+  coverLosCandidates: 3
+  coverArriveDistanceM: 0.6
+  flankAfterNoSightSec: 6
+  flankMinAngleDeg: 45
+  flankMaxAngleDeg: 120
+  flankSearchRadiusM: 30
+  relaxedSensePeriodSec: 0.2
+  engagedSensePeriodSec: 0.1
+  maxSenseUpdatesPerFrame: 8
+  maxPathRequestsPerFrame: 3
+  repathMinIntervalSec: 0.5
+  repathDistanceM: 1
+  maxCoverQueriesPerFrame: 1
+  targetResolveRetrySec: 1
+  pointArriveDistanceM: 1
+  movingSpeedThresholdMps: 0.5
+  strafeDistanceM: {x: 2, y: 4}
+  navSampleRadiusM: 3
+  formationCatchUpDistanceM: 6
+  searchLookYawDeg: 90
+  coverRetrySec: 1
+  lookAheadDistanceM: 10
+  coverInvalidatedExcludeSec: 5
+  showStateIndicator: 1

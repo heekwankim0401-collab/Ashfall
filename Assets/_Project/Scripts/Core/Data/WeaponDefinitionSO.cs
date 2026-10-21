@@ -25,5 +25,11 @@ namespace Ashfall.Core
         public float fastReloadTimeSec;
         [Tooltip("지향 사격 탄 퍼짐 원뿔 반각 (도). 조준(ADS) 시 0 (RULE-07)")]
         public float hipSpreadDeg;
+
+        // M3 결정 (§5.2 ↔ §14 피해 위치). 투사체 피해는 DamageRules.ProjectileDamage로 정한다.
+        [Tooltip("§5.2 발당 피해 (산탄은 펠릿당). 0이면 탄약 damage를 쓴다 (M3 결정)")]
+        public float damage;
+        [Tooltip("사격 소음 반경 (m). 0이면 소음 없음. TODO(GDD-?): GDD에 없는 임시값")]
+        public float shotNoiseRadiusM;
     }
 }

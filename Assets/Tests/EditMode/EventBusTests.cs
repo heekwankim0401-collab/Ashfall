@@ -138,6 +138,56 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(1, late);
         }
 
+        // M3 설계 §1.8: 발소리·총성이 자주 발행되므로 Publish는 할당하지 않는다 (쓰기 시 복사 배열).
+        [Test]
+        public void Publish_WithTwoSubscribers_DoesNotAllocate()
+        {
+            int a = 0, b = 0;
+            bus.Subscribe<NoiseEmitted>(_ => a++);
+            bus.Subscribe<NoiseEmitted>(_ => b++);
+            var evt = new NoiseEmitted(new Vector3(1f, 0f, 2f), 20f, NoiseKind.Footstep);
+            TestDelegate publishMany = () =>
+            {
+                for (int i = 0; i < 100; i++)
+                    bus.Publish(evt);
+            };
+            // 워밍업(첫 호출의 JIT·트램펄린 할당 제외) + 측정 잡음 재시도 (M3 2b 메모 "0할당 측정 주의")
+            AiTest.AssertNoAlloc(publishMany);
+            // 측정 횟수는 재시도에 따라 달라진다: 워밍업 1회 + 측정 1회 이상, 두 구독자가 같은 횟수
+            Assert.GreaterOrEqual(a, 200);
+            Assert.AreEqual(a, b);
+            Assert.AreEqual(0, a % 100);
+        }
+
+        [Test]
+        public void Publish_PassesNoisePayload()
+        {
+            NoiseEmitted received = default;
+            bus.Subscribe<NoiseEmitted>(e => received = e);
+
+            bus.Publish(new NoiseEmitted(new Vector3(1f, 2f, 3f), 120f, NoiseKind.Gunshot));
+
+            Assert.AreEqual(new Vector3(1f, 2f, 3f), received.Position);
+            Assert.AreEqual(120f, received.RadiusM);
+            Assert.AreEqual(NoiseKind.Gunshot, received.Kind);
+        }
+
+        [Test]
+        public void UnsubscribeMiddle_KeepsOrderOfOthers()
+        {
+            var calls = new List<string>();
+            Action<InventoryChanged> b = _ => calls.Add("b");
+            bus.Subscribe<InventoryChanged>(_ => calls.Add("a"));
+            bus.Subscribe(b);
+            bus.Subscribe<InventoryChanged>(_ => calls.Add("c"));
+
+            bus.Unsubscribe(b);
+            bus.Publish(new InventoryChanged());
+
+            CollectionAssert.AreEqual(new[] { "a", "c" }, calls);
+            Assert.AreEqual(2, bus.SubscriberCount<InventoryChanged>());
+        }
+
         [Test]
         public void Clear_RemovesAllSubscribers()
         {

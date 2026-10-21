@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8cdc2289023ba5b489233634bc10aadd, type: 3}
+  m_Name: AI-SCV
+  m_EditorClassIdentifier: Ashfall.AI::Ashfall.AI.EnemyArchetypeSO
+  id: AI-SCV
+  displayName: "\uC57D\uD0C8\uC790"
+  corpseDisplayName: "\uC57D\uD0C8\uC790 \uC2DC\uCCB4"
+  hp: 80
+  headHp: 35
+  legsHp: 65
+  sightRange: 60
+  sightAngle: 110
+  hearingMultiplier: 1
+  loot: {fileID: 11400000, guid: 5977a54dcc01ba54eb42975e83c0b65b, type: 2}
+  loadouts:
+  - weapon: {fileID: 11400000, guid: ceec601b993e1d847ba564f9c44ad0ec, type: 2}
+    ammo: {fileID: 11400000, guid: bd4ba6ed4baf1e2469098365816f2e6a, type: 2}
+    magazine: {fileID: 11400000, guid: 4c7f104ea4721df46b6c549f1e6a891f, type: 2}
+    weight: 2
+  - weapon: {fileID: 11400000, guid: 99adf71100b830f4cba0b2c667d991fc, type: 2}
+    ammo: {fileID: 11400000, guid: bd4ba6ed4baf1e2469098365816f2e6a, type: 2}
+    magazine: {fileID: 11400000, guid: 0377e18be23a1a64297942c6c65e825b, type: 2}
+    weight: 1
+  spareMagazines: 2
+  patrolSpeed: 1.5
+  moveSpeed: 3
+  sprintSpeed: 5
+  reactionTimeSec: 0.6
+  aimErrorBaseM: 0.3
+  aimErrorPerMeterM: 0.04
+  aimSettleSec: 1.5
+  unsettledErrorMultiplier: 2
+  selfMovingErrorMultiplier: 2
+  targetMovingErrorMultiplier: 1.5
+  burstErrorGrowthM: 0.08
+  burstRounds: {x: 3, y: 6}
+  burstPauseSec: {x: 0.6, y: 1.2}
+  semiShotIntervalSec: {x: 0.35, y: 0.6}
+  preferredRangeM: {x: 8, y: 20}
+  engageMaxRangeM: 50
+  usesCover: 0
+  flanks: 0
+  investigatesNoise: 1
+  peekSec: {x: 0, y: 0}
+  hideSec: {x: 0, y: 0}
+  tacticalReloadBelow: 0
+  strafeIntervalSec: {x: 2, y: 4}

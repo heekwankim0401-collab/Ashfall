@@ -8,8 +8,9 @@ namespace Ashfall.Player
     // 구조: Player(이 컴포넌트, 좌우 회전) → eye(눈높이·상하 회전·기울이기) → Camera
     // M2: 소지 무게는 CarriedWeightChanged(Inventory)로, 체력 패널티는 같은 오브젝트의 PlayerHealth에서 받는다.
     //     화면이 열려 있거나(ScreenStateChanged) 사망하면 입력을 무시하고 중력만 적용한다 (설계 D9).
+    // M3: AI가 보는 표적(IPlayerTarget)으로 등록하고, 발소리·점프 소음을 NoiseEmitted로 낸다 (§4.1, §7 청각).
     [RequireComponent(typeof(CharacterController))]
-    public sealed class PlayerMotor : MonoBehaviour, IRecoilReceiver
+    public sealed class PlayerMotor : MonoBehaviour, IRecoilReceiver, IPlayerTarget
     {
         [SerializeField] private PlayerConfigSO config;
         [SerializeField] private Transform eye;
@@ -19,6 +20,7 @@ namespace Ashfall.Player
         private CharacterController controller;
         private PlayerHealth health;
         private InputAction move, look, sprint, crouch, prone, leanLeft, leanRight, jump;
+        private FootstepNoiseModel footsteps;
 
         private float pitch;
         private float lean;          // -1(왼쪽) ~ 1(오른쪽)
@@ -38,8 +40,17 @@ namespace Ashfall.Player
         // 화면 열림·사망으로 게임플레이 입력을 받지 않는 중
         public bool InputBlocked => screenOpen || (health != null && health.IsDead);
 
-        // TODO(M3): AI 청각이 쓰도록 이벤트로 낸다. 지금은 값만 노출한다.
+        // 이번 프레임 소음 반경 (이동 + 점프). AI 청각에는 NoiseEmitted로 따로 낸다 (M3).
         public float CurrentNoiseRadius { get; private set; }
+
+        // ── IPlayerTarget (AI 감각, M3) ──
+        public Transform Root => transform.root;
+        public Vector3 Position => transform.position;
+        public Vector3 EyePosition => eye != null ? eye.position : transform.position;
+        public Vector3 CenterPosition => transform.TransformPoint(controller.center);
+        public Vector3 Velocity => controller.velocity;
+        public TargetPosture Posture => Locomotion != null ? Locomotion.Posture : TargetPosture.Standing;
+        public bool IsDead => health != null && health.IsDead;
 
         private void Awake()
         {
@@ -53,6 +64,7 @@ namespace Ashfall.Player
             }
             Locomotion = new LocomotionModel(config);
             Stamina = new StaminaModel(config);
+            footsteps = new FootstepNoiseModel(config);
             eyeHeight = Locomotion.EyeHeight;
             ApplyCapsule();
 
@@ -76,6 +88,7 @@ namespace Ashfall.Player
 
             if (GameManager.Instance != null)
             {
+                GameManager.Instance.Services.Register<IPlayerTarget>(this);
                 GameManager.Instance.Events.Subscribe<CarriedWeightChanged>(OnCarriedWeightChanged);
                 GameManager.Instance.Events.Subscribe<ScreenStateChanged>(OnScreenStateChanged);
             }
@@ -86,8 +99,10 @@ namespace Ashfall.Player
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
 
+            footsteps?.Reset();
             if (GameManager.Instance != null)
             {
+                GameManager.Instance.Services.Unregister<IPlayerTarget>(this);
                 GameManager.Instance.Events.Unsubscribe<CarriedWeightChanged>(OnCarriedWeightChanged);
                 GameManager.Instance.Events.Unsubscribe<ScreenStateChanged>(OnScreenStateChanged);
             }
@@ -124,6 +139,9 @@ namespace Ashfall.Player
                           && Locomotion.CanSprint(moving, carriedWeightKg, Stamina, condition);
             Stamina.Tick(dt, IsSprinting, moving);
             CurrentNoiseRadius = Locomotion.NoiseRadius(moving, IsSprinting);
+            // 발소리: 이동 중 noisePulseIntervalSec마다 (SYS-PLR-01 §4.1 소음 반경 → §7 청각)
+            if (footsteps.Tick(dt, CurrentNoiseRadius))
+                PublishNoise(CurrentNoiseRadius, NoiseKind.Footstep);
 
             float gravity = Physics.gravity.y;
             if (controller.isGrounded && verticalVelocity < 0f)
@@ -134,6 +152,7 @@ namespace Ashfall.Player
             {
                 verticalVelocity = Locomotion.JumpVelocity(gravity);
                 CurrentNoiseRadius = Mathf.Max(CurrentNoiseRadius, Locomotion.JumpNoise);
+                PublishNoise(Locomotion.JumpNoise, NoiseKind.Jump);
             }
             verticalVelocity += gravity * dt;
 
@@ -160,6 +179,13 @@ namespace Ashfall.Player
 
             eye.localPosition = new Vector3(lean * config.leanOffsetM, eyeHeight, 0f);
             eye.localRotation = Quaternion.Euler(pitch, 0f, -lean * config.leanAngleDeg);
+        }
+
+        // 발 위치에서 낸다. 반경 0 이하는 내지 않는다.
+        private void PublishNoise(float radiusM, NoiseKind kind)
+        {
+            if (radiusM > 0f && GameManager.Instance != null)
+                GameManager.Instance.Events.Publish(new NoiseEmitted(transform.position, radiusM, kind));
         }
 
         private void ApplyCapsule()

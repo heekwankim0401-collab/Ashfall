@@ -1,7 +1,6 @@
 using System;
-using Ashfall.Core;
 
-namespace Ashfall.Weapons
+namespace Ashfall.Core
 {
     // 무기 하나의 상태: 발사, 재장전 (§5.1). 장착 탄창은 WeaponItem이, 예비 탄창은 IMagazineSource가 가진다.
     // TODO(GDD-?): 약실 탄(+1)은 다루지 않는다. 탄창 안의 탄만 쏜다.

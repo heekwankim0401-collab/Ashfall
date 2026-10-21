@@ -613,11 +613,12 @@ namespace Ashfall.Tests.EditMode
             inventory.TryAutoStore(Magazine.Full(mag30));
             inventory.TryAutoStore(new ItemInstance(TestData.Wires()));
             float sum = inventory.TotalWeightKg;   // JIT 워밍업
-            Assert.That(() =>
+            // 측정 잡음 재시도 (M3 2b 메모 "0할당 측정 주의", AiTest.AssertNoAlloc이 대리자 워밍업도 한다)
+            AiTest.AssertNoAlloc(() =>
             {
                 for (int i = 0; i < 100; i++)
                     sum += inventory.TotalWeightKg;
-            }, UnityEngine.TestTools.Constraints.ConstraintExtensions.AllocatingGCMemory(Is.Not));
+            });
             Assert.Greater(sum, 0f);
         }
 

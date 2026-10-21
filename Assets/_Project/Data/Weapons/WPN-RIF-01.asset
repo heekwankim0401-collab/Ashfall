@@ -30,3 +30,5 @@ MonoBehaviour:
   reloadTimeSec: 2.5
   fastReloadTimeSec: 1.5
   hipSpreadDeg: 2
+  damage: 45
+  shotNoiseRadiusM: 120
