@@ -141,6 +141,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Map",
+                    "type": "Button",
+                    "id": "f7e1e63d-56d1-4c66-87b9-64b9e5ee1fac",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "QuickSlot1",
                     "type": "Button",
                     "id": "764f1056-bcb5-4262-9e4a-e2639964e07f",
@@ -384,6 +393,17 @@
                     "processors": "",
                     "groups": ";Keyboard&Mouse",
                     "action": "BodyStatus",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c5d38ab7-90ac-4eac-b853-b292cb45abb3",
+                    "path": "<Keyboard>/m",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "Map",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

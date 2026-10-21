@@ -127,6 +127,54 @@ namespace Ashfall.Tests.EditMode
             return true;
         }
 
+        // M4: 장착·그리드(루트 제외)에서 정의를 찾는다.
+        public bool Contains(ItemDefinitionSO definition)
+        {
+            if (definition == null)
+                return false;
+            foreach (ItemInstance item in Equipped.Values)
+                if (item != null && item.Definition == definition)
+                    return true;
+            foreach (IGridView grid in Grids)
+                foreach (PlacedItem placed in grid.Items)
+                    if (placed.Item.Definition == definition)
+                        return true;
+            return false;
+        }
+
+        // M4 리뷰 수정: TryConsume과 같은 범위 — 그리드(장착 제외)에서 잠기지 않은 같은 정의가 있나.
+        // 가짜 TryConsume은 FakeGridView만 지울 수 있으므로, 다른 IGridView에 둔 아이템은 "판정은 되는데 소모 실패" 경로를 만든다.
+        public bool CanConsume(ItemDefinitionSO definition)
+        {
+            if (definition == null)
+                return false;
+            foreach (IGridView grid in Grids)
+                foreach (PlacedItem placed in grid.Items)
+                    if (placed.Item.Definition == definition && !Locked.Contains(placed.Item))
+                        return true;
+            return false;
+        }
+
+        // M4: 가짜 그리드(FakeGridView)에서 첫 번째 같은 정의를 뺀다. 없으면 false.
+        public bool TryConsume(ItemDefinitionSO definition)
+        {
+            Calls.Add(nameof(TryConsume));
+            if (definition == null)
+                return false;
+            foreach (IGridView grid in Grids)
+            {
+                if (!(grid is FakeGridView fake))
+                    continue;
+                int index = fake.Placed.FindIndex(p => p.Item.Definition == definition && !Locked.Contains(p.Item));
+                if (index < 0)
+                    continue;
+                Locations.Remove(fake.Placed[index].Item);
+                fake.Placed.RemoveAt(index);
+                return true;
+            }
+            return false;
+        }
+
         public void CloseLoot()
         {
             Calls.Add(nameof(CloseLoot));

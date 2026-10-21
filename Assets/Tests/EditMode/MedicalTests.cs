@@ -144,6 +144,25 @@ namespace Ashfall.Tests.EditMode
             Assert.IsTrue(inventory.IsInStorage(kit));
         }
 
+        // M4 리뷰 수정 (중간 1): 레이드 종료 시 사용 취소 → 효과·완료 없음, 아이템 횟수 그대로
+        [Test]
+        public void Cancel_DuringUse_NoEffect_NoCompletion()
+        {
+            body.AddStatus(BodyPart.LeftLeg, StatusEffect.Bleed);
+            var bandage = new MedicalItem(TestData.Bandage());
+            Assert.AreEqual(MedicalStartResult.Started, medical.TryStart(bandage));
+            Assert.IsFalse(medical.Tick(1f));
+
+            medical.Cancel();
+
+            Assert.IsFalse(medical.IsUsing);
+            Assert.IsNull(medical.Current);
+            Assert.IsFalse(medical.Tick(10f), "취소 뒤 완료 없음");
+            Assert.IsTrue(body.HasStatus(BodyPart.LeftLeg, StatusEffect.Bleed), "효과 없음");
+            Assert.AreEqual(1, bandage.UsesLeft);
+            medical.Cancel();   // 사용 중 아닐 때도 안전
+        }
+
         // 리뷰 수정: 남은 횟수 0인 의약품은 사용을 시작하지 않는다.
         [Test]
         public void TryStart_DepletedItem_Refused()

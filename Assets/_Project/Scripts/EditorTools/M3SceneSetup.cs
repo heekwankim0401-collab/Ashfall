@@ -17,6 +17,7 @@ namespace Ashfall.EditorTools
     //   NavMeshData는 씬 이름 폴더의 NavMesh-Environment.asset에 저장한다(있으면 CopySerialized로 덮어써 GUID 유지).
     // - 적·플레이어·UI·관리자는 최상위. 빌드 설정에는 넣지 않는다.
     // 배치모드: -executeMethod Ashfall.EditorTools.M3SceneSetup.CreateAll
+    // 적 생성(SceneContext·CreateEnemy·CreateRoute·SquadSlots)·엄폐 지점·구조물 크기·색 재질은 M4MapSetup·M4EnemySetup이 재사용한다(internal, 동작 같음).
     public static class M3SceneSetup
     {
         private const string Tag = "[M3SceneSetup]";
@@ -41,13 +42,13 @@ namespace Ashfall.EditorTools
         private static readonly Vector3 AiPlayerStart = new Vector3(0f, 0.05f, -40f);
         private static readonly Vector3 PerfPlayerStart = new Vector3(0f, 0.05f, -70f); // 중앙 남쪽, 가장 가까운 적(Q2 분대원) 약 28m
 
-        private static readonly Vector3 LowWallSize = new Vector3(4f, 1.1f, 0.4f);
-        private static readonly Vector3 HighWallSize = new Vector3(3f, 2.5f, 0.4f);
-        private static readonly Vector3 VehicleSize = new Vector3(4f, 1.5f, 2f);
+        internal static readonly Vector3 LowWallSize = new Vector3(4f, 1.1f, 0.4f);
+        internal static readonly Vector3 HighWallSize = new Vector3(3f, 2.5f, 0.4f);
+        internal static readonly Vector3 VehicleSize = new Vector3(4f, 1.5f, 2f);
         // 엄폐 지점은 구조물 면에서 이만큼 떨어진다. TODO(GDD-?): 설계 "앞뒤 0.7m"를 면 기준으로 해석
         // (중심 기준이면 면에서 0.5m = NavMesh 굽기 반지름 경계라 지점이 NavMesh 밖에 걸린다).
-        private const float CoverGapM = 0.7f;
-        private const float HighPeekSideM = 1.9f; // 설계 §8.1 peekLocalOffset (±1.9, 0, 0): 벽 끝(1.5m) 밖
+        internal const float CoverGapM = 0.7f;
+        internal const float HighPeekSideM = 1.9f; // 설계 §8.1 peekLocalOffset (±1.9, 0, 0): 벽 끝(1.5m) 밖
 
         private static readonly Vector2[] LowWalls =
         {
@@ -67,7 +68,7 @@ namespace Ashfall.EditorTools
 
         // 분대원 시작 위치: 리더 = 경로 첫 지점, 나머지는 뒤쪽 좌우 (로컬 x, z: 진행 방향 기준).
         // Squad.FormationSlot(formationSpacingM 2m 초기값)과 같은 자리라 시작하자마자 대형을 맞추러 움직이지 않는다.
-        private static readonly Vector2[] SquadSlots = { Vector2.zero, new Vector2(-2f, -2f), new Vector2(2f, -2f) };
+        internal static readonly Vector2[] SquadSlots = { Vector2.zero, new Vector2(-2f, -2f), new Vector2(2f, -2f) };
         private static readonly Vector2[] RaiderSpots = { new Vector2(-3f, 35f), new Vector2(3f, 35f) };
 
         // 적 오브젝트 (설계 §8, 2b 메모)
@@ -87,8 +88,8 @@ namespace Ashfall.EditorTools
         private const int AvoidancePriorityMin = 40;
         private const int AvoidancePriorityRange = 21; // 40~60
 
-        private static readonly Color ScvColor = new Color(0.45f, 0.3f, 0.15f);  // 갈색
-        private static readonly Color RdrColor = new Color(0.22f, 0.22f, 0.24f); // 짙은 회색
+        internal static readonly Color ScvColor = new Color(0.45f, 0.3f, 0.15f);  // 갈색
+        internal static readonly Color RdrColor = new Color(0.22f, 0.22f, 0.24f); // 짙은 회색
 
         [MenuItem("Ashfall/Setup/Create M3 Test Scenes")]
         public static void CreateAll()
@@ -108,7 +109,7 @@ namespace Ashfall.EditorTools
 
         // ---------- 씬 ----------
 
-        private sealed class SceneContext
+        internal sealed class SceneContext
         {
             public EnemyArchetypeSO Scv, Rdr;
             public Material ScvMaterial, RdrMaterial;
@@ -248,7 +249,7 @@ namespace Ashfall.EditorTools
             return root;
         }
 
-        private static void CreateCoverPoint(Transform structure, Vector3 localPosition, Vector3 facing, CoverHeight height, Vector3 peek)
+        internal static void CreateCoverPoint(Transform structure, Vector3 localPosition, Vector3 facing, CoverHeight height, Vector3 peek)
         {
             var go = new GameObject($"Cover_{height}_{structure.childCount}");
             go.transform.SetParent(structure, false);
@@ -339,7 +340,7 @@ namespace Ashfall.EditorTools
 
         // ---------- 적 ----------
 
-        private static PatrolRoute CreateRoute(string name, Vector2[] points, Vector3 offset)
+        internal static PatrolRoute CreateRoute(string name, Vector2[] points, Vector3 offset)
         {
             var go = new GameObject(name);
             go.transform.position = offset;
@@ -384,7 +385,7 @@ namespace Ashfall.EditorTools
         }
 
         // 설계 §8 적 오브젝트. seed = 씬 내 순번 + 1(결정적).
-        private static GameObject CreateEnemy(SceneContext ctx, string id, EnemyArchetypeSO archetype, Vector3 position,
+        internal static GameObject CreateEnemy(SceneContext ctx, string id, EnemyArchetypeSO archetype, Vector3 position,
             float yaw, PatrolRoute route, int squadId, int loadoutIndex)
         {
             int order = ctx.EnemyCount++;
@@ -462,7 +463,7 @@ namespace Ashfall.EditorTools
         // ---------- 공용 에셋 ----------
 
         // 그레이박스 색 재질 (URP Lit). 없을 때만 만든다.
-        private static void CreateColorMaterial(string path, string name, Color color)
+        internal static void CreateColorMaterial(string path, string name, Color color)
         {
             if (AssetDatabase.LoadAssetAtPath<Material>(path) != null)
                 return;

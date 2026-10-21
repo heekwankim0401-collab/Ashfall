@@ -19,6 +19,7 @@
     --ash-slot-width: 168px;
     --ash-slot-height: 52px;
     --ash-quick-width: 84px;
+    --ash-map-size: 560px;
 }
 
 .ash-root {
@@ -341,4 +342,208 @@
     padding: 1px 6px;
     background-color: var(--rust-red);
     font-size: 12px;
+}
+
+/* ── M4: 탈출 카운트다운 (§12 허용 HUD, 구역 안에서만) ── */
+
+.hud-extract {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 28%;
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: var(--ash-black);
+}
+
+/* ── M4: 버튼 (일시정지·메인 메뉴·결과) ───────────── */
+
+.ash-button {
+    min-width: 200px;
+    height: 36px;
+    margin: 4px 0;
+    padding: 0 12px;
+    border-width: 1px;
+    border-radius: 0;
+    border-color: var(--ash-grey);
+    background-color: var(--ash-black);
+    color: var(--bone);
+    font-size: 15px;
+    -unity-text-align: middle-center;
+}
+
+.ash-button:hover {
+    border-color: var(--bone);
+    background-color: var(--dried-blood);
+}
+
+.ash-button:active {
+    background-color: var(--rust-red);
+}
+
+.ash-button:disabled {
+    opacity: 0.4;
+}
+
+.ash-button--danger {
+    border-color: var(--ember);
+}
+
+/* ── M4: 일시정지 ─────────────────────────────────── */
+
+.pause-panel {
+    min-width: 280px;
+    align-items: stretch;
+}
+
+.pause-buttons {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.ash-root .pause-warning {
+    max-width: 320px;
+    margin: 0 0 8px 0;
+    white-space: normal;
+    color: var(--ember);
+}
+
+/* ── M4: 지도 (RULE-06, 내 위치 없음) ─────────────── */
+
+.map-area {
+    /* TODO(GDD-?) Q11: 그레이박스. 지도 영역(1km)을 정사각형으로 그린다. 지형 그림은 M6. */
+    width: var(--ash-map-size);
+    height: var(--ash-map-size);
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    background-color: var(--dried-blood);
+    overflow: hidden;
+}
+
+.map-marker {
+    position: absolute;
+    flex-direction: row;
+    align-items: center;
+    /* 점(8px) 중심이 좌표에 오게 */
+    margin-left: -4px;
+    margin-top: -6px;
+}
+
+.map-marker-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: var(--ash-grey);
+}
+
+.map-marker-label {
+    margin: 0 0 0 4px;
+    padding: 0;
+    font-size: 12px;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: var(--ash-black);
+}
+
+.map-marker--extract > .map-marker-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 0;
+    background-color: var(--ember);
+}
+
+.map-marker--extract > .map-marker-label {
+    -unity-font-style: bold;
+}
+
+.map-time {
+    margin: 8px 0 0 0;
+    padding: 0;
+    font-size: 14px;
+}
+
+/* ── M4: 레이드 종료 오버레이 ─────────────────────── */
+
+.raid-end-text {
+    font-size: 36px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+/* ── M4: 메인 메뉴·레이드 결과 (MainMenu.uxml) ───── */
+
+.menu-root {
+    background-color: var(--ash-black);
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-panel {
+    align-items: stretch;
+    padding: 24px;
+}
+
+.menu-title {
+    font-size: 44px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    letter-spacing: 6px;
+    margin: 0 0 16px 0;
+}
+
+.result-panel {
+    min-width: 560px;
+    max-height: 90%;
+    padding: 20px;
+}
+
+.result-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    margin: 0 0 8px 0;
+}
+
+.ash-root .result--survived {
+    color: var(--bone);
+}
+
+.ash-root .result--died {
+    color: var(--ember);
+}
+
+.result-stats {
+    flex-direction: row;
+    margin-bottom: 12px;
+}
+
+.result-stat {
+    margin: 0 24px 0 0;
+    padding: 0;
+}
+
+.result-lists {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.result-section {
+    width: 220px;
+    margin-right: 12px;
+}
+
+.result-list {
+    flex-direction: column;
+}
+
+.result-line {
+    font-size: 13px;
+    margin: 0;
+    padding: 1px 0;
+    white-space: normal;
+}
+
+.result-line--empty {
+    opacity: 0.5;
 }

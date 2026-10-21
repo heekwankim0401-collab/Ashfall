@@ -40,5 +40,6 @@ namespace Ashfall.Core
     {
         OpenContainer,
         PickUp,
+        Activate,   // M4: 장치 작동 (EXT-02 전원 스위치, IWorldInteractable)
     }
 }

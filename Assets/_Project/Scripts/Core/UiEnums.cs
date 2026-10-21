@@ -6,6 +6,10 @@ namespace Ashfall.Core
         None,
         Inventory,
         BodyStatus,
+        // M4 (끝에만 추가 — 직렬화 값 유지)
+        Map,        // RULE-06 종이 지도 (M)
+        Pause,      // Esc 일시정지 (세계 정지)
+        RaidEnd,    // 레이드 종료 오버레이 (닫히지 않음)
     }
 
     // RULE-04 탄창 확인 결과 (탄 수 대신 대략적 구간)

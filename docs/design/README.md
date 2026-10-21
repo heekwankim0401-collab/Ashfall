@@ -1,0 +1,19 @@
+# 마일스톤 설계·리뷰 노트
+
+각 마일스톤을 시작할 때 `unity-architect`가 쓴 설계 문서와, 커밋 전 `code-reviewer`의 지적 목록이다.
+설계 문서 끝에는 단계별 구현 메모(1단계 계약, 2a~2d 병렬, 3단계 통합, 4단계 검증, 리뷰 수정)가 붙어 있어
+설계와 실제 구현이 달라진 곳을 찾을 수 있다. 문서 안의 절대 경로(공유 노트 폴더, scratchpad)는 작성 당시 위치라 지금은 없을 수 있다.
+
+| 파일 | 내용 |
+|---|---|
+| `M2_design.md` | 체력·상태이상, 그리드 인벤토리, 루트 검색, RULE-04/05. 이벤트 버스·서비스 레지스트리 도입 |
+| `M3_design.md`, `M3_review.md` | 적 AI(SCV/RDR 상태 머신·감각·엄폐·분대), 무기 로직 Core 이동, 피해 필드 |
+| `M4_design.md`, `M4_review.md` | 레이드 루프(Crimson Basin, 탈출 EXT-01~04, 타이머, 결과 화면, RULE-01). §5 질문 Q1~Q22와 결정 |
+
+진행 방식(M2~M4에서 쓴 것):
+1. `unity-architect`가 설계 문서를 쓴다(작업 분할, 파일 소유, AC별 테스트 계획, CHANGELOG 초안 포함).
+2. 1단계 "계약": Core 타입·인터페이스·SO 껍데기를 원본에서 만들고 EditMode 통과.
+3. 2단계 병렬: 에이전트마다 프로젝트 사본(Assets·Packages·ProjectSettings·Library 복사)에서만 Unity를 돌리고, 원본에는 자기 파일만 쓴다.
+4. 3단계 통합: 원본에서 처음 함께 컴파일하고 씬 생성 메뉴를 `-executeMethod`로 실행.
+5. 4단계: `test-engineer`가 AC별 PlayMode 테스트·성능·Windows 빌드. 동시에 `code-reviewer`가 읽기 전용 리뷰.
+6. 리뷰 수정 후 원본에서 EditMode·PlayMode(2회 연속)·빌드 재확인, `docs/CHANGELOG_GDD.md`에 결정 기록, 한국어 커밋.

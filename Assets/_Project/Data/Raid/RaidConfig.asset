@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43fdab464a7df984983b9566474471fe, type: 3}
+  m_Name: RaidConfig
+  m_EditorClassIdentifier: Ashfall.Raid::Ashfall.Raid.RaidConfigSO
+  timeLimitSec: 1500
+  extractions:
+  - id: EXT-01
+    displayName: "\uB0A8\uCABD \uB3C4\uB85C"
+    waitSec: 10
+    radiusM: 8
+    requiredSwitchId: 
+    availableAfterSec: 0
+    consumedItem: {fileID: 0}
+    forbidsBackpack: 0
+  - id: EXT-02
+    displayName: "\uC5F4\uCC28 \uC2E0\uD638\uC18C"
+    waitSec: 15
+    radiusM: 8
+    requiredSwitchId: SW-PWR
+    availableAfterSec: 0
+    consumedItem: {fileID: 0}
+    forbidsBackpack: 0
+  - id: EXT-03
+    displayName: "\uD5EC\uAE30 \uCC29\uB959\uC7A5"
+    waitSec: 20
+    radiusM: 10
+    requiredSwitchId: 
+    availableAfterSec: 900
+    consumedItem: {fileID: 11400000, guid: 7825228d32ef84a45b5dea8200020a93, type: 2}
+    forbidsBackpack: 0
+  - id: EXT-04
+    displayName: "\uD558\uC218 \uBC30\uCD9C\uAD6C"
+    waitSec: 7
+    radiusM: 5
+    requiredSwitchId: 
+    availableAfterSec: 0
+    consumedItem: {fileID: 0}
+    forbidsBackpack: 1
+  spawnRules:
+  - spawnId: SP-W
+    activeExtractionIds:
+    - EXT-01
+    - EXT-02
+    - EXT-03
+  - spawnId: SP-E
+    activeExtractionIds:
+    - EXT-01
+    - EXT-04
+    - EXT-03
+  - spawnId: SP-N
+    activeExtractionIds:
+    - EXT-01
+    - EXT-02
+    - EXT-04
+  randomActiveCount: {x: 2, y: 3}
+  alwaysActiveIds:
+  - EXT-01
+  endDelaySec: 3
+  zoneHeightToleranceM: 3
+  mapAreaXZ:
+    serializedVersion: 2
+    x: -500
+    y: -500
+    width: 1000
+    height: 1000

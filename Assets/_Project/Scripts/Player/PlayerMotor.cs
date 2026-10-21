@@ -9,8 +9,9 @@ namespace Ashfall.Player
     // M2: 소지 무게는 CarriedWeightChanged(Inventory)로, 체력 패널티는 같은 오브젝트의 PlayerHealth에서 받는다.
     //     화면이 열려 있거나(ScreenStateChanged) 사망하면 입력을 무시하고 중력만 적용한다 (설계 D9).
     // M3: AI가 보는 표적(IPlayerTarget)으로 등록하고, 발소리·점프 소음을 NoiseEmitted로 낸다 (§4.1, §7 청각).
+    // M4: 레이드 시작 스폰 배치(IPlayerPlacement)를 받는다 (M4 설계 §1.1). Raid는 Transform을 직접 건드리지 않는다.
     [RequireComponent(typeof(CharacterController))]
-    public sealed class PlayerMotor : MonoBehaviour, IRecoilReceiver, IPlayerTarget
+    public sealed class PlayerMotor : MonoBehaviour, IRecoilReceiver, IPlayerTarget, IPlayerPlacement
     {
         [SerializeField] private PlayerConfigSO config;
         [SerializeField] private Transform eye;
@@ -89,6 +90,7 @@ namespace Ashfall.Player
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.Services.Register<IPlayerTarget>(this);
+                GameManager.Instance.Services.Register<IPlayerPlacement>(this);
                 GameManager.Instance.Events.Subscribe<CarriedWeightChanged>(OnCarriedWeightChanged);
                 GameManager.Instance.Events.Subscribe<ScreenStateChanged>(OnScreenStateChanged);
             }
@@ -103,6 +105,7 @@ namespace Ashfall.Player
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.Services.Unregister<IPlayerTarget>(this);
+                GameManager.Instance.Services.Unregister<IPlayerPlacement>(this);
                 GameManager.Instance.Events.Unsubscribe<CarriedWeightChanged>(OnCarriedWeightChanged);
                 GameManager.Instance.Events.Unsubscribe<ScreenStateChanged>(OnScreenStateChanged);
             }
@@ -117,6 +120,30 @@ namespace Ashfall.Player
                 return;
             pitch = Mathf.Clamp(pitch - pitchDeg, -config.pitchLimitDeg, config.pitchLimitDeg);
             transform.Rotate(0f, yawDeg, 0f);
+        }
+
+        // ── IPlayerPlacement (M4 레이드 스폰 배치) ──
+        // CharacterController가 켜진 채로 transform을 옮기면 다음 Move가 이전 위치로 되돌릴 수 있어
+        // 끄고 → 옮기고 → 되돌린 뒤 물리에 즉시 반영한다. 시선은 수평(pitch 0), 기울이기·낙하 속도·발소리 누적 초기화.
+        public void PlaceAt(Vector3 feetPosition, float yawDeg)
+        {
+            bool controllerWasEnabled = controller != null && controller.enabled;
+            if (controller != null)
+                controller.enabled = false;
+            transform.SetPositionAndRotation(feetPosition, Quaternion.Euler(0f, yawDeg, 0f));
+            if (controller != null)
+                controller.enabled = controllerWasEnabled;
+            Physics.SyncTransforms();
+
+            pitch = 0f;
+            lean = 0f;
+            verticalVelocity = 0f;
+            footsteps?.Reset();
+            if (eye != null && Locomotion != null)
+            {
+                eye.localPosition = new Vector3(0f, eyeHeight, 0f);
+                eye.localRotation = Quaternion.identity;
+            }
         }
 
         private void Update()

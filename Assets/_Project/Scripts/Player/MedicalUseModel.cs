@@ -74,6 +74,9 @@ namespace Ashfall.Player
             return true;
         }
 
+        // 진행 중 사용을 효과 없이 버린다 (M4 리뷰 수정: 레이드 종료 시). 사용 중이 아니면 아무것도 안 한다. 아이템은 그대로.
+        public void Cancel() => Clear();
+
         // cures 중 하나를 가진 부위를 BodyPart 순서로 첫 번째.
         // 없고 healAmount > 0이면 HP 비율이 가장 낮은 비파괴·비만충 부위. 없으면 null.
         public static BodyPart? FindTarget(BodyHealthModel body, MedicalDefinitionSO definition)

@@ -14,6 +14,24 @@ namespace Ashfall.UI
         public const string QuickSlotTitle = "퀵슬롯";
         public const string BodyStatusTitle = "부위 상태";
 
+        // ── M4 레이드 화면 (M4 설계 §3.4·§3.5) ─────────────
+        public const string PauseTitle = "일시정지";
+        public const string PauseResume = "계속";
+        public const string PauseAbandon = "레이드 포기";
+        // TODO(GDD-?) Q16: 포기 = 사망과 같은 RULE-01. 확인 문구는 문서에 없다.
+        public const string AbandonConfirm = "레이드를 포기하면 가져온 장비를 모두 잃는다.";
+        public const string AbandonYes = "포기";
+        public const string AbandonNo = "취소";
+        public const string MapTitle = "지도";
+        public const string MainMenuTitle = "ASHFALL";
+        public const string MenuStartRaid = "레이드 시작";
+        public const string MenuQuit = "종료";
+        public const string ResultConfirm = "확인";
+        public const string ResultBroughtIn = "반입";
+        public const string ResultCarriedOut = "반출";
+        public const string ResultLost = "소실";
+        public const string ResultNone = "없음";
+
         // 아이콘이 없으므로 이름 텍스트 상자로 그린다. 탄창 탄 수·의약품 횟수는 붙이지 않는다.
         public static string ItemLabel(ItemInstance item)
         {
@@ -48,8 +66,15 @@ namespace Ashfall.UI
             }
         }
 
-        public static string InteractionVerb(InteractionKind kind) =>
-            kind == InteractionKind.OpenContainer ? "열기" : "줍기";
+        public static string InteractionVerb(InteractionKind kind)
+        {
+            switch (kind)
+            {
+                case InteractionKind.OpenContainer: return "열기";
+                case InteractionKind.Activate: return "작동";   // M4 EXT-02 전원 스위치 (IWorldInteractable)
+                default: return "줍기";
+            }
+        }
 
         // "F  열기: 상자". 키 이름은 입력 바인딩 표시 문자열을 받는다.
         public static string Prompt(InteractionKind kind, string targetName, string keyLabel)

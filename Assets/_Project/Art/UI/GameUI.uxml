@@ -3,10 +3,11 @@
     <Style src="Ashfall.uss" />
     <ui:VisualElement name="game-ui" class="ash-root" picking-mode="Ignore">
 
-        <!-- §12 HUD: 허용된 일시 표시만 (F 프롬프트, RULE-04 탄창 확인 문구). 체력·탄수·미니맵·크로스헤어 없음. -->
+        <!-- §12 HUD: 허용된 일시 표시만 (F 프롬프트, RULE-04 탄창 확인 문구, M4 탈출 카운트다운). 체력·탄수·미니맵·크로스헤어·남은 시간 없음. -->
         <ui:VisualElement name="hud" class="hud" picking-mode="Ignore">
             <ui:Label name="hud-prompt" class="hud-prompt" picking-mode="Ignore" />
             <ui:Label name="hud-toast" class="hud-toast" picking-mode="Ignore" />
+            <ui:Label name="hud-extract" class="hud-extract" picking-mode="Ignore" />
         </ui:VisualElement>
 
         <!-- SYS-INV 인벤토리 (Tab). 패널 밖 어두운 곳에 놓으면 바닥에 버린다. -->
@@ -37,6 +38,36 @@
                 <ui:Label text="부위 상태" class="panel-title" picking-mode="Ignore" />
                 <ui:VisualElement name="body-status-list" class="bs-list" picking-mode="Ignore" />
             </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- RULE-06 종이 지도 (M). POI·활성 탈출구·남은 시간 대략치. 내 위치 표식 없음. -->
+        <ui:VisualElement name="map-screen" class="screen map-screen">
+            <ui:VisualElement class="panel map-panel" picking-mode="Ignore">
+                <ui:Label text="지도" class="panel-title" picking-mode="Ignore" />
+                <ui:VisualElement name="map-area" class="map-area" picking-mode="Ignore" />
+                <ui:Label name="map-time" class="map-time" picking-mode="Ignore" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Esc 일시정지 (세계 정지). [계속] / [레이드 포기] → 확인. -->
+        <ui:VisualElement name="pause-screen" class="screen pause-screen">
+            <ui:VisualElement class="panel pause-panel">
+                <ui:Label text="일시정지" class="panel-title" picking-mode="Ignore" />
+                <ui:VisualElement name="pause-main" class="pause-buttons">
+                    <ui:Button name="pause-resume" text="계속" class="ash-button" />
+                    <ui:Button name="pause-abandon" text="레이드 포기" class="ash-button ash-button--danger" />
+                </ui:VisualElement>
+                <ui:VisualElement name="pause-confirm" class="pause-buttons">
+                    <ui:Label text="레이드를 포기하면 가져온 장비를 모두 잃는다." class="pause-warning" picking-mode="Ignore" />
+                    <ui:Button name="pause-confirm-yes" text="포기" class="ash-button ash-button--danger" />
+                    <ui:Button name="pause-confirm-no" text="취소" class="ash-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 레이드 종료 오버레이 (닫히지 않음, 몇 초 뒤 MainMenu로) -->
+        <ui:VisualElement name="raid-end-screen" class="screen raid-end-screen" picking-mode="Ignore">
+            <ui:Label name="raid-end-text" class="raid-end-text" picking-mode="Ignore" />
         </ui:VisualElement>
 
     </ui:VisualElement>

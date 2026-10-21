@@ -605,6 +605,63 @@ namespace Ashfall.Tests.EditMode
             Assert.IsTrue(inventory.IsInStorage(spare), "예비 탄창은 조끼에 그대로");
         }
 
+        // ── M4 리뷰 수정 (중간 1): 레이드 종료 잠금 = 사망 잠금과 같은 범위 ──
+
+        [Test]
+        public void RaidEndLocked_RejectsAllChanges()
+        {
+            EquipVest();
+            var wires = new ItemInstance(TestData.Wires());
+            Assert.IsTrue(inventory.TryAutoStore(wires));
+            var bandage = new MedicalItem(TestData.Bandage());
+            Assert.IsTrue(inventory.TryAutoStore(bandage));
+            var spare = Magazine.Full(mag30);
+            Assert.IsTrue(inventory.TryAutoStore(spare));
+            int changed = 0;
+            inventory.Changed += () => changed++;
+            bool useRequested = false;
+            inventory.UseRequested += _ => useRequested = true;
+
+            inventory.IsRaidEndLocked = true;
+
+            Assert.IsTrue(inventory.IsFrozen);
+            Assert.IsFalse(inventory.IsDeadLocked, "사망 잠금과는 별개 플래그");
+            Assert.IsFalse(inventory.TryMove(wires, new GridRef(GridKind.Pocket, 3), Vector2Int.zero, false));
+            Assert.IsFalse(inventory.TryDrop(wires));
+            Assert.IsFalse(inventory.TryEquipNew(new ItemInstance(TestData.Helmet()), EquipSlot.Helmet));
+            Assert.IsFalse(inventory.TryAutoStore(new ItemInstance(TestData.Wires())));
+            Assert.IsFalse(inventory.TryAssignQuickSlot(0, bandage));
+            Assert.IsFalse(inventory.TryUse(bandage));
+            Assert.IsFalse(useRequested);
+            Assert.IsFalse(inventory.HasLoadable(AmmoType.Rifle556));
+            Assert.IsNull(inventory.TakeFullest(AmmoType.Rifle556));
+            Assert.IsFalse(inventory.TryStore(new Magazine(mag30, 3)));
+            Assert.IsFalse(inventory.TryConsume(TestData.Wires()));
+            Assert.IsFalse(inventory.CanConsume(wires.Definition));
+            inventory.ConsumeMedicalUse(bandage);   // 종료 뒤 도착한 사용 완료
+            Assert.AreEqual(1, bandage.UsesLeft, "차감 없음");
+            Assert.IsTrue(inventory.IsInStorage(bandage));
+            inventory.OpenLoot(Loot());
+            Assert.IsNull(inventory.ActiveLoot);
+
+            Assert.AreEqual(0, changed, "아무것도 바뀌지 않았다");
+            Assert.IsTrue(inventory.IsInStorage(wires));
+            Assert.IsTrue(inventory.IsInStorage(spare));
+            Assert.IsTrue(inventory.Contains(wires.Definition), "조회는 된다");
+        }
+
+        [Test]
+        public void RaidEndLocked_ReloadInProgress_DoesNotSwapMagazines()
+        {
+            var (model, loaded, spare) = RifleWithVestSpare();
+            Assert.IsTrue(model.PressReload());
+            inventory.IsRaidEndLocked = true;
+            model.Tick(3f);
+
+            Assert.AreSame(loaded, model.Current, "탄창 그대로");
+            Assert.IsTrue(inventory.IsInStorage(spare), "예비 탄창은 조끼에 그대로");
+        }
+
         [Test]
         public void TotalWeight_DoesNotAllocate()
         {

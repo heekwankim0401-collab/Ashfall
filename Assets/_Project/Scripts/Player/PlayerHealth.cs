@@ -7,6 +7,7 @@ namespace Ashfall.Player
     // - IDamageable: 캡슐 피격 지점으로 부위를 판정해 ApplyHit (설계 D3)
     // - IBodyStatusView 등록 (RULE-05 H 화면), 모델 변화 → 버스 이벤트
     // - MedicalUseRequested → 사용 시간 → MedicalUseCompleted
+    // - M4: RaidEnded → 진행 중 의약품 사용 취소, 이후 사용 요청 거부
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerHealth : MonoBehaviour, IDamageable
     {
@@ -19,6 +20,8 @@ namespace Ashfall.Player
 
         private CharacterController controller;
         private MedicalUseModel medical;
+        // M4 리뷰 수정: 레이드 종료 후 의약품 사용 없음 (결과 스냅샷 이후 소지품·상태가 바뀌지 않게)
+        private bool raidOver;
 
         public BodyHealthModel Body { get; private set; }
         public MedicalUseModel Medical => medical;
@@ -46,6 +49,7 @@ namespace Ashfall.Player
                 return;
             GameManager.Instance.Services.Register<IBodyStatusView>(Body);
             GameManager.Instance.Events.Subscribe<MedicalUseRequested>(OnMedicalUseRequested);
+            GameManager.Instance.Events.Subscribe<RaidEnded>(OnRaidEnded);
         }
 
         private void OnDisable()
@@ -54,6 +58,7 @@ namespace Ashfall.Player
                 return;
             GameManager.Instance.Services.Unregister<IBodyStatusView>(Body);
             GameManager.Instance.Events.Unsubscribe<MedicalUseRequested>(OnMedicalUseRequested);
+            GameManager.Instance.Events.Unsubscribe<RaidEnded>(OnRaidEnded);
         }
 
         public void ApplyDamage(in DamageInfo info)
@@ -90,7 +95,7 @@ namespace Ashfall.Player
 
         private void OnMedicalUseRequested(MedicalUseRequested evt)
         {
-            if (evt.Item == null)
+            if (evt.Item == null || raidOver)
                 return;
 
             switch (medical.TryStart(evt.Item))
@@ -111,6 +116,14 @@ namespace Ashfall.Player
                     Reject(evt.Item, MedicalUseFailReason.Depleted);
                     break;
             }
+        }
+
+        // M4 리뷰 수정: 진행 중 사용을 효과 없이 취소 (완료 이벤트가 종료 스냅샷 뒤에 와서 소지품을 바꾸지 않게).
+        // 아이템 잠금(Inventory)은 풀지 않는다 — 인벤토리도 같은 이벤트로 잠기고 씬이 곧 내려간다.
+        private void OnRaidEnded(RaidEnded evt)
+        {
+            raidOver = true;
+            medical?.Cancel();
         }
 
         private void Reject(MedicalItem item, MedicalUseFailReason reason)

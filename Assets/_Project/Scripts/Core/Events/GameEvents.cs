@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Ashfall.Core
 {
-    // M2·M3 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3). 전부 readonly struct, GameManager.Events로 발행한다.
+    // M2·M3·M4 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3, M4 설계 §4.1). 전부 readonly struct, GameManager.Events로 발행한다.
     // 이벤트는 기능 사이에서만 쓴다. 같은 어셈블리 안은 직접 참조한다.
 
     // ── Inventory → 다른 기능 ──────────────────────────────
@@ -216,7 +216,67 @@ namespace Ashfall.Core
         }
     }
 
+    // ── M4: Raid → 다른 기능 ──────────────────────────────
+
+    // 레이드 시작 (스폰 배치 직후, RULE-02 타이머 시작) → UI, (M6) Audio 등
+    public readonly struct RaidStarted : IGameEvent
+    {
+        // RULE-06: UI에 표시하지 말 것(스폰 이름·위치는 내 위치 단서). 테스트·로그·(M6) 연출 선택용으로만 둔다.
+        public readonly string SpawnId;
+        public readonly float TimeLimitSec;
+
+        public RaidStarted(string spawnId, float timeLimitSec)
+        {
+            SpawnId = spawnId;
+            TimeLimitSec = timeLimitSec;
+        }
+    }
+
+    // 탈출 구역 안에서 카운트다운을 막는 조건 (§8.2). 문구 우선순위 = 선언 순서 (전원 → 시간 → 배낭 → 아이템).
+    public enum ExtractionBlock
+    {
+        None,
+        NoPower,            // EXT-02 전원 스위치 꺼짐
+        TooEarly,           // EXT-03 레이드 15분 전
+        MissingItem,        // EXT-03 신호탄 없음
+        BackpackEquipped,   // EXT-04 배낭 착용
+    }
+
+    // 탈출 구역 HUD (§12 탈출 카운트다운). InZone=false면 숨김. 초 단위 값·상태가 바뀔 때만 발행(초당 최대 1회).
+    // TODO(GDD-?) Q9: 조건 미충족이면 Block으로 이유 문구를 보인다.
+    public readonly struct ExtractionStatusChanged : IGameEvent
+    {
+        public readonly bool InZone;
+        public readonly string DisplayName;
+        public readonly ExtractionBlock Block;   // None이면 카운트다운 중
+        public readonly int SecondsLeft;         // 올림 정수
+
+        public ExtractionStatusChanged(bool inZone, string displayName, ExtractionBlock block, int secondsLeft)
+        {
+            InZone = inZone;
+            DisplayName = displayName;
+            Block = block;
+            SecondsLeft = secondsLeft;
+        }
+    }
+
+    // 레이드 종료 (탈출/사망/MIA/포기) → UI 종료 오버레이. 결과 전체는 GameFlow.PendingResult로 씬을 넘는다.
+    public readonly struct RaidEnded : IGameEvent
+    {
+        public readonly RaidOutcome Outcome;
+        public readonly string ExtractionName;   // Extracted일 때만
+
+        public RaidEnded(RaidOutcome outcome, string extractionName)
+        {
+            Outcome = outcome;
+            ExtractionName = extractionName;
+        }
+    }
+
     // ── UI → 다른 기능 ─────────────────────────────────────
+
+    // 일시정지 메뉴에서 레이드 포기 확인 → Raid가 Abandoned로 끝낸다 (TODO(GDD-?) Q16).
+    public readonly struct RaidAbandonRequested : IGameEvent { }
 
     // 열린 화면이 바뀜 (None = 모두 닫힘) → Player·Weapons·Inventory가 게임플레이 입력을 막는다.
     public readonly struct ScreenStateChanged : IGameEvent

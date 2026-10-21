@@ -8,8 +8,10 @@ namespace Ashfall.Inventory
     // SYS-INV 플레이어 인벤토리의 얇은 브리지 (플레이어 루트에 붙는다). 규칙은 PlayerInventory에 있다.
     // - IInventoryService·IMagazineSource 등록, 모델 변화 → 버스 이벤트
     // - F 상호작용(레이캐스트), 4~7 의약품 퀵슬롯, 열린 루트 검색 진행
+    //   M4: 대상에 Core IWorldInteractable(다른 기능의 장치, EXT-02 전원 스위치)도 포함 (InteractionTargets)
     // - ItemDropRequested·버리기 → WorldItem 생성, 의약품 사용 시작/완료 → 잠금/차감, 사망 → 잠금
     // - M3: EnemyKilled → 시체에 LootContainer를 붙인다 (§6 시체)
+    // - M4: RaidEnded → 인벤토리 잠금(IsRaidEndLocked, 사망 잠금과 같은 범위)
     public sealed class PlayerInventoryBehaviour : MonoBehaviour
     {
         [Serializable]
@@ -79,6 +81,7 @@ namespace Ashfall.Inventory
             events.Subscribe<MedicalUseStarted>(OnMedicalUseStarted);
             events.Subscribe<MedicalUseCompleted>(OnMedicalUseCompleted);
             events.Subscribe<PlayerDied>(OnPlayerDied);
+            events.Subscribe<RaidEnded>(OnRaidEnded);
             events.Subscribe<ScreenStateChanged>(OnScreenStateChanged);
             events.Subscribe<EnemyKilled>(OnEnemyKilled);
         }
@@ -94,6 +97,7 @@ namespace Ashfall.Inventory
             events.Unsubscribe<MedicalUseStarted>(OnMedicalUseStarted);
             events.Unsubscribe<MedicalUseCompleted>(OnMedicalUseCompleted);
             events.Unsubscribe<PlayerDied>(OnPlayerDied);
+            events.Unsubscribe<RaidEnded>(OnRaidEnded);
             events.Unsubscribe<ScreenStateChanged>(OnScreenStateChanged);
             events.Unsubscribe<EnemyKilled>(OnEnemyKilled);
         }
@@ -141,15 +145,19 @@ namespace Ashfall.Inventory
             if (loot != null && loot.Tick(dt))
                 Publish(new InventoryChanged());
 
-            if (screenOpen || dead)
+            if (screenOpen || dead || Inventory.IsRaidEndLocked)
             {
                 SetTarget(null);
                 return;
             }
 
             UpdateInteractionTarget();
-            if (currentTarget != null && interact.WasPressedThisFrame())
-                ((IInteractable)currentTarget).Interact(this);
+            if (currentTarget != null && interact.WasPressedThisFrame() && InteractionTargets.Interact(currentTarget, this))
+            {
+                // M4: 대상 상태가 바뀔 수 있다(켠 스위치는 IsAvailable=false) → 캐시를 비우고 다음 프레임에 다시 찾는다.
+                lastHitCollider = null;
+                lastHitInteractable = null;
+            }
 
             for (int i = 0; i < quickSlotActions.Length; i++)
             {
@@ -174,10 +182,11 @@ namespace Ashfall.Inventory
                 if (hitCollider != lastHitCollider)
                 {
                     lastHitCollider = hitCollider;
-                    lastHitInteractable = hitCollider.GetComponentInParent<IInteractable>() as Component;
+                    // M4: Inventory IInteractable 우선, 없으면 Core IWorldInteractable (EXT-02 전원 스위치)
+                    lastHitInteractable = InteractionTargets.Find(hitCollider);
                 }
-                // 파괴된 대상(주운 WorldItem)은 Unity null 비교로 걸러진다.
-                if (lastHitInteractable != null)
+                // 파괴된 대상(주운 WorldItem)은 Unity null 비교로, 이미 켠 스위치는 IsAvailable로 매 프레임 걸러진다.
+                if (InteractionTargets.IsUsable(lastHitInteractable))
                     found = lastHitInteractable;
             }
             SetTarget(found);
@@ -212,15 +221,10 @@ namespace Ashfall.Inventory
 
             currentTarget = target;
             promptVisible = target != null;
-            if (target != null)
-            {
-                var interactable = (IInteractable)target;
-                Publish(new InteractionPromptChanged(true, interactable.Kind, interactable.TargetName));
-            }
+            if (InteractionTargets.TryDescribe(target, out InteractionKind kind, out string targetName))
+                Publish(new InteractionPromptChanged(true, kind, targetName));
             else
-            {
                 Publish(new InteractionPromptChanged(false, default, null));
-            }
         }
 
         private void PublishWeightIfChanged()
@@ -287,6 +291,15 @@ namespace Ashfall.Inventory
             dead = true;
             Inventory.CloseLoot();
             Inventory.IsDeadLocked = true;
+            SetTarget(null);
+        }
+
+        // M4 리뷰 수정(RULE-01): 결과 스냅샷(RaidEnded 직전) 이후 소지품이 바뀌지 않게 사망과 같은 잠금을 건다.
+        // 재장전 탄창 교환(TakeFullest/TryStore)·의약품 사용(TryUse)·사용 완료 차감·신호탄 소모·줍기 모두 거부된다.
+        // 열린 루트는 닫지 않는다 (LootSessionChanged가 종료 오버레이와 엉키지 않게, 루트는 소지품이 아니다).
+        private void OnRaidEnded(RaidEnded evt)
+        {
+            Inventory.IsRaidEndLocked = true;
             SetTarget(null);
         }
 

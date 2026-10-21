@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Ashfall.UI::Ashfall.UI.HudConfigSO
   magCheckResultSec: 2
   dragThresholdPx: 4
+  mapItem: {fileID: 11400000, guid: 622966e688ecd2440b3b6d8cbc3dc8d2, type: 2}

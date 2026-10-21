@@ -8,6 +8,7 @@
         "Ashfall.Inventory",
         "Ashfall.UI",
         "Ashfall.AI",
+        "Ashfall.Raid",
         "Unity.AI.Navigation"
     ],
     "includePlatforms": [

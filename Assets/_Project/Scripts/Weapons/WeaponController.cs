@@ -13,6 +13,7 @@ namespace Ashfall.Weapons
     // - Primary1만 따른다 (설계 D11). TODO(M7): 무기 교체 1/2/3.
     // - 버린 탄창 → ItemDropRequested, 화면 열림·사망 → 사격·조준·R·T 무시, 체력 → 조준 흔들림.
     // M3: 피해는 DamageRules(무기 > 탄약), 쏠 때마다 NoiseEmitted(Gunshot) 발행.
+    // M4: RaidEnded → 진행 중 재장전 취소, 이후 재장전 진행·입력 정지 (사망과 같은 처리).
     public sealed class WeaponController : MonoBehaviour
     {
         [SerializeField] private WeaponDefinitionSO weapon;
@@ -38,6 +39,8 @@ namespace Ashfall.Weapons
         private bool usesInventory;
         private bool screenOpen;
         private bool dead;
+        // M4 리뷰 수정: 레이드가 끝남(RaidEnded) — 사망과 같이 재장전 진행·입력을 멈춘다 (결과 스냅샷 이후 탄창 교환 금지, RULE-01)
+        private bool raidOver;
         private float swayMultiplier = 1f;
         private int swaySeed;
         private Quaternion baseLocalRotation;
@@ -51,7 +54,7 @@ namespace Ashfall.Weapons
         // 0 = 지향 사격, 1 = 완전 조준
         public float AimProgress { get; private set; }
 
-        private bool InputBlocked => screenOpen || dead;
+        private bool InputBlocked => screenOpen || dead || raidOver;
 
         private void Awake()
         {
@@ -93,6 +96,7 @@ namespace Ashfall.Weapons
             events.Subscribe<PlayerConditionChanged>(OnConditionChanged);
             events.Subscribe<ScreenStateChanged>(OnScreenStateChanged);
             events.Subscribe<PlayerDied>(OnPlayerDied);
+            events.Subscribe<RaidEnded>(OnRaidEnded);
         }
 
         private void OnDisable()
@@ -104,6 +108,7 @@ namespace Ashfall.Weapons
             events.Unsubscribe<PlayerConditionChanged>(OnConditionChanged);
             events.Unsubscribe<ScreenStateChanged>(OnScreenStateChanged);
             events.Unsubscribe<PlayerDied>(OnPlayerDied);
+            events.Unsubscribe<RaidEnded>(OnRaidEnded);
         }
 
         // 서비스 소비는 Start 이후 (제공자는 Awake/OnEnable에서 등록한다).
@@ -213,8 +218,8 @@ namespace Ashfall.Weapons
                 && magazineCheck.TryStart(Model.IsReloading))
                 Publish(new MagazineCheckStarted());
 
-            // 사망 후에는 재장전 진행을 멈춘다 (인벤토리에서 탄창을 꺼내지 않게).
-            if (!dead)
+            // 사망·레이드 종료 후에는 재장전 진행을 멈춘다 (인벤토리에서 탄창을 꺼내지 않게).
+            if (!dead && !raidOver)
                 Model?.Tick(dt);
 
             bool trigger = canAct && fire.IsPressed();
@@ -293,6 +298,14 @@ namespace Ashfall.Weapons
         {
             dead = true;
             Model?.CancelReload();   // 진행 중 재장전이 사망 후 완료되어 인벤토리를 건드리지 않게
+            magazineCheck?.Cancel();
+        }
+
+        // M4 리뷰 수정: 탈출 대기 중 시작한 재장전이 종료 스냅샷 뒤에 끝나 탄창이 이중·누락되지 않게 취소하고 이후 Tick을 멈춘다.
+        private void OnRaidEnded(RaidEnded evt)
+        {
+            raidOver = true;
+            Model?.CancelReload();
             magazineCheck?.Cancel();
         }
 

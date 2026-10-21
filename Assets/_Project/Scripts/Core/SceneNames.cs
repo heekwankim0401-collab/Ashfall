@@ -5,5 +5,7 @@ namespace Ashfall.Core
     {
         public const string Boot = "Boot";
         public const string MainMenu = "MainMenu";
+        // M4 레이드 맵 (§8.1 Crimson Basin)
+        public const string RaidCrimsonBasin = "Raid_CrimsonBasin";
     }
 }

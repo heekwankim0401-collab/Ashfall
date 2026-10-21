@@ -9,7 +9,7 @@ namespace Ashfall.Inventory
     // IInventoryService(UI 조회·명령)와 IMagazineSource(재장전 탄창)를 구현한다. 버스는 모른다 (브리지가 옮김).
     // 규칙 (설계 §5.3, D5, D7)
     // - 조끼·배낭의 내용물 그리드는 슬롯별로 여기서 가진다. 내용물이 있으면 해제·이동·버리기 불가.
-    // - 검색 전 루트 아이템, 사용 중 의약품은 옮길 수 없다. 사망 후 모든 명령 거부.
+    // - 검색 전 루트 아이템, 사용 중 의약품은 옮길 수 없다. 사망·레이드 종료 후 모든 명령 거부(IsFrozen).
     // - 이동·장착·버리기 명령은 지금 이 인벤토리(장착 슬롯·저장 공간·열린 루트)에 있는 아이템만 받는다.
     //   UI 드래그 중 다른 경로(재장전, 의약품 소진)로 빠진 아이템을 다시 넣어 복제·부활시키지 않게 한다 (리뷰 수정).
     //   밖에서 새로 들어오는 아이템은 TryAutoStore(줍기·회수)와 TryEquipNew(시작 장비)로만 받는다.
@@ -52,6 +52,11 @@ namespace Ashfall.Inventory
 
         // 사망 후 모든 명령 거부
         public bool IsDeadLocked { get; set; }
+        // M4 리뷰 수정(RULE-01): 레이드 종료(RaidEnded) 후 잠금. 사망 잠금과 같이 모든 변경을 거부한다
+        // (재장전 탄창 교환·의약품 사용 완료 차감·신호탄 소모 포함). 결과 스냅샷 이후 소지품이 바뀌지 않게 한다.
+        public bool IsRaidEndLocked { get; set; }
+        // 둘 중 하나라도 걸리면 변경 거부 (조회는 그대로). Remove(테스트·디버그용, 규칙 무시)는 예외.
+        public bool IsFrozen => IsDeadLocked || IsRaidEndLocked;
         public LootContainerModel ActiveLootModel => activeLoot;
 
         // ── IInventoryService 읽기 ─────────────────────────────
@@ -107,6 +112,22 @@ namespace Ashfall.Inventory
         }
 
         public bool IsLocked(ItemInstance item) => item != null && locked.Contains(item);
+
+        // M4: 장착 슬롯·저장 공간에 같은 정의가 있나 (열린 루트 제외). 할당 없음 (Raid가 매 프레임 부를 수 있다).
+        public bool Contains(ItemDefinitionSO definition)
+        {
+            if (definition == null)
+                return false;
+            for (int i = 0; i < equipped.Length; i++)
+                if (equipped[i] != null && equipped[i].Definition == definition)
+                    return true;
+            return FindInStorage(definition, skipLocked: false) != null;
+        }
+
+        // M4 리뷰 수정: 지금 TryConsume이 성공하나 (같은 범위 — 저장 공간만, 잠긴 것 제외, 사망·종료 잠금이면 false). 할당 없음.
+        // EXT-03 대기 판정이 이것을 써서 "대기는 진행되는데 완료 순간 소모 실패 → 처음부터"가 반복되지 않게 한다.
+        public bool CanConsume(ItemDefinitionSO definition) =>
+            !IsFrozen && definition != null && FindInStorage(definition, skipLocked: true) != null;
 
         // ── 판정 ─────────────────────────────────────────────
 
@@ -173,7 +194,7 @@ namespace Ashfall.Inventory
         // 의약품만, 저장 공간에 있는 것만. item null = 슬롯 비우기.
         public bool TryAssignQuickSlot(int index, ItemInstance item)
         {
-            if (IsDeadLocked || index < 0 || index >= QuickSlotCount)
+            if (IsFrozen || index < 0 || index >= QuickSlotCount)
                 return false;
             if (item == null)
             {
@@ -196,10 +217,24 @@ namespace Ashfall.Inventory
         // 사용 중(잠김)이거나 남은 횟수가 0이면 거부.
         public bool TryUse(ItemInstance item)
         {
-            if (IsDeadLocked || !(item is MedicalItem medical) || medical.UsesLeft <= 0
+            if (IsFrozen || !(item is MedicalItem medical) || medical.UsesLeft <= 0
                 || !IsInStorage(medical) || locked.Contains(medical))
                 return false;
             UseRequested?.Invoke(medical);
+            return true;
+        }
+
+        // M4: 저장 공간에서 같은 정의 하나를 없앤다 (§8.2 EXT-03 신호탄 소모).
+        // 순서는 StorageGrids(주머니 → 조끼 → 배낭)·배치 순의 첫 번째. 장착 슬롯·열린 루트·잠긴 아이템 제외, 사망 후 거부.
+        // 성공하면 Changed(→ InventoryChanged), 퀵슬롯 참조는 RaiseChanged가 정리한다.
+        public bool TryConsume(ItemDefinitionSO definition)
+        {
+            if (IsFrozen || definition == null)
+                return false;
+            ItemInstance item = FindInStorage(definition, skipLocked: true);
+            if (item == null || !Detach(item))
+                return false;
+            RaiseChanged();
             return true;
         }
 
@@ -216,7 +251,7 @@ namespace Ashfall.Inventory
 
         public void OpenLoot(LootContainerModel loot)
         {
-            if (IsDeadLocked || loot == null || ReferenceEquals(activeLoot, loot))
+            if (IsFrozen || loot == null || ReferenceEquals(activeLoot, loot))
                 return;
             if (activeLoot != null)
                 CloseLoot();
@@ -229,7 +264,7 @@ namespace Ashfall.Inventory
         // 밖에서 들어오는 아이템도 받는다. 인벤토리 안(장착·루트)의 아이템이면 옮길 수 있는 상태여야 한다.
         public bool TryAutoStore(ItemInstance item)
         {
-            if (item == null || IsDeadLocked || IsInStorage(item) || locked.Contains(item))
+            if (item == null || IsFrozen || IsInStorage(item) || locked.Contains(item))
                 return false;
             if (IsInInventory(item) && !CanTakeFrom(item))
                 return false;
@@ -246,7 +281,7 @@ namespace Ashfall.Inventory
         // 밖에서 새로 들어온 아이템을 바로 장착 (시작 장비 등). 이미 이 인벤토리에 있는 아이템은 TryEquip.
         public bool TryEquipNew(ItemInstance item, EquipSlot slot)
         {
-            if (item == null || IsDeadLocked || IsInInventory(item) || locked.Contains(item) || !CanEquipInto(item, slot))
+            if (item == null || IsFrozen || IsInInventory(item) || locked.Contains(item) || !CanEquipInto(item, slot))
                 return false;
             PutInSlot(item, slot);
             return true;
@@ -263,9 +298,10 @@ namespace Ashfall.Inventory
         }
 
         // 의약품 1회 사용 처리. 남은 횟수가 0이면 제거하고 퀵슬롯을 비운다.
+        // 사망·레이드 종료 잠금 중에는 차감하지 않는다 (M4 리뷰 수정: 종료 뒤 사용 완료가 결과 스냅샷과 어긋나지 않게).
         public void ConsumeMedicalUse(MedicalItem item)
         {
-            if (item == null)
+            if (item == null || IsFrozen)
                 return;
             item.ConsumeUse();
             if (item.UsesLeft <= 0)
@@ -290,7 +326,7 @@ namespace Ashfall.Inventory
 
         public bool HasLoadable(AmmoType ammo)
         {
-            if (IsDeadLocked)
+            if (IsFrozen)
                 return false;
             Magazine best = null;
             FindFullestInReloadGrids(ammo, ref best);
@@ -300,7 +336,7 @@ namespace Ashfall.Inventory
         // 탄이 가장 많은 것. 같으면 먼저 찾은 것 (조끼 → 주머니 순).
         public Magazine TakeFullest(AmmoType ammo)
         {
-            if (IsDeadLocked)
+            if (IsFrozen)
                 return null;
             Magazine best = null;
             FindFullestInReloadGrids(ammo, ref best);
@@ -311,14 +347,14 @@ namespace Ashfall.Inventory
         }
 
         // 일반 재장전 회수 = 자동 배치 (조끼 → 주머니 → 배낭). 공간 없으면 false.
-        public bool TryStore(Magazine magazine) => !IsDeadLocked && TryAutoStore(magazine);
+        public bool TryStore(Magazine magazine) => !IsFrozen && TryAutoStore(magazine);
 
         // ── 내부 ─────────────────────────────────────────────
 
         // 이 인벤토리 안에 있고 옮길 수 있는 상태인가 (원래 자리 기준)
         private bool CanTakeFrom(ItemInstance item)
         {
-            if (item == null || IsDeadLocked || locked.Contains(item))
+            if (item == null || IsFrozen || locked.Contains(item))
                 return false;
             if (TryFindEquippedSlot(item, out EquipSlot slot))
             {
@@ -374,6 +410,22 @@ namespace Ashfall.Inventory
                 if (IsLoadable(item, ammo) && (best == null || ((Magazine)item).Rounds > best.Rounds))
                     best = (Magazine)item;
             }
+        }
+
+        // 저장 공간(StorageGrids 순)에서 정의가 같은 첫 아이템. 할당 없이 순회.
+        private ItemInstance FindInStorage(ItemDefinitionSO definition, bool skipLocked)
+        {
+            for (int g = 0; g < storageGrids.Length; g++)
+            {
+                IReadOnlyList<PlacedItem> items = storageGrids[g].Items;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    ItemInstance item = items[i].Item;
+                    if (item.Definition == definition && !(skipLocked && locked.Contains(item)))
+                        return item;
+                }
+            }
+            return null;
         }
 
         private IEnumerable<ItemGrid> AutoStoreOrder()

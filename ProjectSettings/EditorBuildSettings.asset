@@ -11,6 +11,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Project/Scenes/MainMenu.unity
     guid: 3b426db4bd61b4342b8409bfa4db60c3
+  - enabled: 1
+    path: Assets/_Project/Scenes/Raid_CrimsonBasin.unity
+    guid: 1d8dcf31853a0d5449754c2d0325f9ba
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

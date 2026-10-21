@@ -94,6 +94,11 @@ namespace Ashfall.Core
         float TotalWeightKg { get; }
         bool TryGetLocation(ItemInstance item, out ItemLocation location);   // 장착·저장 공간·열린 루트에 없으면 false
         bool IsLocked(ItemInstance item);                // 사용 중 의약품처럼 옮길 수 없게 잠긴 아이템 (드래그 시작 거부)
+        // M4: 장착 슬롯·저장 공간에 같은 정의가 있나 (열린 루트 제외). EXT-03 신호탄, 지도 아이템 (§8.2, RULE-06)
+        bool Contains(ItemDefinitionSO definition);
+        // M4 리뷰 수정: TryConsume이 지금 성공하나 (같은 범위 — 저장 공간만, 잠긴 것 제외, 사망·레이드 종료 잠금이면 false).
+        // EXT-03 대기 판정은 Contains가 아니라 이것을 쓴다 (장착·잠긴 신호탄으로 대기만 반복되지 않게).
+        bool CanConsume(ItemDefinitionSO definition);
 
         // ── 판정 (드래그 미리보기)
         bool CanPlace(ItemInstance item, GridRef grid, Vector2Int cell, bool rotated);
@@ -106,6 +111,8 @@ namespace Ashfall.Core
         bool TryDrop(ItemInstance item);                        // 바닥에 버리기 (WorldItem)
         bool TryAssignQuickSlot(int index, ItemInstance item);  // 의약품만, 저장 공간에 있는 것만
         bool TryUse(ItemInstance item);                         // 의약품 → MedicalUseRequested
+        // M4: 저장 공간에서 같은 정의 하나를 없앤다 (EXT-03 신호탄 소모). 장착 슬롯·열린 루트·잠긴 아이템 제외, 사망 후 거부.
+        bool TryConsume(ItemDefinitionSO definition);
         void CloseLoot();
     }
 }

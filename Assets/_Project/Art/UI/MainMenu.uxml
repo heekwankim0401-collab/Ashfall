@@ -1,0 +1,39 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- 메인 메뉴 (M4 설계 §1.3, §3.4). MainMenuRoot·RaidResultView가 이름으로 요소를 찾는다. 이름을 바꾸면 C# 상수도 바꾼다.
+         문구는 UiText가 원본이고 여기 text는 미리보기용. M5: 은신처가 생기면 결과 패널은 Hideout으로 옮긴다. -->
+    <Style src="Ashfall.uss" />
+    <ui:VisualElement name="main-menu" class="ash-root menu-root">
+
+        <!-- [레이드 시작] / [종료] (TODO(GDD-?) Q22) -->
+        <ui:VisualElement name="menu-panel" class="panel menu-panel">
+            <ui:Label name="menu-title" text="ASHFALL" class="menu-title" picking-mode="Ignore" />
+            <ui:Button name="menu-start" text="레이드 시작" class="ash-button" />
+            <ui:Button name="menu-quit" text="종료" class="ash-button" />
+        </ui:VisualElement>
+
+        <!-- 레이드 결과 (Q15·Q18). 탄 수·HP 수치 없음. -->
+        <ui:VisualElement name="result-panel" class="panel result-panel">
+            <ui:Label name="result-title" class="result-title" picking-mode="Ignore" />
+            <ui:VisualElement class="result-stats" picking-mode="Ignore">
+                <ui:Label name="result-duration" class="result-stat" picking-mode="Ignore" />
+                <ui:Label name="result-kills" class="result-stat" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="result-lists" picking-mode="Ignore">
+                <ui:VisualElement class="result-section" picking-mode="Ignore">
+                    <ui:Label text="반입" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="result-brought-in" class="result-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="result-carried-out-section" class="result-section" picking-mode="Ignore">
+                    <ui:Label text="반출" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="result-carried-out" class="result-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="result-lost-section" class="result-section" picking-mode="Ignore">
+                    <ui:Label text="소실" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="result-lost" class="result-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Button name="result-confirm" text="확인" class="ash-button" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>
