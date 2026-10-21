@@ -2,7 +2,8 @@
     "name": "Ashfall.Player",
     "rootNamespace": "Ashfall.Player",
     "references": [
-        "Ashfall.Core"
+        "Ashfall.Core",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

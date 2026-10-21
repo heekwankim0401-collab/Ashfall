@@ -4,11 +4,17 @@
 **구현 기준은 [docs/GDD.md](docs/GDD.md)다.** 작업 전 §0 작업 규칙, §13 기술 스펙, 현재 마일스톤(§15)을 읽는다.
 
 ## 현재 진행
-- 마일스톤: M0(프로젝트 셋업) 완료. 다음은 M1. 한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
+- 마일스톤: M0 완료. M1(이동·사격 그레이박스) 구현과 자동 테스트 완료, 에디터에서 조작감 확인 대기. 다음은 M2.
+  한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
+- M1 확인 씬: `Assets/_Project/Scenes/Test/M1_Greybox.unity` (빌드 설정에는 없음, `Ashfall/Setup/Create M1 Greybox Scene`으로 생성).
+- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
 
 ## 구조 (GDD §13.2)
 - `Assets/_Project/Scripts/<시스템>/` — 폴더마다 asmdef `Ashfall.<폴더명>`, 네임스페이스도 같다.
-  - `Core` — 공용(씬 이름, BootLoader, 이후 GameManager·이벤트 버스·세이브). 다른 Ashfall 어셈블리를 참조하지 않는다.
+  - `Core` — 공용(씬 이름, BootLoader, 아이템·무기·탄약·탄창 SO와 enum(`Data/`), `IDamageable`·`DamageInfo`·`IRecoilReceiver`(`Combat/`),
+    이후 GameManager·이벤트 버스·세이브). 다른 Ashfall 어셈블리를 참조하지 않는다. 여러 기능이 같이 쓰는 타입은 여기 둔다.
+  - `Player` — `PlayerConfigSO`, 순수 로직 `LocomotionModel`·`StaminaModel`, 얇은 `PlayerMotor`(입력·CharacterController).
+  - `Weapons` — 순수 로직 `Magazine`·`FireControl`·`WeaponModel`·`Ballistics`, `ProjectileSystem`(탄 전체를 구조체로 시뮬레이션), `WeaponController`, 그레이박스 표적 `HitTarget`.
   - `Player`, `Weapons`, `Inventory`, `AI`, `Raid`, `Hideout`, `UI`, `Audio` — `Ashfall.Core`만 참조. 기능끼리 직접 참조 금지(이벤트 버스).
   - `EditorTools` — 에디터 전용(씬·에셋 생성 메뉴). `Ashfall/...` 메뉴.
 - `Assets/_Project/Data/` — ScriptableObject 에셋. `Scenes/` — `Boot`(빌드 첫 씬) → `MainMenu`.

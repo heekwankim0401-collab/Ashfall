@@ -2,7 +2,9 @@
     "name": "Ashfall.EditorTools",
     "rootNamespace": "Ashfall.EditorTools",
     "references": [
-        "Ashfall.Core"
+        "Ashfall.Core",
+        "Ashfall.Player",
+        "Ashfall.Weapons"
     ],
     "includePlatforms": [
         "Editor"

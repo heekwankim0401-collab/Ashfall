@@ -2,7 +2,8 @@
     "name": "Ashfall.Weapons",
     "rootNamespace": "Ashfall.Weapons",
     "references": [
-        "Ashfall.Core"
+        "Ashfall.Core",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 08f5716790f64b94283b2f31d9bf0109, type: 3}
+  m_Name: PlayerConfig
+  m_EditorClassIdentifier: Ashfall.Player::Ashfall.Player.PlayerConfigSO
+  walkSpeed: 3
+  sprintSpeed: 5.5
+  crouchSpeed: 1.6
+  proneSpeed: 0.8
+  walkNoise: 8
+  sprintNoise: 20
+  crouchNoise: 3
+  proneNoise: 1
+  jumpNoise: 15
+  jumpHeightM: 1
+  jumpStaminaCost: 20
+  leanAngleDeg: 15
+  staminaMax: 100
+  sprintStaminaPerSec: 15
+  staminaRegenMovingPerSec: 10
+  staminaRegenStationaryPerSec: 20
+  exhaustedSprintLockSec: 3
+  weightPenaltyStartKg: 25
+  weightPenaltyPerKg: 0.02
+  sprintMaxWeightKg: 40
+  standHeight: 1.8
+  crouchHeight: 1.2
+  proneHeight: 0.6
+  eyeBelowTop: 0.12
+  stanceChangeSpeed: 3
+  lookSensitivity: 0.1
+  pitchLimitDeg: 85
+  leanOffsetM: 0.3
+  leanSpeed: 6
+  groundStickSpeed: -2
