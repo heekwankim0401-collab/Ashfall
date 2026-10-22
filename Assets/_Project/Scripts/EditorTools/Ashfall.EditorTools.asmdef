@@ -10,7 +10,10 @@
         "Ashfall.AI",
         "Ashfall.Raid",
         "Ashfall.Hideout",
-        "Unity.AI.Navigation"
+        "Ashfall.Audio",
+        "Unity.AI.Navigation",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

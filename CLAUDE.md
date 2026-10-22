@@ -4,7 +4,8 @@
 **구현 기준은 [docs/GDD.md](docs/GDD.md)다.** 작업 전 §0 작업 규칙, §13 기술 스펙, 현재 마일스톤(§15)을 읽는다.
 
 ## 현재 진행
-- 마일스톤: M0~M5(이동·사격, 체력·인벤토리, 적 AI, 레이드 루프, 은신처 & 세이브) 완료(자동 테스트 + 에디터·빌드 확인). 다음은 M6.
+- 마일스톤: M0~M5(이동·사격, 체력·인벤토리, 적 AI, 레이드 루프, 은신처 & 세이브) 완료(자동 테스트 + 에디터·빌드 확인).
+  M6(아트 & 오디오 패스, 재 폭풍)은 자동 테스트·빌드 완료, 에디터 확인 대기(`docs/design/M6_design.md` §7.1). 다음은 M7.
 - 마일스톤 설계·리뷰 노트와 진행 방식은 `docs/design/`(README 참고). 새 마일스톤도 같은 방식으로 설계 문서를 여기에 남긴다.
   한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
 - 확인 씬(빌드 설정에는 없음): `Assets/_Project/Scenes/Test/M1_Greybox.unity`(`Ashfall/Setup/Recreate M1 Greybox Scene`),
@@ -12,14 +13,16 @@
   `Assets/_Project/Scenes/Test/M3_AI.unity`·`M3_AIPerf.unity`(`Ashfall/Setup/Create M3 Test Scenes`, 데이터·NavMesh 포함).
 - 게임 씬(빌드 순서): `Boot` → `MainMenu` → `Hideout` → `Raid_CrimsonBasin`. `Ashfall/Setup/Create M4 Raid Scenes`가 MainMenu·레이드 씬·Terrain·NavMesh를,
   `Ashfall/Setup/Create M5 Hideout Scene`이 M5 데이터(가격·상인·키트·ItemDatabase)·Hideout 씬을 만들고, 둘 다 빌드 설정을 맞춘다.
+- M6 아트·오디오: `Ashfall/Setup/Apply M6 Art & Audio`가 팔레트·대기·폭풍·오디오 데이터와 자리표시 에셋(하늘 PNG·팔레트 머티리얼·볼륨 프로필·합성 WAV `Assets/_Project/Audio/Placeholder/`)을
+  만들고 Raid·Hideout·MainMenu 씬에 적용한다(재실행해도 같음, M4/M5 씬 메뉴도 저장 전에 부른다). WAV는 없을 때만 쓰고 SO 클립은 빈 필드만 채우므로 같은 경로에 실제 에셋을 덮어쓰면 유지된다.
 - 세이브: `Application.persistentDataPath/save.json`(에디터 메뉴 `Ashfall/Save/Open Save Folder`·`Delete Save Files`). 테스트는 실제 경로를 쓰지 않는다
   (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
-- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
+- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5/M6 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
 - Windows 빌드: `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.BuildTools.BuildWindows64` → `Builds/Windows64/`.
 
 ## 구조 (GDD §13.2)
 - `Assets/_Project/Scripts/<시스템>/` — 폴더마다 asmdef `Ashfall.<폴더명>`, 네임스페이스도 같다.
-  - `Core` — 공용(씬 이름, BootLoader, 아이템·무기·탄약·탄창 SO와 enum(`Data/`), `IDamageable`·`DamageInfo`·`IRecoilReceiver`(`Combat/`),
+  - `Core` — 공용(씬 이름, BootLoader, 팔레트 `PaletteSO`(§10.1)·보폭 리듬 `StrideCadence`(`Movement/`), 아이템·무기·탄약·탄창 SO와 enum(`Data/`), `IDamageable`·`DamageInfo`·`IRecoilReceiver`(`Combat/`),
     유일한 싱글톤 `GameManager`(자동 생성)가 가진 `EventBus`(`Events/`)·`ServiceRegistry`와 기능 간 인터페이스(`Services/`),
     씬 흐름·레이드 결과·세계 정지(timeScale의 유일한 주체) `GameFlow`(`Flow/`)와 `RaidResult`(`Raid/`),
     런타임 아이템 `ItemInstance`·`Magazine`·`WeaponItem`·`MedicalItem`·`LootRoller`·`InventorySnapshot`, 그리드 `ItemGrid`, 반입 `Loadout`(`Items/`),
@@ -36,6 +39,9 @@
     얇은 `HideoutController`, `HideoutConfigSO`·`TraderConfigSO`.
   - `Raid` — 순수 로직 `RaidSession`(타이머·종료 단일 처리)·`ExtractionModel`·`ExtractionRules`·`ActiveExtractionPicker`·`RaidResultBuilder`(RULE-01 유일 판정),
     얇은 `RaidController`(정적 인스턴스 없음)·`ExtractionZone`·`PowerSwitch`·`PlayerSpawnPoint`·`PointOfInterest`, `RaidConfigSO`.
+    재 폭풍(§8.3): 순수 `AshStormModel`·`AshStormSchedule`·`FogMath`·`AshStormVisualMath`, 얇은 `AshStormController`(`IAshStormInfo`)·`AshStormPresenter`(안개·하늘 복제본·재 파티클), `AtmosphereConfigSO`·`AshStormConfigSO`.
+  - `Audio` — 순수 로직 `GunshotMix`(거리 3단계)·`FootstepMix`·`SurfaceResolver`·`VoiceAllocator`·`GeigerClickModel` 등, 얇은 `AudioDirector`(레이드, `FootstepTaken`·`ShotFired` 재생, 정적 인스턴스 없음)·
+    `AmbientSoundscape`·`SurfaceProbe`·`HideoutMusic`, `AudioConfigSO`, 지면 재질 `GroundSurface`(흙/금속/잔해/물).
   - `UI` — UI Toolkit(GameUI: HUD·인벤토리·부위 상태·지도·일시정지·종료 오버레이, MainMenu: [은신처]/[종료], HideoutUI: 알림·레이드 결과·허브([장비]/[상인]·키트)). 순수 모델·프레젠터(`GameUIPresenter` 등)와 뷰, `GameUIRoot`. UXML/USS는 `Assets/_Project/Art/UI/`.
   - `Player`, `Weapons`, `Inventory`, `AI`, `Raid`, `Hideout`, `UI`, `Audio` — `Ashfall.Core`만 참조. 기능끼리 직접 참조 금지(이벤트 버스).
   - `EditorTools` — 에디터 전용(씬·에셋 생성 메뉴). `Ashfall/...` 메뉴.

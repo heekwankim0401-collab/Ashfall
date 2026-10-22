@@ -2,11 +2,13 @@
 using System.Collections;
 using System.IO;
 using System.Linq;
+using Ashfall.Audio;
 using Ashfall.Core;
 using Ashfall.Hideout;
 using Ashfall.Inventory;
 using Ashfall.UI;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
@@ -20,6 +22,12 @@ namespace Ashfall.Tests.PlayMode
     // 세이브는 SaveSandbox의 새 임시 폴더(새 프로필). 콘솔 오류가 나면 테스트 프레임워크가 실패시킨다.
     public class HideoutSceneSmokeTests
     {
+        // M6 계약 값(M6Names — 테스트 asmdef는 EditorTools를 참조하지 않는다)
+        private const string PalettePath = "Assets/_Project/Data/Art/Palette.asset";
+        private const string AudioConfigPath = "Assets/_Project/Data/Audio/AudioConfig.asset";
+        private const string HideoutMusicObject = "HideoutMusic";
+        private const float ColorEps = 1.5f / 255f;
+
         private FileSaveStorage storage;
 
         [UnitySetUp]
@@ -62,6 +70,20 @@ namespace Ashfall.Tests.PlayMode
             Assert.AreEqual(1, Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).Length, "카메라 수");
             Assert.AreEqual(CursorLockMode.None, UnityEngine.Cursor.lockState, "은신처에서 커서가 잠겨 있다");
             Assert.IsTrue(UnityEngine.Cursor.visible, "커서 숨김");
+
+            // ── M6 (설계 §6 3단계, Q18·Q29): 배경 Ash_Black, 은신처 음악 1개 ──
+            AssertBackgroundAshBlack(SceneNames.Hideout);
+            HideoutMusic music = Single<HideoutMusic>();
+            Assert.AreEqual(HideoutMusicObject, music.name, "HideoutMusic 오브젝트 이름");
+            Assert.IsNull(music.transform.parent, "HideoutMusic은 최상위");
+            Assert.AreSame(AssetDatabase.LoadAssetAtPath<AudioConfigSO>(AudioConfigPath), music.Config, "HideoutMusic.config");
+            Assert.IsNotNull(music.Config.hideoutMusic, "은신처 음악 클립 (Apply M6 Art & Audio)");
+            Assert.IsNotNull(music.Source, "음악 AudioSource");
+            Assert.AreSame(music.Config.hideoutMusic, music.Source.clip, "음악 클립");
+            Assert.IsTrue(music.Source.loop, "음악 루프");
+            Assert.IsTrue(music.Source.ignoreListenerPause, "은신처 음악은 세계 정지와 무관");
+            Assert.IsTrue(music.PlayRequested, "음악 재생 요청");
+            Assert.AreEqual(0, Object.FindObjectsByType<AudioDirector>(FindObjectsSortMode.None).Length, "은신처에 레이드 오디오 없음");
 
             HideoutController controller = Single<HideoutController>();
             HideoutInventoryBehaviour inventoryBehaviour = Single<HideoutInventoryBehaviour>();
@@ -172,6 +194,37 @@ namespace Ashfall.Tests.PlayMode
 
             // 거래·키트는 메모리에서만 (Q7): 파일은 진입 저장 그대로
             AssertSaveFile(raidInProgress: false, casings: 6000, stashCount: 0);
+        }
+
+        // M6 설계 §6 3단계: 메인 메뉴에는 음악·레이드 오디오가 없고 배경은 Ash_Black (§11 "BGM 없음(은신처 제외)", Q29)
+        [UnityTest]
+        [Timeout(60000)]
+        public IEnumerator MainMenu_HasNoMusic_BackgroundAshBlack()
+        {
+            yield return M4Raid.LoadScene(SceneNames.MainMenu);
+            Assert.AreEqual(0, Object.FindObjectsByType<HideoutMusic>(FindObjectsSortMode.None).Length, "메인 메뉴 음악 오브젝트");
+            Assert.AreEqual(0, Object.FindObjectsByType<AudioDirector>(FindObjectsSortMode.None).Length, "메인 메뉴 레이드 오디오");
+            AudioConfigSO audio = AssetDatabase.LoadAssetAtPath<AudioConfigSO>(AudioConfigPath);
+            Assert.IsNotNull(audio, $"{AudioConfigPath} 없음");
+            foreach (AudioSource source in Object.FindObjectsByType<AudioSource>(FindObjectsSortMode.None))
+                Assert.AreNotSame(audio.hideoutMusic, source.clip, $"메인 메뉴에서 음악 클립을 트는 소스 {source.name}");
+            AssertBackgroundAshBlack(SceneNames.MainMenu);
+        }
+
+        private static void AssertBackgroundAshBlack(string sceneName)
+        {
+            PaletteSO palette = AssetDatabase.LoadAssetAtPath<PaletteSO>(PalettePath);
+            Assert.IsNotNull(palette, $"{PalettePath} 없음");
+            Color expected = palette.Get(PaletteToken.AshBlack);
+            Camera[] cameras = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            Assert.Greater(cameras.Length, 0, $"{sceneName}: 카메라 없음");
+            foreach (Camera camera in cameras)
+            {
+                Assert.AreEqual(CameraClearFlags.SolidColor, camera.clearFlags, $"{sceneName}: {camera.name} 배경 단색");
+                Assert.AreEqual(expected.r, camera.backgroundColor.r, ColorEps, $"{sceneName}: 배경 r = Ash_Black");
+                Assert.AreEqual(expected.g, camera.backgroundColor.g, ColorEps, $"{sceneName}: 배경 g = Ash_Black");
+                Assert.AreEqual(expected.b, camera.backgroundColor.b, ColorEps, $"{sceneName}: 배경 b = Ash_Black");
+            }
         }
 
         private static T Single<T>() where T : Object

@@ -10,7 +10,7 @@ namespace Ashfall.AI
 {
     // 씬당 1개의 AI 관리자 (M3 설계 §5.1). 정적 Instance 없음(싱글톤은 GameManager 하나, §13.3).
     // - 적 등록·분대 묶기·엄폐 수집(CoverPoint → CoverIndex)
-    // - 서비스 조회: IPlayerTarget, IProjectileService (없으면 targetResolveRetrySec마다 재조회)
+    // - 서비스 조회: IPlayerTarget, IProjectileService, IAshStormInfo(M6, 없으면 폭풍 없음) — targetResolveRetrySec마다 재조회
     // - 소음 분배: NoiseEmitted → 반경 × hearingMultiplier 안의 살아 있는 적
     // - 틱: 감각 갱신은 AiTickScheduler로 분산(프레임당 maxSenseUpdatesPerFrame), 의도 적용은 매 프레임
     // - 측정: ProfilerMarker "Ashfall.AI.Tick" + Stopwatch → Stats
@@ -44,6 +44,11 @@ namespace Ashfall.AI
         public CoverIndex Covers { get; private set; }
         public IPlayerTarget Target { get; private set; }
         public IProjectileService Projectiles { get; private set; }
+        // 재 폭풍 상태 (M6 §1.5, Q26). 레이드 밖·폭풍 제공자 없음 = null.
+        public IAshStormInfo Storm { get; private set; }
+
+        // 감각 갱신에 넘기는 시야 상한 (m). 폭풍 없음 = +∞ (SightCone.EffectiveRange가 기존 거리 그대로 쓴다).
+        public float VisibilityCapM => Storm != null ? Storm.VisibilityM : float.PositiveInfinity;
 
         internal IEnemyWorld World => world;
         internal ILineOfSight LineOfSight => lineOfSight;
@@ -188,6 +193,7 @@ namespace Ashfall.AI
                 if (dueSlots.Length != Mathf.Max(1, config.maxSenseUpdatesPerFrame))
                     dueSlots = new int[Mathf.Max(1, config.maxSenseUpdatesPerFrame)];
 
+                float visibilityCap = VisibilityCapM;
                 int due = scheduler.CollectDue(now, config.maxSenseUpdatesPerFrame, dueSlots);
                 for (int i = 0; i < due; i++)
                 {
@@ -200,7 +206,7 @@ namespace Ashfall.AI
                     }
                     try
                     {
-                        agent.Sense(Target, lineOfSight, now);
+                        agent.Sense(Target, lineOfSight, now, visibilityCap);
                     }
                     catch (Exception e)
                     {
@@ -238,6 +244,8 @@ namespace Ashfall.AI
                 Target = null;
             if (Projectiles is UnityEngine.Object p && p == null)
                 Projectiles = null;
+            if (Storm is UnityEngine.Object s && s == null)
+                Storm = null;
         }
 
         private void ResolveServices(float now)
@@ -255,6 +263,11 @@ namespace Ashfall.AI
                 Projectiles = projectiles;
             else
                 Projectiles = null;
+            // 재 폭풍 (Raid AshStormController가 레이드 씬에서만 등록, M6 Q26). 해제되면 다음 조회에서 놓는다 → 상한 없음.
+            if (gm.Services.TryGet(out IAshStormInfo storm))
+                Storm = storm;
+            else
+                Storm = null;
         }
     }
 }

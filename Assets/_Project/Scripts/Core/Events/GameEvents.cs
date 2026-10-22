@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Ashfall.Core
 {
-    // M2~M5 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3, M4 설계 §4.1, M5 설계 §4.1). 전부 readonly struct, GameManager.Events로 발행한다.
+    // M2~M6 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3, M4 설계 §4.1, M5 설계 §4.1, M6 설계 §1.2). 전부 readonly struct, GameManager.Events로 발행한다.
     // 이벤트는 기능 사이에서만 쓴다. 같은 어셈블리 안은 직접 참조한다.
 
     // ── Inventory → 다른 기능 ──────────────────────────────
@@ -278,6 +278,79 @@ namespace Ashfall.Core
     // 탄피·보관함 내용·키트 상태가 바뀜 → 은신처 UI가 IHideoutService·IInventoryService를 다시 읽는다.
     // 은신처 인벤토리 브리지(Inventory)는 이것을 받아 InventoryChanged로 다시 알린다(보관함 그리드가 바뀌었으니).
     public readonly struct HideoutChanged : IGameEvent { }
+
+    // ── M6: 소리 발생 (Player·Weapons·AI → Audio) ─────────
+
+    // 소리를 낸 쪽 (M6 설계 §1.2). Audio가 내 발소리 음량·voice 우선순위를 가른다.
+    public enum SoundSource
+    {
+        Player,
+        Enemy,
+    }
+
+    // 걸음 종류 (§4.1 이동 상태). 음량·들리는 거리를 가른다. 자세(엎드림 > 웅크림) > 질주 > 걷기 순으로 정한다.
+    public enum FootstepGait
+    {
+        Walk,
+        Sprint,
+        Crouch,
+        Prone,
+    }
+
+    // 한 걸음 (§11 지면별 발소리, M6 Q12·Q13). 보폭마다(StrideCadence) 플레이어·적이 발행 → Audio가 지면을 판정해 재생한다.
+    // AI 청각용 NoiseEmitted(Footstep)와 별개(그쪽은 0.5초 펄스, 그대로).
+    public readonly struct FootstepTaken : IGameEvent
+    {
+        public readonly Vector3 Position;    // 발 위치 (지면 판정은 여기서 위로 조금 띄워 아래로)
+        public readonly FootstepGait Gait;
+        public readonly SoundSource Source;
+
+        public FootstepTaken(Vector3 position, FootstepGait gait, SoundSource source)
+        {
+            Position = position;
+            Gait = gait;
+            Source = source;
+        }
+    }
+
+    // 한 발 사격 (§11 총성 거리 레이어, M6 Q14). 발당 1회(펠릿 수 무관), 플레이어·적 모두 → Audio.
+    // AI 청각은 계속 NoiseEmitted(Gunshot)만 본다(적 총성은 적이 듣지 않는다, M3 규칙 유지).
+    public readonly struct ShotFired : IGameEvent
+    {
+        public readonly Vector3 Position;            // 총구
+        public readonly WeaponDefinitionSO Weapon;   // null 허용 → Audio가 AudioConfigSO.fallbackGunshotClass 세트
+        public readonly SoundSource Source;
+
+        public ShotFired(Vector3 position, WeaponDefinitionSO weapon, SoundSource source)
+        {
+            Position = position;
+            Weapon = weapon;
+            Source = source;
+        }
+    }
+
+    // ── M6: Raid(재 폭풍) → 다른 기능 ─────────────────────
+
+    // 재 폭풍 단계 (§8.3, M6 Q23·Q24). 레이드당 Pending → Rising → Peak → Falling → Over 한 번씩.
+    public enum AshStormPhase
+    {
+        Pending,    // 아직 시작 전
+        Rising,     // 강도 0 → 1 전환
+        Peak,       // 최대 강도 (§8.3 "3분", 시야 30m)
+        Falling,    // 강도 1 → 0 전환
+        Over,       // 끝남 (이번 레이드에 다시 없음)
+    }
+
+    // 재 폭풍 단계가 바뀜 (바뀔 때만, 레이드당 4회) → Audio 폭풍 루프 시작·정지. 강도·시야는 IAshStormInfo로 읽는다.
+    public readonly struct AshStormChanged : IGameEvent
+    {
+        public readonly AshStormPhase Phase;
+
+        public AshStormChanged(AshStormPhase phase)
+        {
+            Phase = phase;
+        }
+    }
 
     // ── UI → 다른 기능 ─────────────────────────────────────
 

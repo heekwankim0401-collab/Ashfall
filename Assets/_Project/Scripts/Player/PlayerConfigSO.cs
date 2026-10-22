@@ -123,6 +123,14 @@ namespace Ashfall.Player
         [Tooltip("이동 중 발소리 소음(NoiseEmitted)을 내는 간격 (초). TODO(GDD-?)")]
         public float noisePulseIntervalSec = 0.5f;
 
+        // M6 설계 §3.6, Q12: 발소리(FootstepTaken) 리듬. AI 청각용 소음 펄스와 별개.
+        [Header("M6 발소리 보폭 (m, TODO(GDD-?))")]
+        [Tooltip("걷기 보폭 (걷기 3.0m/s → 2걸음/s)")]
+        public float strideWalkM = 1.5f;
+        public float strideSprintM = 2.2f;
+        public float strideCrouchM = 0.8f;
+        public float strideProneM = 0.6f;
+
         // 부위 최대 HP (§4.2)
         public float MaxHp(BodyPart part)
         {

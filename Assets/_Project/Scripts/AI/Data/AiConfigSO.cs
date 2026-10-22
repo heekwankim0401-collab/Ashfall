@@ -118,8 +118,19 @@ namespace Ashfall.AI
         [Tooltip("숨은 자리가 무효화된 엄폐 지점을 다시 고르지 않는 시간 (초)")]
         public float coverInvalidatedExcludeSec = 5f;
 
+        // M6 설계 §3.6, Q12·Q13: 적 발소리(FootstepTaken) 리듬. NavMeshAgent 속도로 걸음 종류를 고른다.
+        [Header("M6 발소리 (TODO(GDD-?))")]
+        [Tooltip("걷기 보폭 (m)")]
+        public float footstepStrideWalkM = 1.5f;
+        [Tooltip("달리기(Sprint 걸음) 보폭 (m)")]
+        public float footstepStrideRunM = 2.2f;
+        [Tooltip("이 속도(m/s)보다 빠르면 Sprint 걸음")]
+        public float footstepRunSpeedMps = 3.5f;
+        [Tooltip("이 속도(m/s)보다 느리면 걸음 없음")]
+        public float footstepMinSpeedMps = 0.3f;
+
         [Header("디버그")]
-        [Tooltip("머리 위 상태 색 표시 (그레이박스 확인용, M6에서 끔)")]
-        public bool showStateIndicator = true;
+        [Tooltip("머리 위 상태 색 표시 (그레이박스 확인용). M6 Q8에서 끔 — 기본값도 false(새로 만든 AiConfig·테스트 인스턴스)")]
+        public bool showStateIndicator = false;
     }
 }

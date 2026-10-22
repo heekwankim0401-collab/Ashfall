@@ -10,6 +10,8 @@ namespace Ashfall.Player
     //     화면이 열려 있거나(ScreenStateChanged) 사망하면 입력을 무시하고 중력만 적용한다 (설계 D9).
     // M3: AI가 보는 표적(IPlayerTarget)으로 등록하고, 발소리·점프 소음을 NoiseEmitted로 낸다 (§4.1, §7 청각).
     // M4: 레이드 시작 스폰 배치(IPlayerPlacement)를 받는다 (M4 설계 §1.1). Raid는 Transform을 직접 건드리지 않는다.
+    // M6: 오디오 발소리(§11). Move 뒤 실제 수평 이동 거리(접지 중만)를 보폭(StrideCadence)으로 나눠 걸음마다 FootstepTaken(발 위치, 걸음, Player).
+    //     걸음 = 자세(엎드림 > 웅크림) > 질주 > 걷기 (SelectGait). AI 청각용 NoiseEmitted(Footstep) 0.5초 펄스는 그대로.
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMotor : MonoBehaviour, IRecoilReceiver, IPlayerTarget, IPlayerPlacement
     {
@@ -22,6 +24,7 @@ namespace Ashfall.Player
         private PlayerHealth health;
         private InputAction move, look, sprint, crouch, prone, leanLeft, leanRight, jump;
         private FootstepNoiseModel footsteps;
+        private readonly StrideCadence stride = new StrideCadence();
 
         private float pitch;
         private float lean;          // -1(왼쪽) ~ 1(오른쪽)
@@ -43,6 +46,34 @@ namespace Ashfall.Player
 
         // 이번 프레임 소음 반경 (이동 + 점프). AI 청각에는 NoiseEmitted로 따로 낸다 (M3).
         public float CurrentNoiseRadius { get; private set; }
+
+        // M6: 지금 걸음 종류 (발소리 음량·들리는 거리)
+        public FootstepGait CurrentGait => SelectGait(Posture, IsSprinting);
+
+        // M6 순수 규칙: 걸음 = 자세(엎드림 > 웅크림) > 질주 > 걷기.
+        public static FootstepGait SelectGait(TargetPosture posture, bool sprinting)
+        {
+            switch (posture)
+            {
+                case TargetPosture.Prone: return FootstepGait.Prone;
+                case TargetPosture.Crouching: return FootstepGait.Crouch;
+                default: return sprinting ? FootstepGait.Sprint : FootstepGait.Walk;
+            }
+        }
+
+        // M6 걸음별 보폭 (PlayerConfigSO §3.6, TODO(GDD-?))
+        public static float StrideLength(PlayerConfigSO config, FootstepGait gait)
+        {
+            if (config == null)
+                return 0f;
+            switch (gait)
+            {
+                case FootstepGait.Sprint: return config.strideSprintM;
+                case FootstepGait.Crouch: return config.strideCrouchM;
+                case FootstepGait.Prone: return config.strideProneM;
+                default: return config.strideWalkM;
+            }
+        }
 
         // ── IPlayerTarget (AI 감각, M3) ──
         public Transform Root => transform.root;
@@ -102,6 +133,7 @@ namespace Ashfall.Player
             Cursor.visible = true;
 
             footsteps?.Reset();
+            stride.Reset();
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.Services.Unregister<IPlayerTarget>(this);
@@ -139,6 +171,7 @@ namespace Ashfall.Player
             lean = 0f;
             verticalVelocity = 0f;
             footsteps?.Reset();
+            stride.Reset();
             if (eye != null && Locomotion != null)
             {
                 eye.localPosition = new Vector3(0f, eyeHeight, 0f);
@@ -185,9 +218,24 @@ namespace Ashfall.Player
 
             Vector3 horizontal = (transform.right * input.x + transform.forward * input.y)
                                  * Locomotion.Speed(IsSprinting, carriedWeightKg, condition);
+            Vector3 before = transform.position;
             controller.Move((horizontal + Vector3.up * verticalVelocity) * dt);
+            TickStride(before, moving && !blocked);
 
             UpdateEye(dt, blocked);
+        }
+
+        // M6 발소리 (§11): 실제로 움직인 수평 거리로 보폭을 센다(벽에 막히면 걸음 없음). 공중에서는 세지 않고 누적을 유지한다
+        // (경사·계단의 isGrounded 깜빡임에 리듬이 끊기지 않게). 이동 입력이 없거나(밀림·미끄러짐) 멈추면 StrideCadence가 리셋한다.
+        private void TickStride(Vector3 before, bool walking)
+        {
+            if (!controller.isGrounded)
+                return;
+            Vector3 delta = transform.position - before;
+            delta.y = 0f;
+            FootstepGait gait = CurrentGait;
+            if (stride.Tick(walking ? delta.magnitude : 0f, StrideLength(config, gait)) && GameManager.Instance != null)
+                GameManager.Instance.Events.Publish(new FootstepTaken(transform.position, gait, SoundSource.Player));
         }
 
         private void UpdateLook()

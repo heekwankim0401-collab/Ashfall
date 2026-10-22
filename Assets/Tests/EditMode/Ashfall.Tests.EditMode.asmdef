@@ -12,7 +12,10 @@
         "Ashfall.Raid",
         "Ashfall.Hideout",
         "Ashfall.UI",
-        "Ashfall.Audio"
+        "Ashfall.Audio",
+        "Ashfall.EditorTools",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

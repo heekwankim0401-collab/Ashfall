@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 201e68e643c289e419e735bfe4374b08, type: 3}
+  m_Name: AshStormConfig
+  m_EditorClassIdentifier: Ashfall.Raid::Ashfall.Raid.AshStormConfigSO
+  startWindowSec: {x: 180, y: 1200}
+  riseSec: 20
+  peakSec: 180
+  fallSec: 20
+  stormVisibilityM: 30
+  radiationPerSec: 1
+  palette: {fileID: 11400000, guid: 0b16f7a0638f4364da79b2c938e383da, type: 2}
+  stormFogToken: 4
+  skyTintToken: 4
+  skyExposureAtPeak: 0.35
+  skyFogSwapIntensity: 0.5
+  sunIntensityFactorAtPeak: 0.25
+  ashEmissionMultiplier: 4
+  ashSpeedMultiplier: 3
+  ashSizeMultiplier: 1.5

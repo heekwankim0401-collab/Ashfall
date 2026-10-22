@@ -73,4 +73,8 @@ MonoBehaviour:
   coverRetrySec: 1
   lookAheadDistanceM: 10
   coverInvalidatedExcludeSec: 5
-  showStateIndicator: 1
+  footstepStrideWalkM: 1.5
+  footstepStrideRunM: 2.2
+  footstepRunSpeedMps: 3.5
+  footstepMinSpeedMps: 0.3
+  showStateIndicator: 0

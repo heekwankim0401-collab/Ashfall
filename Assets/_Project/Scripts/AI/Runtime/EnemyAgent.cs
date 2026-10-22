@@ -9,6 +9,8 @@ namespace Ashfall.AI
     // - 적 루트는 씬 최상위여야 한다(ProjectileSystem 자기 탄 판정·시야 루트 비교, D15)
     // - 피격: 단일 캡슐 높이 비율 → 3부위 (D4)
     // - 사망: 시체로 눕히고 EnemyKilled 발행 → Inventory가 루트 컨테이너를 붙인다 (§1.9)
+    // - M6 (§11, Q13·Q14·Q26): 보폭마다 FootstepTaken(Enemy), 발사마다 ShotFired(Enemy) — Audio 전용.
+    //   AI 청각용 NoiseEmitted는 내지 않는다(적 총성·발소리를 다른 적이 듣지 않는 M3 규칙 유지). 시야는 재 폭풍 상한을 받는다.
     // Update 경로 할당 없음.
     [RequireComponent(typeof(NavMeshAgent), typeof(CapsuleCollider), typeof(Rigidbody))]
     [DisallowMultipleComponent]
@@ -57,6 +59,9 @@ namespace Ashfall.AI
         private bool hasRequestedPath;
         private Vector3 lastRequestedDestination;
         private float lastPathRequestTime = float.NegativeInfinity;
+
+        // 발소리 리듬 (M6 Q12·Q13, Core 공용 규칙)
+        private readonly StrideCadence footstepCadence = new StrideCadence();
 
         public int AgentId { get; private set; } = -1;
         public EnemyArchetypeSO Archetype => archetype;
@@ -184,7 +189,8 @@ namespace Ashfall.AI
 
         // ── 감각 갱신 (감각 주기마다, 설계 §6) ─────────────────────
 
-        internal void Sense(IPlayerTarget target, ILineOfSight los, float now)
+        // visibilityCapM: 재 폭풍 시야 상한 (AiDirector가 IAshStormInfo.VisibilityM을 넘긴다, 없으면 +∞ = 기존 그대로)
+        internal void Sense(IPlayerTarget target, ILineOfSight los, float now, float visibilityCapM = float.PositiveInfinity)
         {
             if (IsDead || Brain == null || !isActiveAndEnabled)
                 return;
@@ -206,7 +212,7 @@ namespace Ashfall.AI
             if (target != null && !target.IsDead)
             {
                 s.TargetExists = true;
-                float range = SightCone.EffectiveRange(archetype.sightRange, target.Posture, config);
+                float range = SightCone.EffectiveRange(archetype.sightRange, target.Posture, config, visibilityCapM);
                 s.EffectiveSightRange = range;
                 Vector3 eyePos = eye.position;
                 Vector3 targetEye = target.EyePosition;
@@ -264,8 +270,62 @@ namespace Ashfall.AI
             EnemyIntent intent = Brain.Intent;
             ApplyPosture(intent.Posture);
             ApplyMovement(intent, now);
+            TickFootsteps(dt);
             ApplyRotation(intent, dt);
             ApplyWeapon(intent, now, dt);
+        }
+
+        // ── 발소리 (M6 §11, Q12·Q13) ─────────────────────────
+
+        // NavMeshAgent 수평 속도로 걸음 종류·보폭을 고른다(순수). 걸음이 없으면 false.
+        // - 속도 < footstepMinSpeedMps(또는 0 이하·NaN) → 걸음 없음
+        // - 웅크린 채 이동 → Crouch(걷기 보폭). TODO(GDD-?) Q13: 적 웅크림 보폭은 SO에 따로 없어 걷기 보폭을 쓴다.
+        // - 속도 > footstepRunSpeedMps → Sprint(달리기 보폭), 그 밖 → Walk(걷기 보폭)
+        public static bool TryPickFootstep(float horizontalSpeedMps, bool crouched, AiConfigSO config,
+                                           out FootstepGait gait, out float strideM)
+        {
+            gait = FootstepGait.Walk;
+            strideM = 0f;
+            if (config == null || !(horizontalSpeedMps > 0f) || horizontalSpeedMps < config.footstepMinSpeedMps)
+                return false;
+            if (crouched)
+            {
+                gait = FootstepGait.Crouch;
+                strideM = config.footstepStrideWalkM;
+            }
+            else if (horizontalSpeedMps > config.footstepRunSpeedMps)
+            {
+                gait = FootstepGait.Sprint;
+                strideM = config.footstepStrideRunM;
+            }
+            else
+            {
+                strideM = config.footstepStrideWalkM;
+            }
+            return strideM > 0f;
+        }
+
+        // 이동 거리 = NavMeshAgent 수평 속도 × dt (Warp 순간이동은 걸음으로 치지 않는다). NavMesh 밖·멈춤 → 리듬 초기화.
+        private void TickFootsteps(float dt)
+        {
+            if (!nav.enabled || !nav.isOnNavMesh)
+            {
+                footstepCadence.Reset();
+                return;
+            }
+            Vector3 v = nav.velocity;
+            v.y = 0f;
+            float speed = v.magnitude;
+            if (!TryPickFootstep(speed, appliedPosture == EnemyPosture.Crouch, config, out FootstepGait gait, out float strideM))
+            {
+                footstepCadence.Reset();
+                return;
+            }
+            if (!footstepCadence.Tick(speed * dt, strideM))
+                return;
+            GameManager gm = GameManager.Instance;
+            if (gm != null)
+                gm.Events.Publish(new FootstepTaken(transform.position, gait, SoundSource.Enemy));
         }
 
         private void ApplyMovement(in EnemyIntent intent, float now)
@@ -368,7 +428,14 @@ namespace Ashfall.AI
                 }
             }
 
-            Weapon.Tick(now, dt, wantsFire, muzzle.position, aimPoint, radius, transform);
+            int fired = Weapon.Tick(now, dt, wantsFire, muzzle.position, aimPoint, radius, transform);
+            // 총성 소리 (M6 Q14): Audio 전용 ShotFired. NoiseEmitted는 내지 않는다(다른 적은 적 총성을 듣지 않는다, M3 규칙).
+            if (fired > 0)
+            {
+                GameManager gm = GameManager.Instance;
+                if (gm != null)
+                    gm.Events.Publish(new ShotFired(muzzle.position, Weapon.Item.Definition, SoundSource.Enemy));
+            }
 
             // 숨은 동안 탄 비율이 낮으면 미리 재장전 (RDR tacticalReloadBelow, 0이면 안 함)
             if (intent.Reload && Weapon.AmmoRatio < archetype.tacticalReloadBelow)
@@ -425,6 +492,7 @@ namespace Ashfall.AI
             if (IsDead)
                 return;
             IsDead = true;
+            footstepCadence.Reset();
 
             Brain?.OnDied();
             if (nav.enabled)

@@ -338,8 +338,8 @@ namespace Ashfall.Tests.EditMode
             string file = File.ReadAllText(Path.GetFullPath(AiConfigPath));
             StringAssert.Contains("lookAheadDistanceM:", file, "파일에 기록됨 (메뉴가 기존 에셋에도 기록)");
             StringAssert.Contains("coverInvalidatedExcludeSec:", file, "파일에 기록됨 (메뉴가 기존 에셋에도 기록)");
-            // 디버그
-            Assert.IsTrue(c.showStateIndicator);
+            // 디버그 — M6 데이터 메뉴가 끈다(M6 설계 Q8)
+            Assert.IsFalse(c.showStateIndicator);
         }
 
         // ---------- 루트 테이블 (설계 §4.4, 전부 TODO(GDD-?)) ----------

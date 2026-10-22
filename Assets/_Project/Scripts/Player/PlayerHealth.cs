@@ -8,6 +8,8 @@ namespace Ashfall.Player
     // - IBodyStatusView 등록 (RULE-05 H 화면), 모델 변화 → 버스 이벤트
     // - MedicalUseRequested → 사용 시간 → MedicalUseCompleted
     // - M4: RaidEnded → 진행 중 의약품 사용 취소, 이후 사용 요청 거부
+    // - M6: 재 폭풍 방사능 누적(RadiationDoseModel, §8.3 +1/s × 강도). 매 프레임 IAshStormInfo를 조회(레이드 밖에는 없음 = 0).
+    //       누적만 — 효과·표시·방독면은 M7 (TODO(GDD-?) Q27). 사망·레이드 종료 뒤 멈춘다.
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerHealth : MonoBehaviour, IDamageable
     {
@@ -22,9 +24,13 @@ namespace Ashfall.Player
         private MedicalUseModel medical;
         // M4 리뷰 수정: 레이드 종료 후 의약품 사용 없음 (결과 스냅샷 이후 소지품·상태가 바뀌지 않게)
         private bool raidOver;
+        private readonly RadiationDoseModel radiation = new RadiationDoseModel();
 
         public BodyHealthModel Body { get; private set; }
         public MedicalUseModel Medical => medical;
+        // M6: 이번 레이드의 방사능 누적량 (STAT-RAD, 효과는 M7)
+        public RadiationDoseModel Radiation => radiation;
+        public float RadiationDose => radiation.Dose;
         public bool IsDead => Body != null && Body.IsDead;
 
         private void Awake()
@@ -91,6 +97,17 @@ namespace Ashfall.Player
             BodyPart target = medical.Target;
             if (medical.Tick(dt))
                 Publish(new MedicalUseCompleted(item, target));
+
+            TickRadiation(dt);
+        }
+
+        // M6 재 폭풍 방사능 (§8.3, Q27). 서비스는 매 프레임 조회한다(사전 조회 1회, 할당 없음) — 폭풍이 늦게 등록·해제돼도 맞다.
+        private void TickRadiation(float dt)
+        {
+            if (IsDead || raidOver || GameManager.Instance == null)
+                return;
+            if (GameManager.Instance.Services.TryGet(out IAshStormInfo storm))
+                radiation.Tick(dt, storm.RadiationPerSec);   // TODO(GDD-?) Q27: 방독면(M7)이면 0
         }
 
         private void OnMedicalUseRequested(MedicalUseRequested evt)

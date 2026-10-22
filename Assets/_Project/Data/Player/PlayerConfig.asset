@@ -67,3 +67,7 @@ MonoBehaviour:
   stomachZoneFrom: 0.45
   armZoneSideRatio: 0.6
   noisePulseIntervalSec: 0.5
+  strideWalkM: 1.5
+  strideSprintM: 2.2
+  strideCrouchM: 0.8
+  strideProneM: 0.6

@@ -14,6 +14,7 @@ namespace Ashfall.Weapons
     // - 버린 탄창 → ItemDropRequested, 화면 열림·사망 → 사격·조준·R·T 무시, 체력 → 조준 흔들림.
     // M3: 피해는 DamageRules(무기 > 탄약), 쏠 때마다 NoiseEmitted(Gunshot) 발행.
     // M4: RaidEnded → 진행 중 재장전 취소, 이후 재장전 진행·입력 정지 (사망과 같은 처리).
+    // M6: 쏠 때마다 ShotFired(총구, 무기, Player) 발행 (Audio 총성 레이어).
     public sealed class WeaponController : MonoBehaviour
     {
         [SerializeField] private WeaponDefinitionSO weapon;
@@ -262,6 +263,8 @@ namespace Ashfall.Weapons
             // 사격 소음 → AI 청각 (M3, 발당 1회)
             if (WeaponNoise.TryCreateShot(weapon, origin, out NoiseEmitted noise))
                 Publish(noise);
+            // M6 총성 소리 (§11 거리 레이어, Q14) → Audio. 발당 1회(펠릿 수 무관). AI 청각은 위 NoiseEmitted만 본다.
+            Publish(new ShotFired(origin, weapon, SoundSource.Player));
 
             Vector2 kick = Ballistics.RecoilKick(weapon.recoilV, weapon.recoilH, random);
             recoilReceiver?.AddRecoil(kick.x, kick.y);

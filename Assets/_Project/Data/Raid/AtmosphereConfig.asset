@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 892f0764e1cb3bd47b2b41a5e6c516df, type: 3}
+  m_Name: AtmosphereConfig
+  m_EditorClassIdentifier: Ashfall.Raid::Ashfall.Raid.AtmosphereConfigSO
+  palette: {fileID: 11400000, guid: 0b16f7a0638f4364da79b2c938e383da, type: 2}
+  fogToken: 1
+  clearVisibilityM: 450
+  fogVisibilityThreshold: 0.05
+  zenithToken: 0
+  horizonToken: 2
+  belowHorizonToken: 1
+  horizonBandDeg: 10
+  skyTextureSize: {x: 1024, y: 512}
+  skyTextureOverride: {fileID: 0}
+  skyGradientExponent: 0.6
+  sunAzimuthDeg: 245
+  sunElevationDeg: 8
+  sunDiskDeg: 2.5
+  sunGlowDeg: 18
+  sunHaze: 0.6
+  sunGlowStrength: 0.8
+  sunCoreToken: 5
+  sunGlowToken: 3
+  sunLightToken: 3
+  sunLightIntensity: 0.9
+  ambientSkyToken: 2
+  ambientEquatorToken: 1
+  ambientGroundToken: 0
+  ambientIntensity: 1
+  saturation: -30
+  tintToken: 3
+  tintStrength: 0.15
+  contrast: 10
+  filmGrainIntensity: 0.3
+  filmGrainType: 2
+  vignetteIntensity: 0.35
+  vignetteSmoothness: 0.4
+  vignetteToken: 0
+  bloomIntensity: 0.15
+  bloomThreshold: 1.1
+  tonemapping: 1
+  ashRadiusM: 30
+  ashHeightM: 20
+  ashRatePerSec: 600
+  ashLifetimeSec: 10
+  ashMaxParticles: 6000
+  ashMaxParticlesStorm: 12000
+  ashSizeM: {x: 0.03, y: 0.08}
+  ashFallSpeedMps: {x: 0.3, y: 0.8}
+  ashNoiseStrength: 0.3
+  ashNoiseFrequency: 0.4
+  ashBoxCenterRatio: 0.3
+  ashMaxScreenSize: 0.01
+  ashToken: 4
+  ashAlpha: 0.7
+  ashTextureOverride: {fileID: 0}
+  groundNoiseMin: 0.7
+  groundTileM: 12

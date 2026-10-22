@@ -1,0 +1,102 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbef28864184ca144a400ac66bb04171, type: 3}
+  m_Name: AudioConfig
+  m_EditorClassIdentifier: Ashfall.Audio::Ashfall.Audio.AudioConfigSO
+  surfaceProbeLengthM: 1.5
+  surfaceProbeLiftM: 0.5
+  surfaceMask:
+    serializedVersion: 2
+    m_Bits: 5
+  terrainSurface: 0
+  untaggedSurface: 2
+  footsteps:
+  - surface: 0
+    clips:
+    - {fileID: 8300000, guid: 39379df5e99f1a04593aa6d633ba2827, type: 3}
+    - {fileID: 8300000, guid: e287cd50657b2c7448fe3efd2a962022, type: 3}
+    - {fileID: 8300000, guid: 63b40b5f9464296449164a5d297fd943, type: 3}
+    volume: 1
+  - surface: 1
+    clips:
+    - {fileID: 8300000, guid: f23ba000ff6ef424fa68a3b75249ff22, type: 3}
+    - {fileID: 8300000, guid: 0412f264b8362a841852aaebdc6f127d, type: 3}
+    - {fileID: 8300000, guid: 7da4a2cee2f56b146bac05414d679c52, type: 3}
+    volume: 1
+  - surface: 2
+    clips:
+    - {fileID: 8300000, guid: 1f14a11ae9cf17448b8e71f5b1581d96, type: 3}
+    - {fileID: 8300000, guid: 4e02dcee4222ab942b28a2c103ee94d5, type: 3}
+    - {fileID: 8300000, guid: 2ae41e7ddc61ac64d9dd6346ac58ba75, type: 3}
+    volume: 1
+  - surface: 3
+    clips:
+    - {fileID: 8300000, guid: 29c6021e5dc397d46b46dc289611c9a6, type: 3}
+    - {fileID: 8300000, guid: 7d688946accec754d9c107afad46fce2, type: 3}
+    - {fileID: 8300000, guid: 333a66f8f8c9acf46991b350b74ad404, type: 3}
+    volume: 1
+  gaitVolume:
+    walk: 0.7
+    sprint: 1
+    crouch: 0.35
+    prone: 0.2
+  gaitAudibleM:
+    walk: 25
+    sprint: 40
+    crouch: 10
+    prone: 5
+  playerSelfVolume: 0.6
+  pitchJitter: 0.06
+  gunshots:
+  - weaponClass: 0
+    near: {fileID: 8300000, guid: d089d2385a8dac14fbb10d76f3bfc406, type: 3}
+    mid: {fileID: 8300000, guid: 54f0779343235704aac6ab678f6103ba, type: 3}
+    far: {fileID: 8300000, guid: a0175783296ea044895a85e03b2c515b, type: 3}
+    volume: 1
+  - weaponClass: 1
+    near: {fileID: 8300000, guid: 7ffbeb130032207499118004aae8d867, type: 3}
+    mid: {fileID: 8300000, guid: 44525f5f87fe7424b9827e5b65348f51, type: 3}
+    far: {fileID: 8300000, guid: d192eea1478904f4f82d65808400865c, type: 3}
+    volume: 1
+  - weaponClass: 2
+    near: {fileID: 8300000, guid: 582655f2974890647aabc81a35786c49, type: 3}
+    mid: {fileID: 8300000, guid: 8336814e99d44dd45a3f45c53daaa794, type: 3}
+    far: {fileID: 8300000, guid: 46038166a35013c4083155ae2ba11a71, type: 3}
+    volume: 1
+  fallbackGunshotClass: 2
+  nearMaxM: 50
+  midMaxM: 250
+  farMaxM: 1200
+  gainAt0: 1
+  gainAtNear: 0.7
+  gainAtMid: 0.35
+  gainAtFar: 0.1
+  voiceCount: 24
+  serviceRetrySec: 0.5
+  listenerSearchRetrySec: 5
+  windLoop: {fileID: 8300000, guid: 79e47ee808ba7c246a9bd709ccf356af, type: 3}
+  windVolume: 0.35
+  windStormVolume: 0.8
+  stormLoop: {fileID: 8300000, guid: 4421f7ab64c611e488da217a331ad665, type: 3}
+  stormLoopMaxVolume: 0.7
+  collapseClips:
+  - {fileID: 8300000, guid: e37438145225597498c894977da86355, type: 3}
+  - {fileID: 8300000, guid: 1354e31d5aeeb8945a3cd99fa80c8976, type: 3}
+  collapseIntervalSec: {x: 40, y: 120}
+  collapseDistanceM: {x: 150, y: 400}
+  collapseVolume: 0.6
+  geigerClick: {fileID: 8300000, guid: b02fbc4b85a0deb43a69e7b0f975fe21, type: 3}
+  geigerClicksPerRad: 6
+  geigerMaxClicksPerSec: 20
+  geigerVolume: 0.5
+  hideoutMusic: {fileID: 8300000, guid: dc7f5fcaf2521b049b7d19b1a5352ad5, type: 3}
+  hideoutMusicVolume: 0.4

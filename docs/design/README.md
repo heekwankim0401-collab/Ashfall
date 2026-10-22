@@ -10,6 +10,7 @@
 | `M3_design.md`, `M3_review.md` | 적 AI(SCV/RDR 상태 머신·감각·엄폐·분대), 무기 로직 Core 이동, 피해 필드 |
 | `M4_design.md`, `M4_review.md` | 레이드 루프(Crimson Basin, 탈출 EXT-01~04, 타이머, 결과 화면, RULE-01). §5 질문 Q1~Q22와 결정 |
 | `M5_design.md`, `M5_review.md` | 은신처 & 세이브(보관함·상인·부랑자 키트, save.json, RULE-03 강제 종료, 은신처 ↔ 레이드 루프). §5 질문 Q1~Q31 |
+| `M6_design.md`, `M6_review.md` | 아트 & 오디오 패스(팔레트·포스트·하늘·재 파티클, 지면별 발소리·총성 거리 레이어·환경음, 재 폭풍). 자리표시 에셋 목록. §5 질문 Q1~Q30 |
 
 진행 방식(M2~M4에서 쓴 것):
 1. `unity-architect`가 설계 문서를 쓴다(작업 분할, 파일 소유, AC별 테스트 계획, CHANGELOG 초안 포함).

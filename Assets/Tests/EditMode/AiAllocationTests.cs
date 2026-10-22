@@ -158,6 +158,59 @@ namespace Ashfall.Tests.EditMode
             Assert.Greater(seen, 0);
         }
 
+        // M6: 재 폭풍 시야 상한 오버로드 + 적 발소리 걸음 선택·리듬 (설계 §1.7, 2d)
+        [Test]
+        public void SightConeStormCap_FootstepPick_Cadence()
+        {
+            var los = new FakeLineOfSight((from, to) => to.x > 5f);
+            var cadence = new StrideCadence();
+            float[] caps = { float.PositiveInfinity, 450f, 30f, 0f };
+            int seen = 0;
+            int steps = 0;
+            AssertNoAlloc(() =>
+            {
+                for (int i = 0; i < 1000; i++)
+                {
+                    float range = SightCone.EffectiveRange(60f, (TargetPosture)(i % 3), config, caps[i % caps.Length]);
+                    Vector3 p = new Vector3(i % 11, 1f, 10f + i % 40);
+                    if (SightCone.IsVisible(Vector3.up, Vector3.forward, p, p, 110f, range, los, null, null))
+                        seen++;
+                    float speed = i % 97 == 0 ? 0f : 1.5f + (i % 3) * 1.5f;   // 0(멈춤) · 1.5 · 3 · 4.5
+                    if (EnemyAgent.TryPickFootstep(speed, i % 5 == 0, config, out FootstepGait gait, out float stride))
+                    {
+                        if (cadence.Tick(speed * 0.1f, stride) && gait != FootstepGait.Prone)
+                            steps++;
+                    }
+                    else
+                        cadence.Reset();
+                }
+            });
+            Assert.Greater(seen, 0);
+            Assert.Greater(steps, 0);
+        }
+
+        [Test]
+        public void EventBus_PublishEnemySoundEvents()
+        {
+            var bus = new EventBus();
+            int heard = 0;
+            Action<FootstepTaken> onStep = e => heard++;
+            Action<ShotFired> onShot = e => heard++;
+            bus.Subscribe(onStep);
+            bus.Subscribe(onShot);
+            var step = new FootstepTaken(Vector3.one, FootstepGait.Walk, SoundSource.Enemy);
+            var shot = new ShotFired(Vector3.one, null, SoundSource.Enemy);
+            AssertNoAlloc(() =>
+            {
+                for (int i = 0; i < 200; i++)
+                {
+                    bus.Publish(step);
+                    bus.Publish(shot);
+                }
+            });
+            Assert.AreEqual(800, heard);
+        }
+
         [Test]
         public void CoverSelector_TrySelect()
         {

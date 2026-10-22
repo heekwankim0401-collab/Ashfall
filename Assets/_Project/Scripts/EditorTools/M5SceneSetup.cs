@@ -32,7 +32,7 @@ namespace Ashfall.EditorTools
         public const string SystemsObjectName = "HideoutSystems";
         public const string UiObjectName = "HideoutUI";
 
-        // 은신처 배경 (메뉴형 그레이박스, M6에서 교체)
+        // 은신처 배경 (M5 그레이박스 기본값. M6 에셋이 있으면 저장 전 M6SceneSetup.ApplyHideoutIfAssetsExist가 Ash_Black으로 바꾼다)
         private static readonly Color Background = Color.black;
 
         [MenuItem("Ashfall/Setup/Create M5 Hideout Scene")]
@@ -98,6 +98,7 @@ namespace Ashfall.EditorTools
             if (hudConfig != null)
                 SetupUtil.SetFields(root, ("hudConfig", hudConfig));
 
+            M6SceneSetup.ApplyHideoutIfAssetsExist(scene); // M6 §1.6 Q1: 배경 Ash_Black·은신처 음악 유지
             if (!EditorSceneManager.SaveScene(scene, HideoutScenePath))
                 throw new InvalidOperationException($"{Tag} 씬 저장 실패: {HideoutScenePath}");
             Debug.Log($"{Tag} 씬 생성(덮어씀): {HideoutScenePath}");

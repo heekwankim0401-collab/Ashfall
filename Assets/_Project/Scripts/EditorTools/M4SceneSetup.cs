@@ -39,7 +39,7 @@ namespace Ashfall.EditorTools
         // 플레이어 생성 위치: 첫 스폰(RaidController가 Start에서 무작위 스폰으로 PlaceAt 한다). 지면 위 여유(M2 PlayerStart와 같음)
         private const float PlayerStartLiftM = 0.05f;
 
-        // 메인 메뉴 배경 (그레이박스, M6에서 교체)
+        // 메인 메뉴 배경 (M4 그레이박스 기본값. M6 에셋이 있으면 저장 전 M6SceneSetup.ApplyMainMenuIfAssetsExist가 Ash_Black으로 바꾼다)
         private static readonly Color MenuBackground = Color.black;
 
         [MenuItem("Ashfall/Setup/Create M4 Raid Scenes")]
@@ -73,7 +73,7 @@ namespace Ashfall.EditorTools
         {
             SetupUtil.EnsureFolder(SceneFolder);
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-            Object.DestroyImmediate(GameObject.FindWithTag("MainCamera")); // 플레이어 카메라를 쓴다. Directional Light는 남긴다(색은 M6)
+            Object.DestroyImmediate(GameObject.FindWithTag("MainCamera")); // 플레이어 카메라를 쓴다. Directional Light는 남긴다(M6 ApplyRaid가 "Sun"으로 이름·색·방향을 정한다)
 
             // 에셋은 NewScene 뒤에 불러온다 (M2 함정: NewScene(Single)이 쓰지 않는 에셋을 언로드한다)
             M4MapSetup.MapAssets assets = M4MapSetup.MapAssets.LoadDefaults();
@@ -98,6 +98,7 @@ namespace Ashfall.EditorTools
             if (player.GetComponent<PlayerInventoryBehaviour>() == null)
                 problems.AppendLine("플레이어 인벤토리 없음");
 
+            M6SceneSetup.ApplyRaidIfAssetsExist(scene); // M6 §1.6 Q1: 다시 만들어도 M6 아트·오디오·재 폭풍 유지
             if (!EditorSceneManager.SaveScene(scene, RaidScenePath))
             {
                 problems.AppendLine($"씬 저장 실패: {RaidScenePath}");
@@ -159,6 +160,7 @@ namespace Ashfall.EditorTools
             document.visualTreeAsset = SetupUtil.Load<VisualTreeAsset>(MainMenuUxmlPath);
             ui.AddComponent<MainMenuRoot>();
 
+            M6SceneSetup.ApplyMainMenuIfAssetsExist(scene); // M6 §1.6 Q1: 배경 Ash_Black
             if (!EditorSceneManager.SaveScene(scene, MainMenuScenePath))
                 throw new InvalidOperationException($"{Tag} 씬 저장 실패: {MainMenuScenePath}");
             Debug.Log($"{Tag} 씬 생성(덮어씀): {MainMenuScenePath}");

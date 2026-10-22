@@ -165,7 +165,7 @@ namespace Ashfall.EditorTools
             return result;
         }
 
-        // 탈출 구역 바닥 표시 재질 (URP Unlit 반투명, 그레이박스 — M6에서 교체). 없을 때만 만든다.
+        // 탈출 구역 바닥 표시 재질 (URP Unlit 반투명). 없을 때만 만든다. 색은 M6 아트 메뉴(PaletteMaterialMap.LegacyMaterials)가 팔레트 Bone α0.25로 다시 칠한다(GUID 유지).
         internal static Material EnsureZoneMaterial()
         {
             var existing = AssetDatabase.LoadAssetAtPath<Material>(ZoneMaterialPath);

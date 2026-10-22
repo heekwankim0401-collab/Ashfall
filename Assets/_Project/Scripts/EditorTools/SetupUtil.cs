@@ -107,5 +107,35 @@ namespace Ashfall.EditorTools
                 Debug.LogError($"[Setup] 에셋이 없다: {path} ({typeof(T).Name})");
             return asset;
         }
+
+        // ---------- 씬 오브젝트 (M6 리뷰 낮음 9: M6 씬 적용 3파일의 같은 도우미를 모았다. 동작은 같다) ----------
+
+        // 씬 최상위에서 이름으로 찾는다. 없으면 null.
+        public static GameObject FindRoot(UnityEngine.SceneManagement.Scene scene, string name)
+        {
+            foreach (GameObject root in scene.GetRootGameObjects())
+                if (root.name == name)
+                    return root;
+            return null;
+        }
+
+        // 씬 최상위에서 이름으로 찾고, 없으면 그 씬에 만든다.
+        public static GameObject FindOrCreateRoot(UnityEngine.SceneManagement.Scene scene, string name)
+        {
+            GameObject go = FindRoot(scene, name);
+            if (go != null)
+                return go;
+            go = new GameObject(name);
+            if (go.scene != scene)
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(go, scene);
+            return go;
+        }
+
+        // 컴포넌트가 있으면 그것, 없으면 추가. 에디터의 GetComponent는 없을 때 가짜 null을 돌려줄 수 있어 ?? 대신 == null로 본다.
+        public static T GetOrAdd<T>(GameObject go) where T : Component
+        {
+            T component = go.GetComponent<T>();
+            return component != null ? component : go.AddComponent<T>();
+        }
     }
 }
