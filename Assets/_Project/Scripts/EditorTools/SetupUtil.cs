@@ -67,6 +67,38 @@ namespace Ashfall.EditorTools
             return false;
         }
 
+        // 빌드 설정 (M5 설계 §4.9): Boot → MainMenu → Hideout(있으면) → Raid_CrimsonBasin(있으면).
+        // M4·M5 씬 메뉴가 모두 이것을 불러, 어느 메뉴를 다시 돌려도 다른 씬이 빠지지 않는다.
+        // Boot·MainMenu가 없으면 예외(M0 씬 메뉴를 먼저 실행해야 한다).
+        public static void ApplyBuildScenes()
+        {
+            var scenes = new System.Collections.Generic.List<EditorBuildSettingsScene>();
+            foreach (string path in new[] { M4SceneSetup.BootScenePath, M4SceneSetup.MainMenuScenePath })
+            {
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) == null)
+                    throw new System.InvalidOperationException($"[Setup] 씬이 없다: {path}. 먼저 Ashfall/Setup/Create M0 Scenes.");
+                scenes.Add(new EditorBuildSettingsScene(path, true));
+            }
+            foreach (string path in new[] { M5SceneSetup.HideoutScenePath, M4SceneSetup.RaidScenePath })
+            {
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(path) != null)
+                    scenes.Add(new EditorBuildSettingsScene(path, true));
+                else
+                    Debug.LogWarning($"[Setup] 빌드 설정에서 뺀다(씬 없음): {path}");
+            }
+            EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
+        // 로그용: 현재 빌드 설정의 활성 씬 이름 "A → B → C"
+        public static string DescribeBuildScenes()
+        {
+            var names = new System.Collections.Generic.List<string>();
+            foreach (EditorBuildSettingsScene s in EditorBuildSettings.scenes)
+                if (s.enabled)
+                    names.Add(Path.GetFileNameWithoutExtension(s.path));
+            return string.Join(" → ", names);
+        }
+
         // 에셋을 경로로 불러온다. 없으면 에러 로그 후 null (씬 생성이 빈 참조로 조용히 진행되지 않게).
         public static T Load<T>(string path) where T : Object
         {

@@ -21,7 +21,7 @@ namespace Ashfall.EditorTools
     // 3) Raid_CrimsonBasin 씬: 맵(M4MapSetup: 지형·블록아웃·엄폐·상자·경계·NavMesh·RaidController·탈출·스폰·스위치·POI)
     //    → ProjectileSystem → AiDirector + 적 20명(M4EnemySetup) → 플레이어(M2 CreatePlayer + 지도 아이템, Q11·Q13) → GameUI
     // 4) MainMenu 씬을 M4 UI(UIDocument MainMenu.uxml + MainMenuRoot)로 다시 만든다. Boot → MainMenu 흐름(BootLoader)은 그대로.
-    // 5) 빌드 설정: Boot → MainMenu → Raid_CrimsonBasin
+    // 5) 빌드 설정: SetupUtil.ApplyBuildScenes() — Boot → MainMenu → Hideout(M5, 있으면) → Raid_CrimsonBasin
     // 씬·Terrain·NavMesh는 실행할 때마다 덮어쓴다(.meta GUID 유지: 씬은 같은 경로에 저장, Terrain은 SetHeights, NavMesh는 CopySerialized).
     // 씬은 이 메뉴의 산출물이라 손으로 고치지 않는다(M6에서 손 편집을 시작하면 이 메뉴 재실행을 멈춘다).
     // 배치모드: -batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.M4SceneSetup.CreateAll -logFile setup.log
@@ -63,7 +63,7 @@ namespace Ashfall.EditorTools
 
             if (problems.Length > 0)
                 throw new InvalidOperationException($"{Tag} 씬은 저장했지만 확인 실패\n{problems}");
-            Debug.Log($"{Tag} 완료: {RaidScenePath}, {MainMenuScenePath}. 빌드 설정: Boot → MainMenu → Raid_CrimsonBasin");
+            Debug.Log($"{Tag} 완료: {RaidScenePath}, {MainMenuScenePath}. 빌드 설정: {SetupUtil.DescribeBuildScenes()}");
         }
 
         // ---------- Raid_CrimsonBasin ----------
@@ -166,16 +166,8 @@ namespace Ashfall.EditorTools
 
         // ---------- 빌드 설정 ----------
 
-        private static void SetBuildScenes()
-        {
-            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(BootScenePath) == null)
-                throw new InvalidOperationException($"{Tag} Boot 씬이 없다: {BootScenePath}. 먼저 Ashfall/Setup/Create M0 Scenes.");
-            EditorBuildSettings.scenes = new[]
-            {
-                new EditorBuildSettingsScene(BootScenePath, true),
-                new EditorBuildSettingsScene(MainMenuScenePath, true),
-                new EditorBuildSettingsScene(RaidScenePath, true),
-            };
-        }
+        // M5: 공용 SetupUtil.ApplyBuildScenes() — Boot → MainMenu → Hideout(있으면) → Raid_CrimsonBasin.
+        // 이 메뉴를 다시 돌려도 M5 Hideout 씬이 빌드 설정에서 빠지지 않는다 (M5 설계 §4.6).
+        private static void SetBuildScenes() => SetupUtil.ApplyBuildScenes();
     }
 }

@@ -97,7 +97,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(2.5f, w.hipSpreadDeg, Eps);
             Assert.AreEqual(80f, w.shotNoiseRadiusM, Eps);
             Assert.AreEqual(Rarity.Common, w.rarity);
-            Assert.AreEqual(0, w.basePrice);
+            Assert.AreEqual(400, w.basePrice, "M5 §4.6 가격 표 (2c)");
         }
 
         [Test]
@@ -120,7 +120,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(3.0f, w.hipSpreadDeg, Eps);
             Assert.AreEqual(90f, w.shotNoiseRadiusM, Eps);
             Assert.AreEqual(Rarity.Common, w.rarity);
-            Assert.AreEqual(0, w.basePrice);
+            Assert.AreEqual(1500, w.basePrice, "M5 §4.6 가격 표 (2c)");
         }
 
         [Test]

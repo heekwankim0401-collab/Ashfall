@@ -17,7 +17,7 @@ MonoBehaviour:
   size: {x: 3, y: 3}
   weightKg: 8
   rarity: 0
-  basePrice: 0
+  basePrice: 2500
   icon: {fileID: 0}
   armorClass: 3
   maxDurability: 60

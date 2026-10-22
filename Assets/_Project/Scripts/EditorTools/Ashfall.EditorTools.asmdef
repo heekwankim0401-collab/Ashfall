@@ -9,6 +9,7 @@
         "Ashfall.UI",
         "Ashfall.AI",
         "Ashfall.Raid",
+        "Ashfall.Hideout",
         "Unity.AI.Navigation"
     ],
     "includePlatforms": [

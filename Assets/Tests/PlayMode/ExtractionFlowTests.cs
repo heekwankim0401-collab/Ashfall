@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using Ashfall.Core;
 using Ashfall.Raid;
+using Ashfall.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -47,7 +48,7 @@ namespace Ashfall.Tests.PlayMode
 
         [UnityTest]
         [Timeout(120000)]
-        public IEnumerator Ext01_Waits10Seconds_LeavingZoneResets_ThenExtractsToMainMenu()
+        public IEnumerator Ext01_Waits10Seconds_LeavingZoneResets_ThenExtractsToHideout()
         {
             yield return M4Raid.Load(raid);
             yield return raid.RemoveEnemies();
@@ -104,13 +105,16 @@ namespace Ashfall.Tests.PlayMode
                 CollectionAssert.AreEquivalent(raid.Carried(), result.CarriedOut, "반출 = 소지품");
                 Assert.AreEqual(0, result.Lost.Count, "탈출 시 소실 없음");
 
-                // endDelaySec 뒤 MainMenu, 결과는 GameFlow가 들고 간다
+                // endDelaySec 뒤 Hideout(M5 §1.2), 결과는 GameFlow가 들고 간다.
+                // 이 레이드는 흐름 밖(씬 직접 로드)이라 은신처는 결과를 표시만 하고 프로필에 반영하지 않는다(Q25).
                 GameFlow flow = raid.Flow;
-                yield return M3Scene.WaitUntil(() => SceneManager.GetActiveScene().name == SceneNames.MainMenu,
-                    M4Raid.EndToMenuTimeoutSec, () => "MainMenu 전환");
+                Assert.IsFalse(flow.HasRaidInFlow, "흐름 밖 레이드");
+                yield return M4Raid.WaitForHideout();
                 Assert.AreSame(result, flow.PendingResult, "GameFlow.PendingResult");
-                Assert.AreEqual(GamePhase.MainMenu, flow.Phase);
-                Assert.AreEqual(1f, Time.timeScale, "메뉴에서 정지 해제");
+                Assert.AreEqual(GamePhase.Hideout, flow.Phase);
+                Assert.AreEqual(1f, Time.timeScale, "은신처에서 정지 해제");
+                HideoutRoot hideout = Object.FindFirstObjectByType<HideoutRoot>();
+                Assert.AreEqual(HideoutPanel.Result, hideout.Presenter.Panel, "은신처 결과 패널");
             }
         }
 

@@ -1,10 +1,10 @@
 using System.Collections.Generic;
-using Ashfall.Core;
 using UnityEngine;
 
-namespace Ashfall.Inventory
+namespace Ashfall.Core
 {
     // SYS-INV 그리드 하나 (W×H 칸). 아이템 배치·회전·충돌 판정 (§6).
+    // M5: Inventory → Core로 이동 (M5 설계 Q2 — 은신처 보관함·상인·키트(Hideout)가 같은 배치 판정을 쓴다).
     // 칸 좌표: x 오른쪽, y 아래쪽. 회전은 배치(PlacedItem)에 저장한다 (설계 D4).
     public sealed class ItemGrid : IGridView
     {

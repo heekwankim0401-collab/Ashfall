@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Ashfall.Core;
 using UnityEngine;
@@ -43,6 +44,25 @@ namespace Ashfall.Inventory
                     // TODO(GDD-?): 그리드에 안 들어가는 내용물. 그레이박스에서는 뺀다.
                     Debug.LogWarning($"[LootContainer] {displayName}: {item} 이 그리드 {gridSize}에 들어가지 않아 뺀다.");
             }
+        }
+
+        // M5(설계 §3.1, Q28): 이미 있는 그리드를 그대로 감싼다 (복사·재배치 없음). 전부 드러난 상태 — 검색 연출 없음.
+        // 은신처 보관함(PlayerProfile.Stash)을 열린 루트 자리로 열 때 쓴다. 그리드 변경은 그 그리드 주인에게 바로 보인다.
+        // grid는 GridKind.Loot여야 한다 (UI·PlayerInventory가 Ref로 루트 자리를 찾는다).
+        public static LootContainerModel ForExistingGrid(string displayName, ItemGrid grid)
+        {
+            if (grid == null)
+                throw new ArgumentNullException(nameof(grid));
+            if (grid.Ref.Kind != GridKind.Loot)
+                throw new ArgumentException($"루트 자리 그리드가 아니다: {grid.Ref}", nameof(grid));
+            return new LootContainerModel(displayName, grid);
+        }
+
+        private LootContainerModel(string displayName, ItemGrid grid)
+        {
+            DisplayName = displayName;
+            Grid = grid;
+            searchTimePerItemSec = 0f;
         }
 
         public bool IsRevealed(ItemInstance item) => item != null && !hidden.Contains(item);

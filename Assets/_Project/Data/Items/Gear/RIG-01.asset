@@ -17,7 +17,7 @@ MonoBehaviour:
   size: {x: 2, y: 2}
   weightKg: 1.2
   rarity: 0
-  basePrice: 0
+  basePrice: 600
   icon: {fileID: 0}
   kind: 0
   gridSize: {x: 4, y: 2}

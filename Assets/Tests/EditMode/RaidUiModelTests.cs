@@ -676,6 +676,7 @@ namespace Ashfall.Tests.EditMode
     {
         private const string GameUxml = "Assets/_Project/Art/UI/GameUI.uxml";
         private const string MainMenuUxml = "Assets/_Project/Art/UI/MainMenu.uxml";
+        private const string HideoutUiModelUxml = HideoutUxmlTests.HideoutUxml;   // M5: 결과 패널 위치
 
         private static VisualElement Clone(string path)
         {
@@ -714,13 +715,23 @@ namespace Ashfall.Tests.EditMode
             pause.Dispose();
         }
 
+        // M5 Q20·Q21: 메인 메뉴는 [은신처]/[종료]만, 결과 패널은 은신처로 옮겼다
         [Test]
-        public void MainMenuUxml_HasMenuAndResultElements()
+        public void MainMenuUxml_HasMenuOnly_NoResultPanel()
         {
             var root = Clone(MainMenuUxml);
             Assert.IsNotNull(root.Q<Button>(MainMenuRoot.StartName));
             Assert.IsNotNull(root.Q<Button>(MainMenuRoot.QuitName));
             Assert.IsNotNull(root.Q(MainMenuRoot.MenuPanelName));
+            Assert.AreEqual("은신처", root.Q<Button>(MainMenuRoot.StartName).text, "미리보기 문구도 UiText와 같게");
+            Assert.IsNull(root.Q(RaidResultView.PanelName), "결과 패널은 HideoutUI.uxml로 이동");
+            Assert.IsNull(root.Q(RaidResultView.ConfirmName));
+        }
+
+        [Test]
+        public void HideoutUxml_HasResultElements_AndRenders()
+        {
+            var root = Clone(HideoutUiModelUxml);
 
             var view = new RaidResultView(root, () => { });
             var mag = TestData.Magazine30();

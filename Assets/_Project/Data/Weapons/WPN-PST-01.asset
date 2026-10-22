@@ -17,7 +17,7 @@ MonoBehaviour:
   size: {x: 2, y: 1}
   weightKg: 0.9
   rarity: 1
-  basePrice: 0
+  basePrice: 400
   icon: {fileID: 0}
   cls: 0
   ammo: 0

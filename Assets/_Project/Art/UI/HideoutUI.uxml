@@ -1,0 +1,114 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- 은신처 (M5 설계 §3.4, §4.5). HideoutRoot·HideoutHubView·HideoutNoticeView·TraderView·RaidResultView·InventoryScreenView가
+         이름으로 요소를 찾는다. 이름을 바꾸면 C# 상수도 바꾼다. 문구는 UiText가 원본이고 여기 text는 미리보기용.
+         화면 순서: 알림 → 레이드 결과 → 허브. 탄 수·HP·무게 숫자 없음(가격·탄피·키트 남은 분만). -->
+    <Style src="Ashfall.uss" />
+    <ui:VisualElement name="hideout-root" class="ash-root hideout-root">
+
+        <!-- 허브: 탄피, [장비]/[상인], 부랑자 키트, [레이드 시작](확인 없음, Q30), [메인 메뉴] -->
+        <ui:VisualElement name="hideout-hub" class="hideout-hub">
+            <ui:VisualElement class="hideout-header" picking-mode="Ignore">
+                <ui:Label text="은신처" class="hideout-title" picking-mode="Ignore" />
+                <ui:Label name="hideout-casings" text="탄피 0" class="hideout-casings" picking-mode="Ignore" />
+                <ui:VisualElement class="hideout-tabs" picking-mode="Ignore">
+                    <ui:Button name="hideout-tab-loadout" text="장비" class="ash-button hideout-tab" />
+                    <ui:Button name="hideout-tab-trader" text="상인" class="ash-button hideout-tab" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hideout-kit" picking-mode="Ignore">
+                    <ui:Button name="hideout-kit-button" text="부랑자 키트 받기" class="ash-button" />
+                    <ui:Label name="hideout-kit-status" class="hideout-kit-status" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hideout-spacer" picking-mode="Ignore" />
+                <ui:Button name="hideout-start-raid" text="레이드 시작" class="ash-button ash-button--danger hideout-action" />
+                <ui:Button name="hideout-main-menu" text="메인 메뉴" class="ash-button hideout-action" />
+            </ui:VisualElement>
+            <ui:Label name="hideout-message" class="hideout-message" picking-mode="Ignore" />
+
+            <ui:VisualElement name="hideout-content" class="hideout-content" picking-mode="Ignore">
+
+                <!-- [장비] 탭 (Q29): 레이드 인벤토리 화면 요소를 복사했다(GameUI.uxml은 건드리지 않음).
+                     루트 패널 자리 = 보관함 10×30 (ScrollView 안, 세로 스크롤). 패널 밖에 놓기는 거부(원위치, Q27). -->
+                <ui:VisualElement name="inventory-screen" class="hideout-inventory">
+                    <ui:VisualElement name="inv-layout" class="inv-layout hideout-inv-layout" picking-mode="Ignore">
+                        <ui:VisualElement name="inv-equip-panel" class="panel inv-panel inv-equip-panel">
+                            <ui:Label text="장비" class="panel-title" picking-mode="Ignore" />
+                            <ui:VisualElement name="inv-equip-slots" class="inv-equip-slots" picking-mode="Ignore" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="inv-storage-panel" class="panel inv-panel inv-storage-panel hideout-storage-panel">
+                            <ui:Label text="소지품" class="panel-title" picking-mode="Ignore" />
+                            <ui:ScrollView name="hideout-storage-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="hideout-scroll">
+                                <ui:VisualElement name="inv-storage-grids" class="inv-storage-grids" picking-mode="Ignore" />
+                                <ui:Label text="퀵슬롯" class="inv-section-title" picking-mode="Ignore" />
+                                <ui:VisualElement name="inv-quick-slots" class="inv-quick-slots" picking-mode="Ignore" />
+                            </ui:ScrollView>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="inv-loot-panel" class="panel inv-panel inv-loot-panel hideout-stash-panel">
+                            <ui:Label name="inv-loot-title" text="보관함" class="panel-title" picking-mode="Ignore" />
+                            <ui:Label name="inv-loot-status" class="loot-status" picking-mode="Ignore" />
+                            <ui:ScrollView name="hideout-stash-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="hideout-scroll hideout-stash-scroll">
+                                <ui:VisualElement name="inv-loot-grid-host" class="inv-loot-grid-host" picking-mode="Ignore" />
+                            </ui:ScrollView>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="inv-drag-layer" class="drag-layer" picking-mode="Ignore" />
+                </ui:VisualElement>
+
+                <!-- [상인] 탭 (Q10~Q12): 판매 목록 / 보관함 매도. 그리드가 아니라 목록. -->
+                <ui:VisualElement name="trader-panel" class="panel trader-panel">
+                    <ui:Label name="trader-title" class="panel-title" picking-mode="Ignore" />
+                    <ui:VisualElement class="trader-columns" picking-mode="Ignore">
+                        <ui:VisualElement class="trader-column" picking-mode="Ignore">
+                            <ui:Label text="판매 목록" class="inv-section-title" picking-mode="Ignore" />
+                            <ui:ScrollView name="trader-offers-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="hideout-scroll">
+                                <ui:VisualElement name="trader-offers" class="trader-list" />
+                            </ui:ScrollView>
+                        </ui:VisualElement>
+                        <ui:VisualElement class="trader-column" picking-mode="Ignore">
+                            <ui:Label text="보관함 (판매)" class="inv-section-title" picking-mode="Ignore" />
+                            <ui:ScrollView name="trader-sell-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="hideout-scroll">
+                                <ui:VisualElement name="trader-sell" class="trader-list" />
+                            </ui:ScrollView>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- 알림 (세이브 손상·RULE-03 강제 종료 처리, Q6·Q22·Q23) → [확인] -->
+        <ui:VisualElement name="hideout-notice-panel" class="panel hideout-notice-panel">
+            <ui:Label text="알림" class="result-title" picking-mode="Ignore" />
+            <ui:Label name="hideout-notice-text" class="hideout-notice-text" picking-mode="Ignore" />
+            <ui:VisualElement name="hideout-notice-list-section" class="result-section hideout-notice-section" picking-mode="Ignore">
+                <ui:Label text="잃은 장비" class="inv-section-title" picking-mode="Ignore" />
+                <ui:VisualElement name="hideout-notice-list" class="result-list" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:Button name="hideout-notice-confirm" text="확인" class="ash-button" />
+        </ui:VisualElement>
+
+        <!-- 레이드 결과 (M4 MainMenu에서 이동, Q21). 요소 이름은 M4와 같다(RaidResultView). 탄 수·HP 수치 없음. -->
+        <ui:VisualElement name="result-panel" class="panel result-panel">
+            <ui:Label name="result-title" class="result-title" picking-mode="Ignore" />
+            <ui:VisualElement class="result-stats" picking-mode="Ignore">
+                <ui:Label name="result-duration" class="result-stat" picking-mode="Ignore" />
+                <ui:Label name="result-kills" class="result-stat" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement class="result-lists" picking-mode="Ignore">
+                <ui:VisualElement class="result-section" picking-mode="Ignore">
+                    <ui:Label text="반입" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="result-brought-in" class="result-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="result-carried-out-section" class="result-section" picking-mode="Ignore">
+                    <ui:Label text="반출" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="result-carried-out" class="result-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="result-lost-section" class="result-section" picking-mode="Ignore">
+                    <ui:Label text="소실" class="inv-section-title" picking-mode="Ignore" />
+                    <ui:VisualElement name="result-lost" class="result-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Button name="result-confirm" text="확인" class="ash-button" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

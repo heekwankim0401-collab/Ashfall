@@ -17,7 +17,7 @@ MonoBehaviour:
   size: {x: 1, y: 1}
   weightKg: 0.1
   rarity: 0
-  basePrice: 0
+  basePrice: 150
   icon: {fileID: 0}
   cures: 01000000
   healAmount: 0

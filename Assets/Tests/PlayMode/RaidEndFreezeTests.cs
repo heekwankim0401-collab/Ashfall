@@ -15,7 +15,7 @@ namespace Ashfall.Tests.PlayMode
 {
     // M4 리뷰 수정 (중간 1, RULE-01): 레이드 종료(결과 스냅샷) 뒤에는 소지품이 바뀌지 않는다.
     // - 탈출 대기 중 시작한 재장전 → 탈출 완료 시 취소, 이후 프레임(세계가 다시 돌아도)에 끝나지 않음 → CarriedOut = 실제 소지품(중복·누락 없음)
-    // - 탈출 대기 중 시작한 의약품 사용 → 취소, 차감·효과 없음. 종료부터 MainMenu 로드 완료까지 세계 정지 유지(CompleteRaid가 풀지 않음)
+    // - 탈출 대기 중 시작한 의약품 사용 → 취소, 차감·효과 없음. 종료부터 목적지(M5: Hideout) 로드 완료까지 세계 정지 유지(CompleteRaid가 풀지 않음)
     public class RaidEndFreezeTests
     {
         private const string Ext01 = "EXT-01";
@@ -96,8 +96,9 @@ namespace Ashfall.Tests.PlayMode
                 Assert.AreEqual(magazinesBefore, CountMagazines(carried, model), "탄창 수 보존");
                 Assert.AreEqual(1, ended.Count);
 
-                yield return M3Scene.WaitUntil(() => SceneManager.GetActiveScene().name == SceneNames.MainMenu,
-                    M4Raid.EndToMenuTimeoutSec, () => "MainMenu 전환");
+                // M5: 종료 목적지는 Hideout (§1.2)
+                yield return M3Scene.WaitUntil(() => SceneManager.GetActiveScene().name == SceneNames.Hideout,
+                    M4Raid.EndToMenuTimeoutSec, () => "Hideout 전환");
                 Assert.AreSame(result, raid.Flow.PendingResult);
             }
         }
@@ -134,16 +135,16 @@ namespace Ashfall.Tests.PlayMode
                 RaidResult result = raid.Controller.LastResult;
                 CollectionAssert.Contains(result.CarriedOut, bandage);
 
-                // 종료 → endDelaySec → CompleteRaid → MainMenu 로드 완료까지 세계는 계속 정지
+                // 종료 → endDelaySec → CompleteRaid → Hideout(M5) 로드 완료까지 세계는 계속 정지
                 while (SceneManager.GetActiveScene().name == SceneNames.RaidCrimsonBasin)
                 {
-                    Assert.AreEqual(0f, Time.timeScale, "MainMenu 로드 완료 전 정지 해제");
+                    Assert.AreEqual(0f, Time.timeScale, "Hideout 로드 완료 전 정지 해제");
                     Assert.AreEqual(usesBefore, bandage.UsesLeft, "사용 횟수 차감 없음");
                     yield return null;
                 }
                 yield return null;
-                Assert.AreEqual(SceneNames.MainMenu, SceneManager.GetActiveScene().name);
-                Assert.AreEqual(1f, Time.timeScale, "MainMenu에서 정지 해제");
+                Assert.AreEqual(SceneNames.Hideout, SceneManager.GetActiveScene().name);
+                Assert.AreEqual(1f, Time.timeScale, "Hideout에서 정지 해제");
                 Assert.AreSame(result, raid.Flow.PendingResult);
 
                 Assert.AreEqual(0, completed.Count, "사용 완료 없음");

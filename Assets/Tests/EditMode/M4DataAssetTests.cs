@@ -182,7 +182,7 @@ namespace Ashfall.Tests.EditMode
             var i = Load<ItemDefinitionSO>(FlarePath);
             Assert.AreEqual(typeof(ItemDefinitionSO), i.GetType(), "상태 없는 일반 아이템");
             AssertItem(i, M4TestData.Flare());
-            Assert.AreEqual(0, i.basePrice);
+            Assert.AreEqual(500, i.basePrice, "M5 §4.6 가격 표 (2c)");
         }
 
         [Test]
@@ -191,7 +191,7 @@ namespace Ashfall.Tests.EditMode
             var i = Load<ItemDefinitionSO>(MapItemPath);
             Assert.AreEqual(typeof(ItemDefinitionSO), i.GetType(), "상태 없는 일반 아이템");
             AssertItem(i, M4TestData.MapItem());
-            Assert.AreEqual(0, i.basePrice);
+            Assert.AreEqual(100, i.basePrice, "M5 §4.6 가격 표 (2c)");
         }
 
         // Q11: 지도 화면은 HudConfig.mapItem을 소지했을 때만 열린다.

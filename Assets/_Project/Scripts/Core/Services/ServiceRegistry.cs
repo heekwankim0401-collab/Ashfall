@@ -6,7 +6,7 @@ namespace Ashfall.Core
 {
     // 기능 간 조회·명령용 서비스 목록. GameManager.Services로 하나를 공유한다 (설계 D2).
     // 등록 대상은 Core에 정의된 인터페이스만 (IInventoryService, IMagazineSource, IBodyStatusView,
-    // M3: IPlayerTarget, IProjectileService, M4: IPlayerPlacement(Player), IRaidInfo(Raid)).
+    // M3: IPlayerTarget, IProjectileService, M4: IPlayerPlacement(Player), IRaidInfo(Raid), M5: IHideoutService(Hideout)).
     // 씬을 넘는 흐름(GameFlow)은 서비스가 아니라 GameManager.Flow로 쓴다.
     // 제공자: Awake/OnEnable에서 Register, OnDisable에서 Unregister. 소비자: Start 이후 TryGet.
     public sealed class ServiceRegistry

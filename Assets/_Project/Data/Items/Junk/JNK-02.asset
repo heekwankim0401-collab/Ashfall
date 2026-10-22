@@ -17,5 +17,5 @@ MonoBehaviour:
   size: {x: 3, y: 2}
   weightKg: 20
   rarity: 0
-  basePrice: 0
+  basePrice: 300
   icon: {fileID: 0}

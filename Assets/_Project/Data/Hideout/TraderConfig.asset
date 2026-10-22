@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c0a7eb0d2384174d855beec61368456, type: 3}
+  m_Name: TraderConfig
+  m_EditorClassIdentifier: Ashfall.Hideout::Ashfall.Hideout.TraderConfigSO
+  id: TRD-01
+  displayName: "\uACE0\uBB3C\uC0C1"
+  buyPriceMultiplier: 1
+  sellPriceMultiplier: 0.4
+  catalog:
+  - {fileID: 11400000, guid: 8b913dda283d4cf4d87b5e949e0042dc, type: 2}
+  - {fileID: 11400000, guid: 8bf876d69e7c41343a655c0a81d68e95, type: 2}
+  - {fileID: 11400000, guid: 622966e688ecd2440b3b6d8cbc3dc8d2, type: 2}
+  - {fileID: 11400000, guid: a4a6060da2d9d2a4c9f31adccbbcc97a, type: 2}
+  - {fileID: 11400000, guid: 958861534f1f9384a948671cb3b40cec, type: 2}
+  - {fileID: 11400000, guid: 5e7b923bea34ff54a944ee4b66ec5598, type: 2}
+  - {fileID: 11400000, guid: 9fd18968ca8171745b87a4db4b9a5a2f, type: 2}
+  - {fileID: 11400000, guid: 4eefecdd385a81d4aa7d7466fdcc9db0, type: 2}
+  - {fileID: 11400000, guid: 2bf384e7912e2304ba9c9900bb8af719, type: 2}
+  - {fileID: 11400000, guid: 0753b825ca1abc448b75d645bf1165b9, type: 2}

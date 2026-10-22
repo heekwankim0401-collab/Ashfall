@@ -4,15 +4,18 @@
 **구현 기준은 [docs/GDD.md](docs/GDD.md)다.** 작업 전 §0 작업 규칙, §13 기술 스펙, 현재 마일스톤(§15)을 읽는다.
 
 ## 현재 진행
-- 마일스톤: M0·M1(이동·사격)·M2(체력·인벤토리) 완료(자동 테스트 + 에디터 조작감 확인).
-  M3(적 AI)·M4(레이드 루프) 구현과 자동 테스트 완료, 에디터 확인(행동·마우스 UI·60fps) 대기. 다음은 M5.
+- 마일스톤: M0~M4(이동·사격, 체력·인벤토리, 적 AI, 레이드 루프) 완료(자동 테스트 + 에디터 확인).
+  M5(은신처 & 세이브) 구현과 자동 테스트 완료, 에디터 확인(마우스 UI·빌드에서 강제 종료) 대기. 다음은 M6.
 - 마일스톤 설계·리뷰 노트와 진행 방식은 `docs/design/`(README 참고). 새 마일스톤도 같은 방식으로 설계 문서를 여기에 남긴다.
   한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
 - 확인 씬(빌드 설정에는 없음): `Assets/_Project/Scenes/Test/M1_Greybox.unity`(`Ashfall/Setup/Recreate M1 Greybox Scene`),
   `Assets/_Project/Scenes/Test/M2_HealthInventory.unity`(`Ashfall/Setup/Create M2 Data` → `Create M2 Test Scene`),
   `Assets/_Project/Scenes/Test/M3_AI.unity`·`M3_AIPerf.unity`(`Ashfall/Setup/Create M3 Test Scenes`, 데이터·NavMesh 포함).
-- 게임 씬(빌드 순서): `Boot` → `MainMenu` → `Raid_CrimsonBasin`. `Ashfall/Setup/Create M4 Raid Scenes`가 MainMenu·레이드 씬·Terrain·NavMesh·빌드 설정을 만든다.
-- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
+- 게임 씬(빌드 순서): `Boot` → `MainMenu` → `Hideout` → `Raid_CrimsonBasin`. `Ashfall/Setup/Create M4 Raid Scenes`가 MainMenu·레이드 씬·Terrain·NavMesh를,
+  `Ashfall/Setup/Create M5 Hideout Scene`이 M5 데이터(가격·상인·키트·ItemDatabase)·Hideout 씬을 만들고, 둘 다 빌드 설정을 맞춘다.
+- 세이브: `Application.persistentDataPath/save.json`(에디터 메뉴 `Ashfall/Save/Open Save Folder`·`Delete Save Files`). 테스트는 실제 경로를 쓰지 않는다
+  (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
+- 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
 - Windows 빌드: `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.BuildTools.BuildWindows64` → `Builds/Windows64/`.
 
 ## 구조 (GDD §13.2)
@@ -20,20 +23,24 @@
   - `Core` — 공용(씬 이름, BootLoader, 아이템·무기·탄약·탄창 SO와 enum(`Data/`), `IDamageable`·`DamageInfo`·`IRecoilReceiver`(`Combat/`),
     유일한 싱글톤 `GameManager`(자동 생성)가 가진 `EventBus`(`Events/`)·`ServiceRegistry`와 기능 간 인터페이스(`Services/`),
     씬 흐름·레이드 결과·세계 정지(timeScale의 유일한 주체) `GameFlow`(`Flow/`)와 `RaidResult`(`Raid/`),
-    런타임 아이템 `ItemInstance`·`Magazine`·`WeaponItem`·`MedicalItem`·`LootRoller`·`InventorySnapshot`(`Items/`),
-    플레이어·적이 같이 쓰는 무기 로직 `WeaponModel`·`FireControl`·`LocalMagazineSource`·`DamageRules`(`Combat/`), 이후 세이브). 다른 Ashfall 어셈블리를 참조하지 않는다.
+    런타임 아이템 `ItemInstance`·`Magazine`·`WeaponItem`·`MedicalItem`·`LootRoller`·`InventorySnapshot`, 그리드 `ItemGrid`, 반입 `Loadout`(`Items/`),
+    플레이어·적이 같이 쓰는 무기 로직 `WeaponModel`·`FireControl`·`LocalMagazineSource`·`DamageRules`(`Combat/`),
+    세이브 `ProfileService`(GameManager 소유, 보관함·은신처 장비·탄피·키트·raidInProgress)·`SaveSerializer`·`FileSaveStorage`(`Save/`), id → 정의 `ItemDatabaseSO`). 다른 Ashfall 어셈블리를 참조하지 않는다.
     여러 기능이 같이 쓰는 타입은 여기 둔다. 기능 간 조회·명령은 레지스트리의 Core 인터페이스로, 변경 알림은 이벤트로.
   - `Player` — `PlayerConfigSO`, 순수 로직 `LocomotionModel`·`StaminaModel`·`BodyHealthModel`(부위 체력·상태이상)·`MedicalUseModel`, 얇은 `PlayerMotor`·`PlayerHealth`.
   - `Weapons` — 순수 로직 `Ballistics`·`MagazineCheckModel`(RULE-04)·`AimSway`, `ProjectileSystem`(`IProjectileService`), `WeaponController`, 그레이박스 `HitTarget`·`TestTurret`.
   - `AI` — 순수 로직 `EnemyBrain`(상태 머신)·`Squad`·전술(`ScavengerTactics`/`RaiderTactics`)·감각·`CoverSelector`·`EnemyBodyModel`,
     얇은 `EnemyAgent`(NavMeshAgent)·`AiDirector`(틱 분산, 정적 인스턴스 없음)·`CoverPoint`·`PatrolRoute`. 적 루트는 씬 최상위에 둔다.
-  - `Inventory` — 순수 로직 `ItemGrid`·`PlayerInventory`(`IInventoryService`·`IMagazineSource` 구현)·`LootContainerModel`, 얇은 `PlayerInventoryBehaviour`·`LootContainer`·`WorldItem`.
+  - `Inventory` — 순수 로직 `PlayerInventory`(`IInventoryService`·`IMagazineSource` 구현)·`LootContainerModel`, 얇은 `PlayerInventoryBehaviour`·`LootContainer`·`WorldItem`,
+    은신처용 `HideoutInventoryBehaviour`(보관함을 열린 루트 자리로 연다).
+  - `Hideout` — 순수 로직 `HideoutService`(`IHideoutService`: 진입·저장·레이드 시작)·`TraderModel`·`PriceRules`·`VagrantKitModel`·`StashRules`,
+    얇은 `HideoutController`, `HideoutConfigSO`·`TraderConfigSO`.
   - `Raid` — 순수 로직 `RaidSession`(타이머·종료 단일 처리)·`ExtractionModel`·`ExtractionRules`·`ActiveExtractionPicker`·`RaidResultBuilder`(RULE-01 유일 판정),
     얇은 `RaidController`(정적 인스턴스 없음)·`ExtractionZone`·`PowerSwitch`·`PlayerSpawnPoint`·`PointOfInterest`, `RaidConfigSO`.
-  - `UI` — UI Toolkit(GameUI: HUD·인벤토리·부위 상태·지도·일시정지·종료 오버레이, MainMenu: 메뉴·결과 패널). 순수 모델·프레젠터(`GameUIPresenter` 등)와 뷰, `GameUIRoot`. UXML/USS는 `Assets/_Project/Art/UI/`.
+  - `UI` — UI Toolkit(GameUI: HUD·인벤토리·부위 상태·지도·일시정지·종료 오버레이, MainMenu: [은신처]/[종료], HideoutUI: 알림·레이드 결과·허브([장비]/[상인]·키트)). 순수 모델·프레젠터(`GameUIPresenter` 등)와 뷰, `GameUIRoot`. UXML/USS는 `Assets/_Project/Art/UI/`.
   - `Player`, `Weapons`, `Inventory`, `AI`, `Raid`, `Hideout`, `UI`, `Audio` — `Ashfall.Core`만 참조. 기능끼리 직접 참조 금지(이벤트 버스).
   - `EditorTools` — 에디터 전용(씬·에셋 생성 메뉴). `Ashfall/...` 메뉴.
-- `Assets/_Project/Data/` — ScriptableObject 에셋. `Scenes/` — `Boot`(빌드 첫 씬) → `MainMenu`.
+- `Assets/_Project/Data/` — ScriptableObject 에셋. `Scenes/` — `Boot`(빌드 첫 씬) → `MainMenu` → `Hideout` ↔ `Raid_CrimsonBasin`.
 - `Assets/Tests/EditMode/`, `Assets/Tests/PlayMode/` — 테스트 asmdef는 모든 Ashfall 어셈블리를 참조한다.
 - `Assets/Settings/` — URP 에셋(`PC_RPAsset`이 Windows 기본), 볼륨 프로필. `Assets/InputSystem_Actions.inputactions` — 프로젝트 입력 액션.
 - `docs/` — `GDD.md`, `CHANGELOG_GDD.md`. `.claude/agents/` — GDD §16 에이전트 7종.

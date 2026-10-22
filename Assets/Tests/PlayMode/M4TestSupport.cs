@@ -23,11 +23,11 @@ namespace Ashfall.Tests.PlayMode
 {
     // M4 통합 테스트 공용 (M4 설계 §6 "4. 검증", §7): Raid_CrimsonBasin 로드(스폰 고정 가능) + 주요 참조,
     // 탈출 구역 순간이동(IPlayerPlacement), 적 제거, 머리 피격 사망, 메인 메뉴 UI 참조, UI Toolkit 버튼 클릭.
-    // 두 씬 모두 빌드 설정에 있어 이름으로 불러온다 → GameFlow.Phase가 실제 흐름과 같다(종료 시 MainMenu로 실제 전환).
+    // 씬은 빌드 설정에 있어 이름으로 불러온다 → GameFlow.Phase가 실제 흐름과 같다(M5: 종료 시 Hideout으로 실제 전환).
     internal sealed class M4Raid
     {
         public const float LoadTimeoutSec = 60f;
-        // 종료 오버레이(endDelaySec 3초, 실시간) + MainMenu 로드 여유
+        // 종료 오버레이(endDelaySec 3초, 실시간) + Hideout 로드 여유
         public const float EndToMenuTimeoutSec = 20f;
 
         public GameManager Gm;
@@ -220,25 +220,29 @@ namespace Ashfall.Tests.PlayMode
 
         public int CountCarried(ItemDefinitionSO definition) => Carried().Count(i => i.Definition == definition);
 
-        // 결과 RaidResult + 종료 오버레이 → MainMenu 결과 패널까지 기다린다.
-        public static IEnumerator WaitForMainMenu(M4Menu menu, float timeoutSec = EndToMenuTimeoutSec)
+        // M5: 레이드 종료(RaidEnded) + 종료 오버레이(endDelaySec) → CompleteRaid → Hideout 로드 완료까지 기다린다 (M5 설계 §1.2).
+        // 씬 로드 완료(OnSceneLoaded)가 세계 정지를 푼다. 은신처 UI 준비(HideoutRoot.Presenter)까지 본다.
+        public static IEnumerator WaitForHideout(float timeoutSec = EndToMenuTimeoutSec)
         {
-            yield return M3Scene.WaitUntil(() => SceneManager.GetActiveScene().name == SceneNames.MainMenu,
-                timeoutSec, () => $"MainMenu로 전환 (현재 {SceneManager.GetActiveScene().name})");
-            yield return M4Menu.Attach(menu);
+            yield return M3Scene.WaitUntil(() => SceneManager.GetActiveScene().name == SceneNames.Hideout,
+                timeoutSec, () => $"Hideout으로 전환 (현재 {SceneManager.GetActiveScene().name})");
+            yield return M3Scene.WaitUntil(() =>
+                {
+                    HideoutRoot root = Object.FindFirstObjectByType<HideoutRoot>();
+                    return root != null && root.Presenter != null && root.ViewsBuilt;
+                }, 10f, () => "HideoutRoot 준비");
         }
     }
 
-    // MainMenu 씬 UI 참조 (M4 설계 §1.3·§3.4)
+    // MainMenu 씬 UI 참조 (M4 설계 §1.3·§3.4, M5 Q20: [은신처]/[종료])
+    // M5: 결과 패널은 Hideout으로 옮겨졌다(Q21) — 은신처 결과 패널은 M5TestSupport의 M5Hideout이 본다.
     internal sealed class M4Menu
     {
         public MainMenuRoot Root;
         public VisualElement Ui;
-        public Button Start;
+        public Button Start;   // 이름 menu-start, 문구 "은신처" (M5)
         public Button Quit;
-        public Button Confirm;
         public VisualElement MenuPanel;
-        public VisualElement ResultPanel;
 
         public MainMenuPresenter Presenter => Root.Presenter;
 
@@ -252,15 +256,13 @@ namespace Ashfall.Tests.PlayMode
                     return false;
                 VisualElement ui = root.GetComponent<UIDocument>().rootVisualElement;
                 Button start = ui?.Q<Button>(MainMenuRoot.StartName);
-                return start != null && start.text == UiText.MenuStartRaid;   // 뷰가 만들어지면 UiText로 덮어쓴다
+                return start != null && start.text == UiText.MenuHideout;   // 뷰가 만들어지면 UiText로 덮어쓴다
             }, 10f, () => "MainMenuRoot 준비");
             into.Root = root;
             into.Ui = root.GetComponent<UIDocument>().rootVisualElement;
             into.Start = into.Ui.Q<Button>(MainMenuRoot.StartName);
             into.Quit = into.Ui.Q<Button>(MainMenuRoot.QuitName);
-            into.Confirm = into.Ui.Q<Button>(RaidResultView.ConfirmName);
             into.MenuPanel = into.Ui.Q<VisualElement>(MainMenuRoot.MenuPanelName);
-            into.ResultPanel = into.Ui.Q<VisualElement>(RaidResultView.PanelName);
             yield return null;   // 레이아웃 한 번
         }
 

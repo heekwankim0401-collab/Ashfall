@@ -202,7 +202,7 @@ namespace Ashfall.Tests.EditMode
         {
             RaidSession session = Session();
             session.Abandon();
-            RaidResult result = RaidResultBuilder.Build(session, null, null);
+            RaidResult result = RaidResultBuilder.Build(session, null, (IReadOnlyList<ItemInstance>)null);
             Assert.IsEmpty(result.BroughtIn);
             Assert.IsEmpty(result.CarriedOut);
             Assert.IsEmpty(result.Lost);
@@ -213,6 +213,115 @@ namespace Ashfall.Tests.EditMode
         {
             Assert.Throws<System.InvalidOperationException>(() => RaidResultBuilder.Build(Session(), broughtIn, Snapshot()));
             Assert.Throws<System.ArgumentNullException>(() => RaidResultBuilder.Build(null, broughtIn, Snapshot()));
+        }
+
+        // ── M5 Loadout 오버로드 (M5 설계 §4.4, RULE-01) ─────────────────
+
+        private RaidSession ExtractedSession()
+        {
+            RaidSession session = Session();
+            for (int i = 0; i < 100; i++)
+                session.Tick(0.1f, Ext01Pos, inventory);
+            Assert.AreEqual(RaidOutcome.Extracted, session.Outcome);
+            return session;
+        }
+
+        [Test]
+        public void Loadout_Extracted_CarriedOutLoadoutIsEndLoadout_WithLocations()
+        {
+            ItemInstance junk = PickUpJunk();
+            RaidSession session = ExtractedSession();
+            Loadout end = Loadout.Capture(inventory);
+
+            RaidResult result = RaidResultBuilder.Build(session, broughtIn, end);
+
+            Assert.AreSame(end, result.CarriedOutLoadout, "탈출 = 종료 시점 Loadout 그대로 (위치 포함)");
+            Assert.IsTrue(result.CarriedOutLoadout.Entries.Any(e => e.Item == rifle && e.Location.IsEquipped
+                                                                    && e.Location.Slot == EquipSlot.Primary1));
+            Assert.IsTrue(inventory.TryGetLocation(junk, out ItemLocation junkAt));
+            LoadoutEntry junkEntry = result.CarriedOutLoadout.Entries.Single(e => e.Item == junk);
+            Assert.AreEqual(junkAt.Grid, junkEntry.Location.Grid, "획득품도 놓인 자리 그대로");
+            Assert.AreEqual(junkAt.Cell, junkEntry.Location.Cell);
+            Assert.IsEmpty(result.Lost);
+        }
+
+        [Test]
+        public void Loadout_Extracted_FlatCarriedOut_SameOrderAsM4Snapshot()
+        {
+            PickUpJunk();
+            RaidSession session = ExtractedSession();
+            List<ItemInstance> m4 = Snapshot();
+
+            RaidResult result = RaidResultBuilder.Build(session, broughtIn, Loadout.Capture(inventory));
+
+            CollectionAssert.AreEqual(m4, result.CarriedOut, "결과 화면 표시 순서는 M4와 같다");
+            Assert.AreEqual(result.CarriedOut.Count, result.CarriedOut.Distinct().Count(), "중복 없음");
+            Assert.AreEqual(1, result.CarriedOut.Count(i => i == rifle), "무기 장착 탄창은 무기에 포함 (따로 세지 않음)");
+        }
+
+        [TestCase(RaidOutcome.Killed)]
+        [TestCase(RaidOutcome.MissingInAction)]
+        [TestCase(RaidOutcome.Abandoned)]
+        public void Loadout_NotExtracted_NoCarriedOutLoadout_LosesEverything(RaidOutcome outcome)
+        {
+            ItemInstance junk = PickUpJunk();
+            RaidSession session = Session();
+            if (outcome == RaidOutcome.Killed) session.EndByDeath(BodyPart.Head);
+            else if (outcome == RaidOutcome.MissingInAction) { session.AdvanceTime(1500f); session.Tick(0f, Vector3.zero, inventory); }
+            else session.Abandon();
+            Assert.AreEqual(outcome, session.Outcome);
+
+            RaidResult result = RaidResultBuilder.Build(session, broughtIn, Loadout.Capture(inventory));
+
+            Assert.IsNull(result.CarriedOutLoadout, "RULE-01: 반출 장비 없음");
+            Assert.IsEmpty(result.CarriedOut);
+            CollectionAssert.AreEqual(
+                new ItemDefinitionSO[] { rifle.Definition, vest.Definition, bandage.Definition, junk.Definition }, result.Lost,
+                "소실 = 종료 시점 소지품 전부 (Capture 순서)");
+        }
+
+        [Test]
+        public void Loadout_OpenLootExcluded()
+        {
+            var lootItem = new ItemInstance(TestData.Pipe());
+            inventory.OpenLoot(new LootContainerModel("상자", new Vector2Int(4, 4), new[] { lootItem }, 0f));
+            RaidSession session = ExtractedSession();
+
+            RaidResult result = RaidResultBuilder.Build(session, broughtIn, Loadout.Capture(inventory));
+
+            CollectionAssert.DoesNotContain(result.CarriedOut, lootItem);
+            Assert.IsFalse(result.CarriedOutLoadout.Entries.Any(e => e.Item == lootItem), "열린 상자는 반출 장비가 아니다");
+        }
+
+        [Test]
+        public void Loadout_Null_ExtractedGivesEmptyLoadout_DeathGivesNull()
+        {
+            RaidResult extracted = RaidResultBuilder.Build(ExtractedSession(), broughtIn, (Loadout)null);
+            Assert.IsNotNull(extracted.CarriedOutLoadout);
+            Assert.IsTrue(extracted.CarriedOutLoadout.IsEmpty);
+            Assert.IsEmpty(extracted.CarriedOut);
+
+            RaidSession dead = Session();
+            dead.EndByDeath(BodyPart.Thorax);
+            RaidResult killed = RaidResultBuilder.Build(dead, broughtIn, (Loadout)null);
+            Assert.IsNull(killed.CarriedOutLoadout);
+            Assert.IsEmpty(killed.Lost);
+        }
+
+        [Test]
+        public void ListOverload_HasNoCarriedOutLoadout()
+        {
+            RaidResult result = RaidResultBuilder.Build(ExtractedSession(), broughtIn, Snapshot());
+            Assert.IsNull(result.CarriedOutLoadout, "M4 목록 오버로드는 위치가 없다");
+        }
+
+        [Test]
+        public void Loadout_NotOver_Throws()
+        {
+            Assert.Throws<System.InvalidOperationException>(() =>
+                RaidResultBuilder.Build(Session(), broughtIn, Loadout.Capture(inventory)));
+            Assert.Throws<System.ArgumentNullException>(() =>
+                RaidResultBuilder.Build(null, broughtIn, Loadout.Empty));
         }
 
         [Test]

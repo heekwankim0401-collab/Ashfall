@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f9be3e9e3a4303b47b6dccc55f7ed24e, type: 3}
+  m_Name: ItemDatabase
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.ItemDatabaseSO
+  items:
+  - {fileID: 11400000, guid: 8c0f6cda657b7f54c8030fab41bad15c, type: 2}
+  - {fileID: 11400000, guid: bd4ba6ed4baf1e2469098365816f2e6a, type: 2}
+  - {fileID: 11400000, guid: 0753b825ca1abc448b75d645bf1165b9, type: 2}
+  - {fileID: 11400000, guid: 2bf384e7912e2304ba9c9900bb8af719, type: 2}
+  - {fileID: 11400000, guid: 4eefecdd385a81d4aa7d7466fdcc9db0, type: 2}
+  - {fileID: 11400000, guid: 7825228d32ef84a45b5dea8200020a93, type: 2}
+  - {fileID: 11400000, guid: 622966e688ecd2440b3b6d8cbc3dc8d2, type: 2}
+  - {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+  - {fileID: 11400000, guid: 6a8e204bfd179ce4c84971f82214d0f1, type: 2}
+  - {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+  - {fileID: 11400000, guid: 8bf876d69e7c41343a655c0a81d68e95, type: 2}
+  - {fileID: 11400000, guid: 4c7f104ea4721df46b6c549f1e6a891f, type: 2}
+  - {fileID: 11400000, guid: 0377e18be23a1a64297942c6c65e825b, type: 2}
+  - {fileID: 11400000, guid: a4a6060da2d9d2a4c9f31adccbbcc97a, type: 2}
+  - {fileID: 11400000, guid: 5e7b923bea34ff54a944ee4b66ec5598, type: 2}
+  - {fileID: 11400000, guid: 958861534f1f9384a948671cb3b40cec, type: 2}
+  - {fileID: 11400000, guid: 9fd18968ca8171745b87a4db4b9a5a2f, type: 2}
+  - {fileID: 11400000, guid: ceec601b993e1d847ba564f9c44ad0ec, type: 2}
+  - {fileID: 11400000, guid: 8b913dda283d4cf4d87b5e949e0042dc, type: 2}
+  - {fileID: 11400000, guid: 99adf71100b830f4cba0b2c667d991fc, type: 2}

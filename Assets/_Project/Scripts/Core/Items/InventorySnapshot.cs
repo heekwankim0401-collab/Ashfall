@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace Ashfall.Core
 {
-    // 인벤토리 소지품 목록 (RULE-01 반입·반출·소실, M4 설계 §1.5·§1.6). Raid와 M5 Hideout이 같이 쓴다.
+    // 인벤토리 소지품 목록 (RULE-01 반입·반출·소실, M4 설계 §1.5·§1.6). Raid가 쓴다(반입 정의 목록 등).
+    // M5는 위치까지 담는 `Loadout.Capture`(같은 순서)를 쓴다.
     // IInventoryService의 읽기 API(GetEquipped·StorageGrids)만으로 계산한다.
     public static class InventorySnapshot
     {
@@ -11,7 +12,7 @@ namespace Ashfall.Core
 
         // 장착 7슬롯(EquipSlot 순) → StorageGrids(순서·배치 순)의 아이템을 into에 더한다. 더한 수를 돌려준다.
         // 열린 루트(ActiveLoot)는 제외. 같은 인스턴스는 한 번만. 무기의 장착 탄창은 무기에 포함(따로 넣지 않음).
-        // 인자 null → 0. TODO(GDD-?): 재장전 중 손에 든 탄창(인벤토리 밖)은 빠진다.
+        // 인자 null → 0. 재장전은 완료 순간 탄창을 바로 바꾸므로(WeaponModel.CompleteReload) 인벤토리 밖 탄창은 없다.
         public static int Collect(IInventoryService inventory, List<ItemInstance> into)
         {
             if (inventory == null || into == null)

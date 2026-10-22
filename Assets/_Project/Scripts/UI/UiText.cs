@@ -24,13 +24,102 @@ namespace Ashfall.UI
         public const string AbandonNo = "취소";
         public const string MapTitle = "지도";
         public const string MainMenuTitle = "ASHFALL";
-        public const string MenuStartRaid = "레이드 시작";
+        // M5 Q20: 메인 메뉴 [은신처] / [종료].
+        public const string MenuHideout = "은신처";
         public const string MenuQuit = "종료";
         public const string ResultConfirm = "확인";
         public const string ResultBroughtIn = "반입";
         public const string ResultCarriedOut = "반출";
         public const string ResultLost = "소실";
         public const string ResultNone = "없음";
+
+        // ── M5 은신처 (M5 설계 §3.4) ─────────────────────
+        // 탄 수·HP·무게 숫자는 은신처에서도 만들지 않는다. 가격·탄피·키트 남은 분은 메뉴 화면 정보라 표시한다.
+        public const string HideoutTitle = "은신처";
+        public const string HideoutTabLoadout = "장비";
+        public const string HideoutTabTrader = "상인";
+        public const string HideoutKitButton = "부랑자 키트 받기";
+        public const string HideoutKitReady = "받을 수 있다";
+        public const string HideoutKitUnavailable = "받을 수 없다";
+        public const string HideoutStartRaid = "레이드 시작";
+        public const string HideoutMainMenu = "메인 메뉴";
+        public const string TraderOffersTitle = "판매 목록";
+        public const string TraderSellTitle = "보관함 (판매)";
+        public const string TraderBuy = "구매";
+        public const string TraderSell = "판매";
+        public const string TraderSellEmpty = "보관함이 비어 있다";
+        public const string NoticeTitle = "알림";
+        public const string NoticeConfirm = "확인";
+        public const string NoticeLostTitle = "잃은 장비";
+        // TODO(GDD-?) Q6: 알림 문구는 문서에 없다. 같은 실행에서 결과 없이 돌아온 경우도 같은 문구(보고서에 구분 정보가 없다).
+        public const string NoticeCrash = "지난 레이드 도중 게임이 종료되어 사망으로 처리했다 (RULE-03). 반입 장비를 잃었다.";
+        public const string NoticeCorrupt = "세이브 파일이 손상되어 새로 시작한다.";   // TODO(GDD-?) Q22
+        public const string NoticeUnsupportedVersion = "세이브 파일 버전을 읽을 수 없어 새로 시작한다.";
+        public const string NoticeQuarantined = "이전 파일은 따로 보관했다: ";
+        // TODO(GDD-?) Q22·M5 리뷰 1: 읽기 오류(권한·잠금) — 파일은 그대로, 이 실행은 저장하지 않는다.
+        public const string NoticeReadError =
+            "세이브 파일을 읽지 못했다. 파일은 건드리지 않았다. 이번 실행에서는 저장하지 않으며(읽기 전용) 레이드를 시작할 수 없다. 게임을 다시 시작해 보라.";
+        public const string MessageSaveFailed = "저장하지 못했다.";
+        public const string MessageReadOnly = "읽기 전용 — 이번 실행에서는 저장하지 않는다.";
+        public const string MessageStartRaidSaveFailed = "저장하지 못해 레이드를 시작할 수 없다.";   // W4 실패 (RULE-03)
+        public const string MessageStartRaidReadOnly = "세이브를 읽지 못해 이번 실행에서는 레이드를 시작할 수 없다.";
+        public const string MessageStartRaidFailed = "레이드를 시작할 수 없다.";
+        public const string MessageMainMenuFailed = "메인 메뉴로 갈 수 없다.";
+        // W2 저장 실패 (M5 리뷰 6): 이동하지 않는다. 다시 누르면 저장이 또 실패해도 이동한다.
+        public const string MessageMainMenuSaveFailed = "저장하지 못했다. [메인 메뉴]를 다시 누르면 저장하지 못한 채로 나간다.";
+        public const string MessageKitOk = "부랑자 키트를 보관함에 받았다.";
+        public const string MessageKitOnCooldown = "부랑자 키트를 아직 받을 수 없다.";
+        public const string MessageKitNoSpace = "보관함에 자리가 없어 부랑자 키트를 받을 수 없다.";   // TODO(GDD-?) Q15
+        public const string MessageUnavailable = "지금은 할 수 없다.";
+        public const string MessageNotEnoughCasings = "탄피가 모자란다.";
+        public const string MessageNoSpace = "보관함에 자리가 없다.";
+        public const string MessageNotForSale = "팔지 않는 물건이다.";
+        public const string MessageNotInStash = "보관함에 있는 것만 팔 수 있다.";   // TODO(GDD-?) Q12
+
+        public static string Casings(int casings) => "탄피 " + casings;
+
+        public static string Price(int casings) => casings + " 탄피";
+
+        // "N분 뒤" (분 올림, 최소 1분). M5 설계 §3.4
+        public static string KitRemaining(float remainingSec)
+        {
+            int minutes = (int)System.Math.Ceiling(remainingSec / 60f);
+            if (minutes < 1)
+                minutes = 1;
+            return minutes + "분 뒤";
+        }
+
+        public static string Bought(string itemName) => "구매했다: " + itemName;
+
+        public static string Sold(string itemName) => "판매했다: " + itemName;
+
+        public static string NoticeUnknownItems(int count) => "알 수 없는 아이템 " + count + "개를 버렸다.";   // TODO(GDD-?) Q23
+
+        public static string NoticeDroppedItems(int count) => "놓을 자리가 없는 아이템 " + count + "개를 버렸다.";
+
+        public static string Trade(TradeResult result)
+        {
+            switch (result)
+            {
+                case TradeResult.NotEnoughCasings: return MessageNotEnoughCasings;
+                case TradeResult.NoSpace: return MessageNoSpace;
+                case TradeResult.NotForSale: return MessageNotForSale;
+                case TradeResult.NotInStash: return MessageNotInStash;
+                case TradeResult.Unavailable: return MessageUnavailable;
+                default: return string.Empty;
+            }
+        }
+
+        public static string Kit(KitClaimResult result)
+        {
+            switch (result)
+            {
+                case KitClaimResult.Ok: return MessageKitOk;
+                case KitClaimResult.OnCooldown: return MessageKitOnCooldown;
+                case KitClaimResult.NoSpace: return MessageKitNoSpace;
+                default: return MessageUnavailable;
+            }
+        }
 
         // 아이콘이 없으므로 이름 텍스트 상자로 그린다. 탄창 탄 수·의약품 횟수는 붙이지 않는다.
         public static string ItemLabel(ItemInstance item)

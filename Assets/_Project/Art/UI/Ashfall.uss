@@ -20,6 +20,9 @@
     --ash-slot-height: 52px;
     --ash-quick-width: 84px;
     --ash-map-size: 560px;
+    /* M5 은신처 보관함 스크롤 폭 = 10칸 × --ash-cell-size(48px) + 세로 스크롤바 여유. 칸 크기를 바꾸면 같이 바꾼다. */
+    --hideout-stash-width: 500px;
+    --hideout-trader-column-width: 360px;
 }
 
 .ash-root {
@@ -546,4 +549,189 @@
 
 .result-line--empty {
     opacity: 0.5;
+}
+
+/* ── M5: 은신처 (HideoutUI.uxml, M5 설계 §3.4) ───── */
+
+.hideout-root {
+    background-color: var(--ash-black);
+    align-items: center;
+    justify-content: center;
+}
+
+.hideout-hub {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: column;
+    padding: 16px 24px;
+}
+
+.hideout-header {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    padding-bottom: 8px;
+    border-bottom-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.hideout-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    margin: 0 24px 0 0;
+}
+
+.hideout-casings {
+    font-size: 18px;
+    -unity-font-style: bold;
+    min-width: 140px;
+    margin: 0 24px 0 0;
+}
+
+.hideout-tabs {
+    flex-direction: row;
+    margin-right: 24px;
+}
+
+.ash-button.hideout-tab {
+    min-width: 96px;
+    margin: 0 6px 0 0;
+}
+
+.ash-button.hideout-tab--selected {
+    border-color: var(--bone);
+    background-color: var(--rust-red);
+}
+
+.hideout-kit {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hideout-kit-status {
+    margin: 0 0 0 8px;
+    min-width: 100px;
+}
+
+.hideout-spacer {
+    flex-grow: 1;
+}
+
+.ash-button.hideout-action {
+    min-width: 140px;
+    margin: 0 0 0 8px;
+}
+
+.ash-root .hideout-message {
+    height: 24px;
+    flex-shrink: 0;
+    margin: 6px 0;
+    padding: 0;
+    color: var(--bone);
+    -unity-font-style: italic;
+}
+
+.hideout-content {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* [장비] 탭: 레이드 인벤토리와 같은 요소, 전체 화면 대신 허브 안에 채운다 */
+.hideout-inventory {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.hideout-inv-layout {
+    flex-grow: 1;
+    flex-shrink: 1;
+    align-items: stretch;
+}
+
+.hideout-storage-panel,
+.hideout-stash-panel {
+    flex-shrink: 1;
+}
+
+.hideout-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.hideout-stash-scroll {
+    width: var(--hideout-stash-width);
+}
+
+/* [상인] 탭 */
+.trader-panel {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0;
+}
+
+.trader-columns {
+    flex-direction: row;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.trader-column {
+    width: var(--hideout-trader-column-width);
+    margin-right: 24px;
+    flex-shrink: 1;
+}
+
+.trader-list {
+    flex-direction: column;
+}
+
+.trader-row {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    border-bottom-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.trader-row-name {
+    flex-grow: 1;
+    margin: 0;
+    padding: 0;
+}
+
+.trader-row-price {
+    width: 90px;
+    margin: 0 8px 0 0;
+    padding: 0;
+    -unity-text-align: middle-right;
+}
+
+.ash-button.trader-row-button {
+    min-width: 72px;
+    height: 28px;
+    margin: 0;
+}
+
+/* 알림 패널 */
+.hideout-notice-panel {
+    min-width: 560px;
+    max-width: 720px;
+    max-height: 90%;
+    padding: 20px;
+}
+
+.hideout-notice-text {
+    white-space: normal;
+    margin: 0 0 12px 0;
+}
+
+.hideout-notice-section {
+    width: auto;
+    margin-bottom: 12px;
 }

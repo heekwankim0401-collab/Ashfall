@@ -5,9 +5,10 @@ using UnityEngine.UIElements;
 
 namespace Ashfall.UI
 {
-    // MainMenu 씬 UI 진입점 (M4 설계 §1.3, §4.5). UIDocument(Art/UI/MainMenu.uxml + GamePanelSettings) 하나.
-    // 상태 로직은 MainMenuPresenter(순수 C#). 여기서는 버튼 연결·패널 표시·커서만 한다.
-    // 메뉴: [레이드 시작] / [종료] (TODO(GDD-?) Q22). 결과 패널: GameFlow.PendingResult가 있으면 먼저 (Q15·Q18).
+    // MainMenu 씬 UI 진입점 (M4 설계 §1.3, M5 설계 §4.5). UIDocument(Art/UI/MainMenu.uxml + GamePanelSettings) 하나.
+    // 상태 로직은 MainMenuPresenter(순수 C#). 여기서는 버튼 연결·문구·커서만 한다.
+    // 메뉴: [은신처] / [종료] (TODO(GDD-?) Q20). 결과 패널은 은신처로 옮겼다(Q21).
+    // 버튼 이름 menu-start는 M4 씬·테스트 호환을 위해 그대로 두고 문구만 "은신처"로 바꾼다.
     // 입력: EventSystem 없이 UI Toolkit이 Input System UI 맵으로 포인터를 받는다(M2와 같음) → UI 맵을 켠다.
     [RequireComponent(typeof(UIDocument))]
     public sealed class MainMenuRoot : MonoBehaviour
@@ -18,8 +19,6 @@ namespace Ashfall.UI
 
         private UIDocument document;
         private MainMenuPresenter presenter;
-        private RaidResultView resultView;
-        private VisualElement menuPanel;
         private Button startButton;
         private Button quitButton;
         private bool viewsBuilt;
@@ -43,7 +42,7 @@ namespace Ashfall.UI
             }
 
             InputSystem.actions?.FindActionMap("UI")?.Enable();
-            // 레이드에서 돌아오면 커서가 잠겨 있을 수 있다. 메뉴는 항상 커서를 보인다.
+            // 레이드·은신처에서 돌아오면 커서가 잠겨 있을 수 있다. 메뉴는 항상 커서를 보인다.
             UnityEngine.Cursor.lockState = CursorLockMode.None;
             UnityEngine.Cursor.visible = true;
 
@@ -63,10 +62,7 @@ namespace Ashfall.UI
             {
                 startButton.clicked -= OnStartClicked;
                 quitButton.clicked -= OnQuitClicked;
-                resultView.Dispose();
             }
-            resultView = null;
-            menuPanel = null;
             startButton = null;
             quitButton = null;
             viewsBuilt = false;
@@ -85,14 +81,12 @@ namespace Ashfall.UI
             if (root == null || root.Q<VisualElement>(MenuPanelName) == null)
                 return;
 
-            menuPanel = RaidResultView.Find<VisualElement>(root, MenuPanelName);
             startButton = RaidResultView.Find<Button>(root, StartName);
             quitButton = RaidResultView.Find<Button>(root, QuitName);
-            startButton.text = UiText.MenuStartRaid;
+            startButton.text = UiText.MenuHideout;
             quitButton.text = UiText.MenuQuit;
             startButton.clicked += OnStartClicked;
             quitButton.clicked += OnQuitClicked;
-            resultView = new RaidResultView(root, OnConfirmClicked);
             viewsBuilt = true;
             Render();
         }
@@ -101,20 +95,13 @@ namespace Ashfall.UI
         {
             if (!viewsBuilt || presenter == null)
                 return;
-            bool showResult = presenter.Panel == MainMenuPanel.Result;
-            menuPanel.style.display = showResult ? DisplayStyle.None : DisplayStyle.Flex;
-            resultView.SetVisible(showResult);
-            if (showResult)
-                resultView.Render(presenter.Result);
-            startButton.SetEnabled(!presenter.IsStarting);
-            quitButton.SetEnabled(!presenter.IsStarting);
+            startButton.SetEnabled(!presenter.IsEntering);
+            quitButton.SetEnabled(!presenter.IsEntering);
         }
 
-        private void OnStartClicked() => presenter?.StartRaid();
+        private void OnStartClicked() => presenter?.EnterHideout();
 
         private void OnQuitClicked() => presenter?.Quit();
-
-        private void OnConfirmClicked() => presenter?.ConfirmResult();
 
         private static void QuitApplication()
         {

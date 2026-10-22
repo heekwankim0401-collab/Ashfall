@@ -14,10 +14,11 @@ namespace Ashfall.Inventory
     //   UI 드래그 중 다른 경로(재장전, 의약품 소진)로 빠진 아이템을 다시 넣어 복제·부활시키지 않게 한다 (리뷰 수정).
     //   밖에서 새로 들어오는 아이템은 TryAutoStore(줍기·회수)와 TryEquipNew(시작 장비)로만 받는다.
     // - 자동 배치 순서: 조끼 → 주머니 → 배낭 (TODO(GDD-?)).
+    // - M5: 반입(Loadout)을 위치 그대로 놓는다(TryApplyLoadout, TryPlaceNew). 은신처는 버리기·의약품 사용을 끈다(AllowDrop/AllowUse, Q27).
     public sealed class PlayerInventory : IInventoryService, IMagazineSource
     {
-        // §12.1 의약품 퀵슬롯 키 4~7 (입력 액션 QuickSlot1~4와 같은 수)
-        public const int QuickSlotCount = 4;
+        // §12.1 의약품 퀵슬롯 키 4~7 (입력 액션 QuickSlot1~4와 같은 수). M5: 반입(Loadout)과 같은 수
+        public const int QuickSlotCount = Loadout.QuickSlotCount;
 
         private static readonly int SlotCount = Enum.GetValues(typeof(EquipSlot)).Length;
 
@@ -57,6 +58,9 @@ namespace Ashfall.Inventory
         public bool IsRaidEndLocked { get; set; }
         // 둘 중 하나라도 걸리면 변경 거부 (조회는 그대로). Remove(테스트·디버그용, 규칙 무시)는 예외.
         public bool IsFrozen => IsDeadLocked || IsRaidEndLocked;
+        // M5(Q27): false면 TryDrop·TryUse를 거부한다 (은신처 — 버리기·의약품 사용 없음). 기본 true(레이드).
+        public bool AllowDrop { get; set; } = true;
+        public bool AllowUse { get; set; } = true;
         public LootContainerModel ActiveLootModel => activeLoot;
 
         // ── IInventoryService 읽기 ─────────────────────────────
@@ -184,7 +188,7 @@ namespace Ashfall.Inventory
 
         public bool TryDrop(ItemInstance item)
         {
-            if (!CanTakeFrom(item) || !Detach(item))
+            if (!AllowDrop || !CanTakeFrom(item) || !Detach(item))
                 return false;
             RaiseChanged();
             Dropped?.Invoke(item);
@@ -217,7 +221,7 @@ namespace Ashfall.Inventory
         // 사용 중(잠김)이거나 남은 횟수가 0이면 거부.
         public bool TryUse(ItemInstance item)
         {
-            if (IsFrozen || !(item is MedicalItem medical) || medical.UsesLeft <= 0
+            if (IsFrozen || !AllowUse || !(item is MedicalItem medical) || medical.UsesLeft <= 0
                 || !IsInStorage(medical) || locked.Contains(medical))
                 return false;
             UseRequested?.Invoke(medical);
@@ -285,6 +289,66 @@ namespace Ashfall.Inventory
                 return false;
             PutInSlot(item, slot);
             return true;
+        }
+
+        // M5: 밖에서 새로 들어온 아이템을 저장 공간의 정확한 자리에 놓는다 (반입 장비 복원).
+        // 열린 루트(Loot) 자리는 받지 않는다. 이미 이 인벤토리에 있는 아이템·잠긴 아이템·사망/종료 잠금이면 거부.
+        public bool TryPlaceNew(ItemInstance item, GridRef grid, Vector2Int cell, bool rotated)
+        {
+            if (item == null || IsFrozen || grid.Kind == GridKind.Loot || IsInInventory(item) || locked.Contains(item))
+                return false;
+            ItemGrid target = FindGrid(grid);
+            if (target == null || !target.TryPlace(item, cell, rotated))
+                return false;
+            RaiseChanged();
+            return true;
+        }
+
+        // M5(RULE-01, 설계 §1.3): 반입을 위치 그대로 놓는다. 놓은 아이템 수를 돌려준다.
+        // 순서: ① 장착 항목(TryEquipNew — 조끼·배낭 그리드가 먼저 생긴다) ② 그리드 항목(TryPlaceNew, 정확한 자리)
+        //       ③ ①②에서 실패한 것을 Entries 순으로 자동 배치(TryAutoStore — 정확한 자리를 다 채운 뒤라 남의 자리를 뺏지 않는다)
+        //       ④ 그래도 안 되면 rejected에 더한다(null이면 버려진다 — 호출자 몫) ⑤ 퀵슬롯은 저장 공간에 놓인 의약품만.
+        // 이미 이 인벤토리에 있는 인스턴스는 건너뛴다(놓은 수·rejected 모두 아님 — 같은 아이템이 두 곳에 생기지 않게).
+        // 잘못된 자리(없는 주머니 번호, 범위 밖·겹치는 칸, 장착 규칙 위반, 장착 안 된 조끼·배낭 그리드)는 ③으로 간다.
+        // 사망·종료 잠금 중이면 전부 rejected.
+        public int TryApplyLoadout(Loadout loadout, List<ItemInstance> rejected)
+        {
+            if (loadout == null)
+                return 0;
+
+            IReadOnlyList<LoadoutEntry> entries = loadout.Entries;
+            var failed = new List<ItemInstance>();
+            int placed = 0;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LoadoutEntry entry = entries[i];
+                if (!entry.Location.IsEquipped || IsInInventory(entry.Item))
+                    continue;
+                if (TryEquipNew(entry.Item, entry.Location.Slot)) placed++;
+                else failed.Add(entry.Item);
+            }
+            for (int i = 0; i < entries.Count; i++)
+            {
+                LoadoutEntry entry = entries[i];
+                if (entry.Location.IsEquipped || IsInInventory(entry.Item))
+                    continue;
+                ItemLocation at = entry.Location;
+                if (TryPlaceNew(entry.Item, at.Grid, at.Cell, at.Rotated)) placed++;
+                else failed.Add(entry.Item);
+            }
+            // TODO(GDD-?): 자리를 잃은 반입 아이템의 자동 배치 순서는 줍기와 같게 (조끼 → 주머니 → 배낭).
+            for (int i = 0; i < failed.Count; i++)
+            {
+                if (TryAutoStore(failed[i])) placed++;
+                else rejected?.Add(failed[i]);
+            }
+
+            IReadOnlyList<ItemInstance> quick = loadout.QuickSlots;
+            for (int i = 0; i < QuickSlotCount && i < quick.Count; i++)
+                if (quick[i] != null && IsInStorage(quick[i]))
+                    TryAssignQuickSlot(i, quick[i]);
+            return placed;
         }
 
         // 어디에 있든 꺼낸다 (잠금·규칙 무시). 없으면 false.

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Ashfall.Core
 {
-    // M2·M3·M4 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3, M4 설계 §4.1). 전부 readonly struct, GameManager.Events로 발행한다.
+    // M2~M5 기능 간 이벤트 (M2 설계 §3.4, M3 설계 §3, M4 설계 §4.1, M5 설계 §4.1). 전부 readonly struct, GameManager.Events로 발행한다.
     // 이벤트는 기능 사이에서만 쓴다. 같은 어셈블리 안은 직접 참조한다.
 
     // ── Inventory → 다른 기능 ──────────────────────────────
@@ -272,6 +272,12 @@ namespace Ashfall.Core
             ExtractionName = extractionName;
         }
     }
+
+    // ── M5: Hideout → 다른 기능 ───────────────────────────
+
+    // 탄피·보관함 내용·키트 상태가 바뀜 → 은신처 UI가 IHideoutService·IInventoryService를 다시 읽는다.
+    // 은신처 인벤토리 브리지(Inventory)는 이것을 받아 InventoryChanged로 다시 알린다(보관함 그리드가 바뀌었으니).
+    public readonly struct HideoutChanged : IGameEvent { }
 
     // ── UI → 다른 기능 ─────────────────────────────────────
 

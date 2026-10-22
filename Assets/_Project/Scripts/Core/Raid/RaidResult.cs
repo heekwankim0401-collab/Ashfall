@@ -13,14 +13,15 @@ namespace Ashfall.Core
     }
 
     // 레이드 한 판의 결과 (§2 코어 루프, RULE-01). Raid가 만들고 GameFlow가 씬을 넘어 들고 간다.
-    // M5 경계: 은신처가 CarriedOut을 보관함에 넣는다. 사망·MIA·포기면 CarriedOut은 비어 있다.
+    // M5: 탈출이면 CarriedOutLoadout(종료 시점 소지품, 위치 그대로)이 은신처 장비가 된다 (M5 설계 §1.3, Q3).
+    // 사망·MIA·포기면 CarriedOut은 비어 있고 CarriedOutLoadout은 null.
     // 목록은 생성 시 복사한다 (호출자가 재사용하는 스냅샷 리스트와 분리). null → 빈 목록.
     public sealed class RaidResult
     {
         public RaidResult(RaidOutcome outcome, string extractionId, string extractionName,
             bool hasDeathCause, BodyPart deathCause, float durationSec, int enemiesKilled,
             IReadOnlyList<ItemDefinitionSO> broughtIn, IReadOnlyList<ItemInstance> carriedOut,
-            IReadOnlyList<ItemDefinitionSO> lost)
+            IReadOnlyList<ItemDefinitionSO> lost, Loadout carriedOutLoadout = null)
         {
             Outcome = outcome;
             ExtractionId = extractionId;
@@ -32,6 +33,8 @@ namespace Ashfall.Core
             BroughtIn = Copy(broughtIn);
             CarriedOut = Copy(carriedOut);
             Lost = Copy(lost);
+            // RULE-01: 탈출이 아니면 반출 장비는 없다 (판정은 RaidResultBuilder, 여기선 불변식만 지킨다)
+            CarriedOutLoadout = outcome == RaidOutcome.Extracted ? carriedOutLoadout : null;
         }
 
         public RaidOutcome Outcome { get; }
@@ -45,6 +48,8 @@ namespace Ashfall.Core
         public IReadOnlyList<ItemDefinitionSO> BroughtIn { get; } // 반입(시작 시점, 표시용)
         public IReadOnlyList<ItemInstance> CarriedOut { get; }    // 반출(탈출 시 종료 시점 소지품 실물)
         public IReadOnlyList<ItemDefinitionSO> Lost { get; }      // 소실(사망·MIA·포기 시 종료 시점 소지품, 표시용)
+        // M5: 탈출 시 반출 장비(위치 포함). Extracted가 아니면 항상 null. 목록 오버로드로 만든 결과도 null.
+        public Loadout CarriedOutLoadout { get; }
 
         private static T[] Copy<T>(IReadOnlyList<T> source)
         {

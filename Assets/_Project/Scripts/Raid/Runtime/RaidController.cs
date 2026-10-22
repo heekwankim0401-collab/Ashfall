@@ -13,7 +13,9 @@ namespace Ashfall.Raid
     // - Start: 서비스 조회 → 스폰 선택·배치 → 활성 탈출구 → 세션 → 반입 기록 → RaidStarted
     // - Update: 세션 틱 → ExtractionStatusChanged (구역·상태·초가 바뀔 때만)
     // - 종료: 결과(RULE-01) → RaidEnded → 세계 정지 → endDelaySec(실시간) 뒤 GameFlow.CompleteRaid
-    // M5 경계: 반입 장비 주입(RaidRequest.Loadout)·raid_in_progress 기록은 GameFlow 쪽. 여기는 만들지 않는다.
+    // M5: 종료 시점 소지품을 위치까지(Loadout.Capture) 결과에 담는다 → 탈출이면 은신처 장비(RaidResult.CarriedOutLoadout).
+    //     반입 장비 주입(GameFlow.TryGetRaidLoadout → PlayerInventoryBehaviour)·raidInProgress 기록(GameFlow → ProfileService)은
+    //     다른 곳. 레이드 중에는 세이브를 쓰지 않는다(RULE-03).
     public sealed class RaidController : MonoBehaviour, IRaidInfo
     {
         [SerializeField] private RaidConfigSO config;
@@ -195,11 +197,8 @@ namespace Ashfall.Raid
             bool endedPublished = false;
             try
             {
-                // 종료 시점 소지품 → RULE-01 (RaidResultBuilder 한 곳)
-                snapshot.Clear();
-                InventorySnapshot.Collect(inventory, snapshot);
-                LastResult = RaidResultBuilder.Build(Session, broughtIn, snapshot);
-                snapshot.Clear();
+                // 종료 시점 소지품(위치 포함, RaidEnded 직전 = 잠금 전) → RULE-01 (RaidResultBuilder 한 곳)
+                LastResult = RaidResultBuilder.Build(Session, broughtIn, Loadout.Capture(inventory));
 
                 GameManager gm = GameManager.Instance;
                 if (gm == null)
@@ -224,7 +223,7 @@ namespace Ashfall.Raid
             if (LastResult == null)
             {
                 Debug.LogError("[RaidController] 결과를 만들지 못해 소지품 없는 결과로 레이드를 끝낸다.", this);
-                LastResult = RaidResultBuilder.Build(Session, broughtIn, null);
+                LastResult = RaidResultBuilder.Build(Session, broughtIn, Loadout.Empty);
             }
 
             GameManager gm = GameManager.Instance;
@@ -233,8 +232,8 @@ namespace Ashfall.Raid
             if (!endedPublished)
                 gm.Events.Publish(new RaidEnded(LastResult.Outcome, LastResult.ExtractionName));   // 버스는 핸들러 예외를 삼킨다
 
-            // TODO(GDD-?) Q15: 종료 오버레이 endDelaySec(실시간) 동안 세계 정지 → MainMenu에서 결과 표시.
-            // 정지는 CompleteRaid가 풀지 않고 MainMenu 로드 완료(GameFlow.OnSceneLoaded)에서 풀린다 (M4 리뷰 수정).
+            // TODO(GDD-?) Q15: 종료 오버레이 endDelaySec(실시간) 동안 세계 정지 → 은신처에서 결과 표시 (M5 Q21).
+            // 정지는 CompleteRaid가 풀지 않고 Hideout 로드 완료(GameFlow.OnSceneLoaded)에서 풀린다 (M4 리뷰 수정).
             GameFlow flow = gm.Flow;
             if (flow == null)
                 return;

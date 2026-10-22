@@ -98,11 +98,12 @@ namespace Ashfall.Tests.EditMode
         // false면 로드 요청 실패 (빌드 설정에 없는 씬 등). 요청은 Loads에 그대로 기록한다.
         public bool LoadSucceeds = true;
 
-        public GameFlow Create() => new GameFlow(name =>
+        // M5: profiles를 주면 StartRaid(Loadout)·RULE-03 기록을 쓸 수 있다 (M5TestData.LoadedProfiles).
+        public GameFlow Create(ProfileService profiles = null) => new GameFlow(name =>
         {
             Loads.Add(name);
             return LoadSucceeds;
-        }, TimeScales.Add);
+        }, TimeScales.Add, profiles);
     }
 
     // IPlayerTarget 가짜 (Raid 탈출 구역 판정·사망). 값은 테스트가 직접 바꾼다.

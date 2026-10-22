@@ -4,7 +4,8 @@ using UnityEngine.UIElements;
 
 namespace Ashfall.UI
 {
-    // 레이드 결과 패널 (MainMenu 씬, Art/UI/MainMenu.uxml). 데이터는 RaidResultViewModel.
+    // 레이드 결과 패널. M5 Q21: 은신처 씬(Art/UI/HideoutUI.uxml)이 그린다. 데이터는 RaidResultViewModel.
+    // Find는 MainMenuRoot·HideoutRoot·은신처 뷰도 쓴다.
     // 탄 수·HP 수치는 뷰모델이 만들지 않으므로 여기서도 그릴 수 없다.
     public sealed class RaidResultView
     {
@@ -95,6 +96,6 @@ namespace Ashfall.UI
 
         internal static T Find<T>(VisualElement root, string name) where T : VisualElement =>
             root.Q<T>(name) ?? throw new InvalidOperationException(
-                $"[MainMenu] UXML에 '{name}' 요소가 없다 (Art/UI/MainMenu.uxml 확인).");
+                $"[UI] UXML에 '{name}' 요소가 없다 (Art/UI/*.uxml 확인).");
     }
 }

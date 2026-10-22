@@ -8,7 +8,7 @@ using UnityEngine.TestTools;
 
 namespace Ashfall.Tests.EditMode
 {
-    // M4 메인 메뉴 (M4 설계 §1.3, §3.4, Q15·Q18·Q22): 결과 패널 먼저, [확인] → 메뉴, [레이드 시작] 한 번만, [종료]
+    // M5 메인 메뉴 (M5 설계 §1.2, §3.4, §4.5, Q20·Q21): [은신처] → EnterHideout 한 번만, [종료]. 결과 패널 없음(은신처로 이동).
     public class MainMenuPresenterTests
     {
         private FlowRecorder rec;
@@ -26,16 +26,6 @@ namespace Ashfall.Tests.EditMode
 
         private MainMenuPresenter Create() => new MainMenuPresenter(flow, () => quits++);
 
-        // 레이드 한 판을 끝내고 MainMenu로 돌아온 상태
-        private void FinishRaid(RaidResult result)
-        {
-            flow.StartRaid();
-            flow.OnSceneLoaded(SceneNames.RaidCrimsonBasin);
-            flow.CompleteRaid(result);
-            flow.OnSceneLoaded(SceneNames.MainMenu);
-            rec.Loads.Clear();
-        }
-
         [Test]
         public void Constructor_NullArgs_Throw()
         {
@@ -44,72 +34,48 @@ namespace Ashfall.Tests.EditMode
         }
 
         [Test]
-        public void NoPendingResult_ShowsMenu()
+        public void ShowsMenu_NotEntering()
         {
             var menu = Create();
             Assert.AreEqual(MainMenuPanel.Menu, menu.Panel);
-            Assert.IsNull(menu.Result);
-            Assert.IsFalse(menu.IsStarting);
+            Assert.IsFalse(menu.IsEntering);
+            CollectionAssert.IsEmpty(rec.Loads, "만들기만 해서는 아무 씬도 부르지 않는다");
+        }
+
+        // Q21: 결과가 남아 있어도 메인 메뉴는 결과 패널을 보이지 않고 확인하지도 않는다(은신처가 보인다)
+        [Test]
+        public void PendingResult_StaysMenu_AndIsNotAcknowledged()
+        {
+            flow.OnSceneLoaded(SceneNames.RaidCrimsonBasin);
+            flow.CompleteRaid(M4TestData.Result(RaidOutcome.Killed));
+            flow.OnSceneLoaded(SceneNames.MainMenu);
+            rec.Loads.Clear();
+
+            var menu = Create();
+            Assert.AreEqual(MainMenuPanel.Menu, menu.Panel);
+            Assert.IsTrue(menu.EnterHideout());
+            Assert.IsNotNull(flow.PendingResult, "결과는 은신처 결과 패널 [확인]까지 남는다");
         }
 
         [Test]
-        public void PendingResult_ShowsResultFirst()
+        public void EnterHideout_LoadsHideout_Once()
         {
-            FinishRaid(M4TestData.Result(RaidOutcome.Killed));
             var menu = Create();
+            int changed = 0;
+            menu.Changed += () => changed++;
 
-            Assert.AreEqual(MainMenuPanel.Result, menu.Panel);
-            Assert.IsNotNull(menu.Result);
-            Assert.AreEqual("사망 — 머리", menu.Result.Title);
-            Assert.IsTrue(menu.Result.ShowLost);
-        }
-
-        [Test]
-        public void ResultPanel_BlocksStartAndQuit_UntilConfirmed()
-        {
-            FinishRaid(M4TestData.Result(RaidOutcome.MissingInAction));
-            var menu = Create();
-
-            Assert.IsFalse(menu.StartRaid());
-            Assert.IsFalse(menu.Quit());
-            CollectionAssert.IsEmpty(rec.Loads);
+            Assert.IsTrue(menu.EnterHideout());
+            Assert.IsTrue(menu.IsEntering);
+            Assert.IsFalse(menu.EnterHideout(), "연속 클릭 무시");
+            Assert.IsFalse(menu.Quit(), "불러오는 중엔 종료 안 함");
+            CollectionAssert.AreEqual(new[] { SceneNames.Hideout }, rec.Loads);
+            Assert.AreEqual(1, changed);
             Assert.AreEqual(0, quits);
         }
 
+        // M4 리뷰 수정 (낮음 8): 로드 요청 실패 → IsEntering이 켜지지 않아 버튼이 살아 있고 다시 누를 수 있다
         [Test]
-        public void Confirm_AcknowledgesAndShowsMenu()
-        {
-            FinishRaid(M4TestData.Result(RaidOutcome.Extracted, "EXT-01", "남쪽 도로"));
-            var menu = Create();
-            int changed = 0;
-            menu.Changed += () => changed++;
-
-            Assert.IsTrue(menu.ConfirmResult());
-            Assert.IsNull(flow.PendingResult);
-            Assert.AreEqual(MainMenuPanel.Menu, menu.Panel);
-            Assert.IsNull(menu.Result);
-            Assert.AreEqual(1, changed);
-            Assert.IsFalse(menu.ConfirmResult(), "메뉴에서는 확인 없음");
-        }
-
-        [Test]
-        public void StartRaid_LoadsRaidScene_Once()
-        {
-            var menu = Create();
-            int changed = 0;
-            menu.Changed += () => changed++;
-
-            Assert.IsTrue(menu.StartRaid());
-            Assert.IsTrue(menu.IsStarting);
-            Assert.IsFalse(menu.StartRaid(), "연속 클릭 무시");
-            Assert.IsFalse(menu.Quit(), "불러오는 중엔 종료 안 함");
-            CollectionAssert.AreEqual(new[] { SceneNames.RaidCrimsonBasin }, rec.Loads);
-            Assert.AreEqual(1, changed);
-        }
-
-        // M4 리뷰 수정 (낮음 8): 로드 요청 실패 → IsStarting이 켜지지 않아 버튼이 살아 있고 다시 누를 수 있다
-        [Test]
-        public void StartRaid_LoadFails_NotStarting_CanRetry()
+        public void EnterHideout_LoadFails_NotEntering_CanRetry()
         {
             var menu = Create();
             int changed = 0;
@@ -117,23 +83,24 @@ namespace Ashfall.Tests.EditMode
             rec.LoadSucceeds = false;
 
             LogAssert.Expect(LogType.Error, new Regex("로드 요청 실패"));
-            Assert.IsFalse(menu.StartRaid());
-            Assert.IsFalse(menu.IsStarting);
+            Assert.IsFalse(menu.EnterHideout());
+            Assert.IsFalse(menu.IsEntering);
             Assert.AreEqual(0, changed);
+            Assert.IsTrue(menu.Quit(), "실패 뒤 종료 가능");
 
             rec.LoadSucceeds = true;
-            Assert.IsTrue(menu.StartRaid(), "다시 누르면 시작");
-            Assert.IsTrue(menu.IsStarting);
+            Assert.IsTrue(menu.EnterHideout(), "다시 누르면 진입");
+            Assert.IsTrue(menu.IsEntering);
         }
 
-        // GameFlow가 거부(이미 레이드 씬 로드 중)하면 메뉴도 시작 상태가 되지 않는다
+        // GameFlow가 거부(이미 다른 경로로 로드 요청)하면 메뉴도 진입 상태가 되지 않는다
         [Test]
-        public void StartRaid_FlowRejects_NotStarting()
+        public void EnterHideout_FlowRejects_NotEntering()
         {
-            Assert.IsTrue(flow.StartRaid());   // 다른 경로로 이미 요청됨
+            Assert.IsTrue(flow.EnterHideout());
             var menu = Create();
-            Assert.IsFalse(menu.StartRaid());
-            Assert.IsFalse(menu.IsStarting);
+            Assert.IsFalse(menu.EnterHideout());
+            Assert.IsFalse(menu.IsEntering);
         }
 
         [Test]
@@ -145,25 +112,26 @@ namespace Ashfall.Tests.EditMode
             CollectionAssert.IsEmpty(rec.Loads);
         }
 
-        // 메뉴 ↔ 레이드 두 번째 판: 결과 확인 후 다시 시작할 수 있다
+        // 은신처 → [메인 메뉴] → 다시 [은신처]: 새 MainMenu 씬의 새 프레젠터는 다시 진입할 수 있다
         [Test]
-        public void SecondRaid_AfterConfirm_StartsAgain()
+        public void BackFromHideout_NewPresenter_EntersAgain()
         {
-            FinishRaid(M4TestData.Result(RaidOutcome.Abandoned));
+            Create().EnterHideout();
+            flow.OnSceneLoaded(SceneNames.Hideout);
+            Assert.IsTrue(flow.LeaveHideout());
+            flow.OnSceneLoaded(SceneNames.MainMenu);
+            rec.Loads.Clear();
+
             var menu = Create();
-            menu.ConfirmResult();
-            Assert.IsTrue(menu.StartRaid());
-            CollectionAssert.AreEqual(new[] { SceneNames.RaidCrimsonBasin }, rec.Loads);
+            Assert.IsTrue(menu.EnterHideout());
+            CollectionAssert.AreEqual(new[] { SceneNames.Hideout }, rec.Loads);
         }
 
         [Test]
-        public void Refresh_PicksUpLaterResult()
+        public void MenuText_IsHideoutAndQuit()
         {
-            var menu = Create();
-            Assert.AreEqual(MainMenuPanel.Menu, menu.Panel);
-            FinishRaid(M4TestData.Result(RaidOutcome.Killed));
-            menu.Refresh();
-            Assert.AreEqual(MainMenuPanel.Result, menu.Panel);
+            Assert.AreEqual("은신처", UiText.MenuHideout);
+            Assert.AreEqual("종료", UiText.MenuQuit);
         }
     }
 }

@@ -113,7 +113,13 @@ namespace Ashfall.Tests.PlayMode
             Assert.IsNotNull(document.visualTreeAsset, "MainMenu.uxml 없음");
             VisualElement ui = document.rootVisualElement;
             Assert.IsNotNull(ui.Q<VisualElement>(MainMenuRoot.MenuPanelName), "메뉴 패널 없음");
-            Assert.IsNotNull(ui.Q<Button>(MainMenuRoot.StartName), "[레이드 시작] 버튼 없음");
+            Button start = ui.Q<Button>(MainMenuRoot.StartName);
+            Assert.IsNotNull(start, "[은신처] 버튼 없음");
+            // M5 Q20: 메인 메뉴 [은신처]/[종료]. 버튼 이름 menu-start는 그대로, 문구만 "은신처"
+            yield return null;   // 뷰가 첫 프레임에 문구를 덮어쓴다
+            Assert.AreEqual(UiText.MenuHideout, start.text, "메뉴 버튼 문구");
+            Assert.AreEqual("은신처", start.text);
+            Assert.IsNull(ui.Q<VisualElement>(RaidResultView.PanelName), "MainMenu에 결과 패널이 남아 있다 (M5 Q21: 은신처로 이동)");
             Assert.IsNotNull(ui.Q<Button>(MainMenuRoot.QuitName), "[종료] 버튼 없음");
             Assert.AreEqual(1, Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).Length, "카메라 수");
             Assert.AreEqual(CursorLockMode.None, UnityEngine.Cursor.lockState, "메뉴에서 커서가 잠겨 있다");

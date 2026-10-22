@@ -7,5 +7,7 @@ namespace Ashfall.Core
         public const string MainMenu = "MainMenu";
         // M4 레이드 맵 (§8.1 Crimson Basin)
         public const string RaidCrimsonBasin = "Raid_CrimsonBasin";
+        // M5 은신처 (§9 메뉴형 UI)
+        public const string Hideout = "Hideout";
     }
 }

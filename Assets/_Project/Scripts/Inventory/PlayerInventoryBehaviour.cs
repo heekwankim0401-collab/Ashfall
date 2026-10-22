@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Ashfall.Core;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -12,6 +13,7 @@ namespace Ashfall.Inventory
     // - ItemDropRequested·버리기 → WorldItem 생성, 의약품 사용 시작/완료 → 잠금/차감, 사망 → 잠금
     // - M3: EnemyKilled → 시체에 LootContainer를 붙인다 (§6 시체)
     // - M4: RaidEnded → 인벤토리 잠금(IsRaidEndLocked, 사망 잠금과 같은 범위)
+    // - M5: 흐름 레이드면 startingItems 대신 GameFlow의 반입(Loadout)으로 시작한다 (RULE-01)
     public sealed class PlayerInventoryBehaviour : MonoBehaviour
     {
         [Serializable]
@@ -55,7 +57,13 @@ namespace Ashfall.Inventory
                 return;
             }
             Inventory = new PlayerInventory(config);
-            ApplyStartingItems();
+            // M5(설계 §4.3): 흐름으로 시작한 레이드(은신처 → [레이드 시작])면 반입 장비로, 아니면(확인 씬·에디터 직접 Play) 시작 장비로.
+            // sceneLoaded는 Awake 뒤라 Phase는 아직 Hideout이다 — 판정은 GameFlow가 씬 이름으로 한다.
+            GameFlow flow = GameManager.Instance != null ? GameManager.Instance.Flow : null;
+            if (flow != null && flow.TryGetRaidLoadout(gameObject.scene.name, out Loadout loadout))
+                ApplyLoadout(loadout);
+            else
+                ApplyStartingItems();
 
             Inventory.Changed += OnInventoryChanged;
             Inventory.EquipmentChanged += OnEquipmentChanged;
@@ -109,6 +117,15 @@ namespace Ashfall.Inventory
             foreach (EquipSlot slot in Enum.GetValues(typeof(EquipSlot)))
                 Publish(new EquipmentChanged(slot, Inventory.GetEquipped(slot)));
             Publish(new InventoryChanged());
+        }
+
+        // 반입 장비를 위치 그대로. 같은 인벤토리 설정이면 정상 경로에서 거부는 없다 — 있으면 RULE-01 소실이라 오류로 남긴다.
+        private void ApplyLoadout(Loadout loadout)
+        {
+            var rejected = new List<ItemInstance>();
+            Inventory.TryApplyLoadout(loadout, rejected);
+            if (rejected.Count > 0)
+                Debug.LogError($"[PlayerInventory] 반입 장비 {rejected.Count}개를 놓지 못했다 (첫 번째: {rejected[0]}).", this);
         }
 
         // 순서대로: equip이면 장착(무기는 꽉 찬 탄창 장착), 아니면 자동 배치(조끼 → 주머니 → 배낭).

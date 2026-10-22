@@ -12,6 +12,13 @@ namespace Ashfall.Core
             UsesLeft = definition.uses;
         }
 
+        // M5 세이브 복원 (M5 설계 §2.2). 남은 횟수는 0~uses로 자른다 (0 횟수도 유지, 사용은 M2 Depleted로 거부).
+        public MedicalItem(MedicalDefinitionSO definition, int usesLeft) : base(definition)
+        {
+            Definition = definition;
+            UsesLeft = System.Math.Clamp(usesLeft, 0, System.Math.Max(0, definition.uses));
+        }
+
         // 1회 사용. 남은 횟수가 0이면 false.
         public bool ConsumeUse()
         {
