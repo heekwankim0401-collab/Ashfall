@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using Ashfall.Core;
 using UnityEngine;
@@ -8,21 +10,29 @@ namespace Ashfall.Weapons
     // 손에 든 무기 하나. 카메라 아래에 두고, 카메라 정면으로 쏜다.
     // RULE-04: 탄수는 화면에 표시하지 않는다(T로 대략치 확인). RULE-07: 크로스헤어 없음, 조준(ADS) 시에만 퍼짐 0.
     // M2:
-    // - 인벤토리가 있으면 Primary1 장착 무기(IInventoryService)와 IMagazineSource(조끼·주머니)를 쓴다.
-    //   없으면(M1 씬) 직렬화된 탄창 수만큼 지급한다 (LocalMagazineSource).
-    // - Primary1만 따른다 (설계 D11). TODO(M7): 무기 교체 1/2/3.
+    // - 인벤토리가 있으면 장착 무기(IInventoryService)와 IMagazineSource(조끼·주머니)를 쓴다.
+    //   없으면(M1 씬) 직렬화된 무기·탄창 수만큼 지급한다 (LocalMagazineSource).
     // - 버린 탄창 → ItemDropRequested, 화면 열림·사망 → 사격·조준·R·T 무시, 체력 → 조준 흔들림.
     // M3: 피해는 DamageRules(무기 > 탄약), 쏠 때마다 NoiseEmitted(Gunshot) 발행.
     // M4: RaidEnded → 진행 중 재장전 취소, 이후 재장전 진행·입력 정지 (사망과 같은 처리).
     // M6: 쏠 때마다 ShotFired(총구, 무기, Player) 발행 (Audio 총성 레이어).
+    // M7 (SYS-WPN §5.1·§12.1, 설계 §1.3):
+    // - 1/2/3 = Primary1/Primary2/Secondary 교체(WeaponSwitchModel, 교체 시간 동안 사격·조준·재장전·T 불가, 진행 중 재장전·확인·해제 취소) (Q1·Q2).
+    //   M5 Q16 해소 — 장착된 어떤 무기든 든다(직렬화 weapon·ammo·magazine은 인벤토리 없는 M1 씬 전용).
+    // - 무기 아이템마다 WeaponModel을 캐시(마모·고장 옵션 = handling.CreateWear) — 다시 들어도 연사 간격 상태가 이어진다.
+    // - 탄약 정의 = handling.TryGetAmmo(무기 ammo) (Q3), 뷰모델 = WeaponDefinitionSO.viewModel 프리팹(처음 들 때 생성·캐시, 자식 "Muzzle" = 총구) (Q4).
+    // - 산탄은 펠릿마다 퍼짐 (Q8). 튜브 무기 R = 한 발씩(WeaponModel).
+    // - 고장: 고장 순간 WeaponClicked(Jammed), 빈 탄창·고장 중 새 방아쇠 WeaponClicked(DryFire), T 길게(jamClearHoldSec) = 해제 + WeaponClicked(JamCleared).
+    //   고장이 아닐 때 T(누름) = 기존 RULE-04 탄창 확인 (Q9·Q10).
     public sealed class WeaponController : MonoBehaviour
     {
         [SerializeField] private WeaponDefinitionSO weapon;
         [SerializeField] private AmmoDefinitionSO ammo;
         // 인벤토리가 없는 씬(M1)용: 시작 시 꽉 찬 탄창을 이 수만큼 지급한다 (1개 장착 + 나머지 예비).
+        // 튜브 무기면 튜브를 채우고 이 탄창(탄 상자)을 이 수만큼 예비로 둔다 (M7).
         [SerializeField] private MagazineDefinitionSO magazine;
         [SerializeField] private int startingMagazines;
-        // RULE-04·조준 흔들림 수치. 없으면(M1 씬) T와 흔들림이 꺼진다.
+        // RULE-04·조준 흔들림·M7 교체·고장·탄약 표 수치. 없으면(M1 씬) T·흔들림·마모가 꺼지고 교체 시간 0.
         [SerializeField] private WeaponHandlingConfigSO handling;
 
         [SerializeField] private Transform muzzle;
@@ -31,13 +41,33 @@ namespace Ashfall.Weapons
         [SerializeField] private Vector3 adsLocalPosition;
         [SerializeField] private ProjectileSystem projectiles;
 
+        // 뷰모델 프리팹에서 만든 것 (무기 정의마다 하나)
+        private readonly struct ViewInstance
+        {
+            public readonly Transform Root;
+            public readonly Transform Muzzle;
+
+            public ViewInstance(Transform root, Transform muzzle)
+            {
+                Root = root;
+                Muzzle = muzzle;
+            }
+        }
+
         private InputAction fire, aim, reload, checkMagazine;
+        private readonly InputAction[] slotKeys = new InputAction[3];
         private IRecoilReceiver recoilReceiver;
         private Transform shooterRoot;
-        private readonly System.Random random = new System.Random();
+        private System.Random random = new System.Random();
         private MagazineCheckModel magazineCheck;
+        private WeaponSwitchModel switcher;
+        private JamClearModel jamClear;
         private IMagazineSource source;
+        private ILooseAmmoSource looseSource;
+        private IInventoryService inventory;
+        private Func<EquipSlot, bool> hasWeaponInSlot;
         private bool usesInventory;
+        private bool initialized;
         private bool screenOpen;
         private bool dead;
         // M4 리뷰 수정: 레이드가 끝남(RaidEnded) — 사망과 같이 재장전 진행·입력을 멈춘다 (결과 스냅샷 이후 탄창 교환 금지, RULE-01)
@@ -46,7 +76,16 @@ namespace Ashfall.Weapons
         private int swaySeed;
         private Quaternion baseLocalRotation;
 
-        // 현재 들고 있는 무기. null = 비무장 (Primary1이 비었거나 다른 무기)
+        // 무기 아이템 → 모델 (레이드 동안, 보통 3개 이하). 버린 무기 항목도 의도적으로 지우지 않는다(M7 리뷰 7A 낮음 8):
+        // 다시 주워 들면 같은 모델(연사 간격·이벤트 구독)을 쓰고, 항목 수는 레이드에서 든 무기 수뿐이며 씬과 함께 사라진다. TODO(GDD-?)
+        private readonly Dictionary<WeaponItem, WeaponModel> models = new Dictionary<WeaponItem, WeaponModel>();
+        private readonly Dictionary<WeaponDefinitionSO, ViewInstance> views = new Dictionary<WeaponDefinitionSO, ViewInstance>();
+        private readonly HashSet<AmmoType> missingAmmoWarned = new HashSet<AmmoType>();
+        private Transform activeView;
+        private Transform activeMuzzle;
+        private Vector3[] pelletBuffer = new Vector3[8];
+
+        // 현재 들고 있는 무기. null = 비무장 (든 슬롯이 비었음)
         public WeaponModel Model { get; private set; }
         public bool IsArmed => Model != null;
         // 인벤토리 없는 씬에서 쓰는 예비 탄창 목록 (인벤토리가 있으면 null)
@@ -54,24 +93,45 @@ namespace Ashfall.Weapons
         public MagazineCheckModel MagazineCheck => magazineCheck;
         // 0 = 지향 사격, 1 = 완전 조준
         public float AimProgress { get; private set; }
+        // M7: 든 슬롯(인벤토리 없는 씬은 항상 Primary1), 교체 중, 고장 해제 진행 0~1 (테스트용, 화면 표시 없음)
+        public EquipSlot ActiveSlot => switcher != null ? switcher.ActiveSlot : EquipSlot.Primary1;
+        public bool IsSwitching => switcher != null && switcher.IsSwitching;
+        public float JamClearProgress => jamClear != null ? jamClear.Progress : 0f;
+        // 든 무기의 탄약 정의 (없으면 null — 투사체 없이 소리만)
+        public AmmoDefinitionSO CurrentAmmo { get; private set; }
+        // 든 무기의 뷰모델·총구 (비무장이면 뷰모델 null)
+        public Transform CurrentViewModel => activeView;
+        public Vector3 MuzzlePosition => activeMuzzle != null ? activeMuzzle.position
+            : muzzle != null ? muzzle.position : transform.position;
 
         private bool InputBlocked => screenOpen || dead || raidOver;
 
+        // 코드로 만든 장면·테스트용 (AudioDirector.Configure와 같은 방식). 비활성 오브젝트에 AddComponent한 뒤 활성화 전에 부른다.
+        // randomSeed: 퍼짐·반동·고장 굴림 난수 (결정적 테스트).
+        public void Configure(WeaponDefinitionSO weaponDefinition, AmmoDefinitionSO ammoDefinition, MagazineDefinitionSO magazineDefinition,
+            int magazines, WeaponHandlingConfigSO handlingConfig, ProjectileSystem projectileSystem, int randomSeed)
+        {
+            weapon = weaponDefinition;
+            ammo = ammoDefinition;
+            magazine = magazineDefinition;
+            startingMagazines = magazines;
+            handling = handlingConfig;
+            projectiles = projectileSystem;
+            random = new System.Random(randomSeed);
+        }
+
         private void Awake()
         {
-            if (weapon == null)
-            {
-                Debug.LogError("[WeaponController] weapon이 비어 있다.", this);
-                enabled = false;
-                return;
-            }
-            if ((magazine != null && magazine.ammo != weapon.ammo) || (ammo != null && ammo.type != weapon.ammo))
+            if (weapon != null && ((magazine != null && magazine.ammo != weapon.ammo) || (ammo != null && ammo.type != weapon.ammo)))
                 Debug.LogWarning($"[WeaponController] {weapon.id}: 탄창·탄약 종류가 무기와 다르다.", this);
 
             if (handling != null)
                 magazineCheck = new MagazineCheckModel(handling);
             else
-                Debug.LogWarning("[WeaponController] handling(WeaponHandlingConfig)이 없어 탄창 확인(T)·조준 흔들림을 끈다.", this);
+                Debug.LogWarning("[WeaponController] handling(WeaponHandlingConfig)이 없어 탄창 확인(T)·조준 흔들림·마모를 끈다.", this);
+            switcher = new WeaponSwitchModel(handling != null ? handling.weaponSwitchTimeSec : 0f);
+            jamClear = new JamClearModel(handling != null ? handling.jamClearHoldSec : 0f);
+            hasWeaponInSlot = HasWeaponInSlot;
 
             recoilReceiver = GetComponentInParent<IRecoilReceiver>();
             shooterRoot = transform.root;
@@ -85,6 +145,12 @@ namespace Ashfall.Weapons
             aim = map.FindAction("Aim", true);
             reload = map.FindAction("Reload", true);
             checkMagazine = map.FindAction("CheckMagazine", true);
+            for (int i = 0; i < slotKeys.Length; i++)
+            {
+                slotKeys[i] = map.FindAction("Weapon" + (i + 1), false);
+                if (slotKeys[i] == null)
+                    Debug.LogWarning($"[WeaponController] 입력 액션 Weapon{i + 1}이 없어 그 키 교체를 끈다.", this);
+            }
             map.Enable();
         }
 
@@ -115,109 +181,242 @@ namespace Ashfall.Weapons
         // 서비스 소비는 Start 이후 (제공자는 Awake/OnEnable에서 등록한다).
         private void Start()
         {
-            if (TryResolveInventory(out IInventoryService inventory))
+            if (TryResolveInventory())
             {
-                if (Model == null)
-                    Bind(inventory.GetEquipped(EquipSlot.Primary1));
+                if (!initialized)
+                    InitializeFromInventory();
                 return;
             }
 
+            initialized = true;
             // 인벤토리 없는 씬 (M1): 직렬화된 탄창 수만큼 지급
-            if (magazine == null)
+            if (weapon == null || magazine == null)
             {
-                Debug.LogWarning("[WeaponController] 인벤토리도 magazine도 없어 비무장으로 시작한다.", this);
-                SetArmedVisual(false);
+                Debug.LogWarning("[WeaponController] 인벤토리도 weapon·magazine도 없어 비무장으로 시작한다.", this);
+                ShowView(null);
                 return;
             }
-            MagazineSource = new LocalMagazineSource(
-                Enumerable.Range(0, Mathf.Max(0, startingMagazines - 1)).Select(_ => Magazine.Full(magazine)));
+            WeaponItem item;
+            if (weapon.internalMagazine != null)
+            {
+                // TODO(GDD-?) Q5: 튜브 무기 = 튜브 가득 + 탄 상자(magazine) startingMagazines개
+                MagazineSource = new LocalMagazineSource(
+                    Enumerable.Range(0, Mathf.Max(0, startingMagazines)).Select(_ => Magazine.Full(magazine)));
+                item = new WeaponItem(weapon, Magazine.Full(weapon.internalMagazine));
+            }
+            else
+            {
+                MagazineSource = new LocalMagazineSource(
+                    Enumerable.Range(0, Mathf.Max(0, startingMagazines - 1)).Select(_ => Magazine.Full(magazine)));
+                item = new WeaponItem(weapon, Magazine.Full(magazine));
+            }
             source = MagazineSource;
-            Bind(new WeaponItem(weapon, Magazine.Full(magazine)));
+            looseSource = MagazineSource;
+            Equip(item, withSwitchTime: false);
         }
 
-        // 인벤토리 서비스가 있으면 탄창 공급원도 거기서 받는다. 한 번 찾으면 계속 쓴다.
-        private bool TryResolveInventory(out IInventoryService inventory)
+        // 인벤토리 서비스가 있으면 탄창·낱탄 공급원도 거기서 받는다. 한 번 찾으면 계속 쓴다.
+        private bool TryResolveInventory()
         {
-            inventory = null;
-            if (GameManager.Instance == null || !GameManager.Instance.Services.TryGet(out inventory))
+            if (usesInventory)
+                return true;
+            if (GameManager.Instance == null || !GameManager.Instance.Services.TryGet(out IInventoryService found))
                 return false;
 
-            if (!usesInventory)
+            usesInventory = true;
+            inventory = found;
+            MagazineSource = null;
+            var services = GameManager.Instance.Services;
+            if (services.TryGet(out IMagazineSource inventorySource))
             {
-                usesInventory = true;
-                MagazineSource = null;
-                if (GameManager.Instance.Services.TryGet(out IMagazineSource inventorySource))
-                {
-                    source = inventorySource;
-                }
-                else
-                {
-                    Debug.LogWarning("[WeaponController] IMagazineSource가 등록되지 않아 예비 탄창 없이 쓴다.", this);
-                    source = new LocalMagazineSource(null);
-                }
+                source = inventorySource;
             }
+            else
+            {
+                Debug.LogWarning("[WeaponController] IMagazineSource가 등록되지 않아 예비 탄창 없이 쓴다.", this);
+                source = new LocalMagazineSource(null);
+            }
+            // 등록된 낱탄 공급원이 없으면 탄창 공급원이 구현할 때 그것 (WeaponModel 규칙과 같음)
+            looseSource = services.TryGet(out ILooseAmmoSource loose) ? loose : source as ILooseAmmoSource;
             return true;
         }
 
-        // 같은 정의의 WeaponItem이면 들고, 아니면 비무장.
-        private void Bind(ItemInstance item)
+        // Q2: 첫 비지 않은 슬롯을 교체 시간 없이 든다.
+        private void InitializeFromInventory()
+        {
+            initialized = true;
+            switcher.PickInitial(hasWeaponInSlot);
+            Equip(inventory.GetEquipped(switcher.ActiveSlot) as WeaponItem, withSwitchTime: false);
+        }
+
+        private bool HasWeaponInSlot(EquipSlot slot) => inventory != null && inventory.GetEquipped(slot) is WeaponItem;
+
+        // 무기를 든다(null = 비무장). 이미 든 아이템이면 그대로.
+        private void Equip(WeaponItem item, bool withSwitchTime)
         {
             if (Model != null && ReferenceEquals(Model.Item, item))
                 return;
 
             Unbind();
-            if (item is WeaponItem weaponItem && weaponItem.Definition == weapon && source != null)
+            if (item == null || source == null)
             {
-                Model = new WeaponModel(weaponItem, source);
-                Model.MagazineDropped += OnMagazineDropped;
-                SetArmedVisual(true);
+                ShowView(null);
+                return;
             }
-            else
-            {
-                if (item is WeaponItem other && other.Definition != weapon)
-                    Debug.Log($"[WeaponController] {other.Definition.id}는 이 컨트롤러({weapon.id})가 다루지 않는다. 비무장. TODO(M7): 무기 교체");
-                SetArmedVisual(false);
-            }
+            Model = GetOrCreateModel(item);
+            CurrentAmmo = ResolveAmmo(item.Definition);
+            ShowView(item.Definition);
+            if (withSwitchTime)
+                switcher.BeginSwitch();
         }
 
-        // 슬롯에서 빠질 때 진행 중 재장전·탄창 확인은 버린다.
+        private WeaponModel GetOrCreateModel(WeaponItem item)
+        {
+            if (models.TryGetValue(item, out WeaponModel model))
+                return model;
+            // 플레이어 무기만 마모·고장 (Q18). handling이 없으면(M1 씬) 끔.
+            WeaponWear wear = handling != null ? handling.CreateWear(random) : WeaponWear.None;
+            model = new WeaponModel(item, source, looseSource, wear);
+            model.MagazineDropped += OnMagazineDropped;
+            model.Jammed += OnJammed;
+            models.Add(item, model);
+            return model;
+        }
+
+        // Q3: 탄약 표 → (없으면) 직렬화 ammo가 같은 종류일 때. 둘 다 없으면 null(투사체 없음) + 경고 1회.
+        private AmmoDefinitionSO ResolveAmmo(WeaponDefinitionSO definition)
+        {
+            if (handling != null && handling.TryGetAmmo(definition.ammo, out AmmoDefinitionSO fromTable))
+                return fromTable;
+            if (ammo != null && ammo.type == definition.ammo)
+                return ammo;
+            if (missingAmmoWarned.Add(definition.ammo))
+                Debug.LogWarning($"[WeaponController] {definition.id}: 탄약 정의({definition.ammo})가 handling.ammoDefinitions에 없다. 투사체 없이 쏜다.", this);
+            return null;
+        }
+
+        // 슬롯에서 빠지거나 교체할 때 진행 중 재장전·탄창 확인·고장 해제는 버린다 (탄창 그대로).
         private void Unbind()
         {
             if (Model == null)
                 return;
             Model.CancelReload();
-            Model.MagazineDropped -= OnMagazineDropped;
             Model = null;
+            CurrentAmmo = null;
             magazineCheck?.Cancel();
+            jamClear.Reset();
             AimProgress = 0f;
         }
 
-        private void SetArmedVisual(bool armed)
+        // Q4: 무기 정의의 뷰모델 프리팹(처음 들 때 생성·캐시), 없으면 직렬화 뷰모델. 나머지는 숨긴다.
+        private void ShowView(WeaponDefinitionSO definition)
         {
+            Transform view = null;
+            Transform viewMuzzle = null;
+            if (definition != null)
+            {
+                if (definition.viewModel != null)
+                {
+                    ViewInstance instance = GetOrCreateView(definition);
+                    view = instance.Root;
+                    viewMuzzle = instance.Muzzle;
+                }
+                else
+                {
+                    view = viewModel;
+                    viewMuzzle = muzzle;
+                }
+            }
+
             if (viewModel != null)
-                viewModel.gameObject.SetActive(armed);
+                viewModel.gameObject.SetActive(view != null && view == viewModel);
+            foreach (KeyValuePair<WeaponDefinitionSO, ViewInstance> pair in views)
+                pair.Value.Root.gameObject.SetActive(pair.Value.Root == view);
+
+            activeView = view;
+            activeMuzzle = viewMuzzle != null ? viewMuzzle : muzzle;
+            // 총구는 MuzzlePosition으로만 읽는다(계층 순서로 "Muzzle"을 찾지 않는다 — M7 리뷰 7A 낮음 7).
+            if (activeView != null)
+                activeView.localPosition = Vector3.Lerp(hipLocalPosition, adsLocalPosition, AimProgress);
+        }
+
+        private ViewInstance GetOrCreateView(WeaponDefinitionSO definition)
+        {
+            if (views.TryGetValue(definition, out ViewInstance existing) && existing.Root != null)
+                return existing;
+            GameObject go = Instantiate(definition.viewModel, transform, false);
+            go.name = definition.viewModel.name;
+            Transform root = go.transform;
+            root.localPosition = hipLocalPosition;
+            root.localRotation = Quaternion.identity;
+            var instance = new ViewInstance(root, FindChild(root, MuzzleChildName));
+            views[definition] = instance;
+            return instance;
+        }
+
+        // 프리팹의 총구 자식 이름. EditorTools M7Names.MuzzleChild와 같은 값 — 바꿀 때 같이 바꿀 것
+        // (런타임 어셈블리는 EditorTools를 참조할 수 없어 상수가 둘이다. M7WeaponSceneSmokeTests가 프리팹에 이 이름의 자식이 있는지 본다).
+        private const string MuzzleChildName = "Muzzle";
+
+        private static Transform FindChild(Transform parent, string childName)
+        {
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform child = parent.GetChild(i);
+                if (child.name == childName)
+                    return child;
+                Transform deeper = FindChild(child, childName);
+                if (deeper != null)
+                    return deeper;
+            }
+            return null;
         }
 
         private void Update()
         {
             float dt = Time.deltaTime;
-            bool canAct = Model != null && !InputBlocked;
+            switcher.Tick(dt);
+
+            // 1/2/3 교체 (Q1). 화면 열림·사망·레이드 종료 중에는 무시.
+            if (!InputBlocked && usesInventory)
+            {
+                for (int i = 0; i < slotKeys.Length; i++)
+                {
+                    if (slotKeys[i] != null && slotKeys[i].WasPressedThisFrame())
+                        RequestSwitch(WeaponSwitchModel.SlotForKey(i));
+                }
+            }
+
+            bool canAct = Model != null && !InputBlocked && !switcher.IsSwitching;
 
             float aimTarget = canAct && aim.IsPressed() ? 1f : 0f;
-            AimProgress = weapon.adsTime > 0f
-                ? Mathf.MoveTowards(AimProgress, aimTarget, dt / weapon.adsTime)
+            float adsTime = Model != null ? Model.Item.Definition.adsTime : 0f;
+            AimProgress = adsTime > 0f
+                ? Mathf.MoveTowards(AimProgress, aimTarget, dt / adsTime)
                 : aimTarget;
-            if (viewModel != null)
-                viewModel.localPosition = Vector3.Lerp(hipLocalPosition, adsLocalPosition, AimProgress);
+            if (activeView != null)
+                activeView.localPosition = Vector3.Lerp(hipLocalPosition, adsLocalPosition, AimProgress);
 
+            bool jammed = Model != null && Model.IsJammed;
             if (canAct && reload.WasPressedThisFrame())
             {
                 magazineCheck?.Cancel();
-                Model.PressReload();
+                Model.PressReload();   // 고장 중이면 거부 (Q9)
             }
-            if (canAct && magazineCheck != null && checkMagazine.WasPressedThisFrame()
-                && magazineCheck.TryStart(Model.IsReloading))
-                Publish(new MagazineCheckStarted());
+
+            // T: 고장 중 = 길게 눌러 해제, 아니면 = 누름으로 탄창 확인 (RULE-04)
+            if (canAct && jammed)
+            {
+                if (jamClear.Tick(dt, checkMagazine.IsPressed(), true) && Model.ClearJam())
+                    Publish(new WeaponClicked(MuzzlePosition, WeaponClickKind.JamCleared));
+            }
+            else
+            {
+                jamClear.Reset();
+                if (canAct && magazineCheck != null && checkMagazine.WasPressedThisFrame()
+                    && magazineCheck.TryStart(Model.IsReloading))
+                    Publish(new MagazineCheckStarted());
+            }
 
             // 사망·레이드 종료 후에는 재장전 진행을 멈춘다 (인벤토리에서 탄창을 꺼내지 않게).
             if (!dead && !raidOver)
@@ -230,10 +429,25 @@ namespace Ashfall.Weapons
             if (Model != null && magazineCheck != null && magazineCheck.Tick(dt))
                 Publish(new MagazineCheckCompleted(MagazineCheckModel.Classify(Model.Current, handling)));
 
-            if (Model != null && Model.TryFire(Time.time, trigger))
+            // 헛격발: 고장 중이거나 빈 탄창에서 방아쇠를 새로 당김 (재장전 중 제외). 이 프레임의 고장(Jammed)과 겹치지 않게 사격 전에 본다.
+            if (canAct && fire.WasPressedThisFrame() && !Model.IsReloading
+                && (Model.IsJammed || Model.Current == null || Model.Current.IsEmpty))
+                Publish(new WeaponClicked(MuzzlePosition, WeaponClickKind.DryFire));
+
+            // 교체 중에도 실제 방아쇠 상태는 넘기고 발사만 막는다 — 좌클릭을 누른 채 교체가 끝나도 반자동이 새로 당긴 것으로 되지 않게 (M7 리뷰 7A 낮음 5).
+            // 화면 열림·사망·레이드 종료는 기존대로 방아쇠 없음.
+            bool triggerHeld = Model != null && !InputBlocked && fire.IsPressed();
+            if (Model != null && Model.TryFire(Time.time, triggerHeld, allowShot: canAct))
                 Shoot();
 
             ApplySway();
+        }
+
+        private void RequestSwitch(EquipSlot slot)
+        {
+            if (!switcher.Request(slot, hasWeaponInSlot))
+                return;
+            Equip(inventory.GetEquipped(slot) as WeaponItem, withSwitchTime: false);   // 교체 시간은 Request가 시작했다
         }
 
         // 무기 루트를 돌려 뷰모델과 사격 방향(transform.forward)이 같이 흔들린다 (설계 D12).
@@ -248,44 +462,62 @@ namespace Ashfall.Weapons
 
         private void Shoot()
         {
-            float spread = Mathf.Lerp(weapon.hipSpreadDeg, 0f, AimProgress);
-            Vector3 direction = Ballistics.ApplySpread(transform.forward, spread, random);
-            Vector3 origin = muzzle != null ? muzzle.position : transform.position;
+            WeaponDefinitionSO definition = Model.Item.Definition;
+            Vector3 origin = MuzzlePosition;
+            int pellets = CurrentAmmo != null ? Mathf.Max(1, CurrentAmmo.pelletCount) : 1;
+            if (pelletBuffer.Length < pellets)
+                pelletBuffer = new Vector3[pellets];
+            // Q8: 지향 퍼짐(조준 시 0)은 묶음 방향 1회, 펠릿마다 pelletSpreadDeg
+            Ballistics.ShotDirections(transform.forward, definition.hipSpreadDeg, AimProgress, definition.pelletSpreadDeg,
+                pellets, random, pelletBuffer);
 
             // 피해 = 무기 값(> 0) 또는 탄약 값 (M3 DamageRules, §5.2 무기별 피해 — 적과 같은 규칙)
-            if (projectiles != null && ammo != null)
+            if (projectiles != null && CurrentAmmo != null)
             {
-                float damage = DamageRules.ProjectileDamage(weapon, ammo);
-                for (int i = 0; i < Mathf.Max(1, ammo.pelletCount); i++)
-                    projectiles.Fire(origin, direction, ammo, damage, shooterRoot);
+                float damage = DamageRules.ProjectileDamage(definition, CurrentAmmo);
+                for (int i = 0; i < pellets; i++)
+                    projectiles.Fire(origin, pelletBuffer[i], CurrentAmmo, damage, shooterRoot);
             }
 
             // 사격 소음 → AI 청각 (M3, 발당 1회)
-            if (WeaponNoise.TryCreateShot(weapon, origin, out NoiseEmitted noise))
+            if (WeaponNoise.TryCreateShot(definition, origin, out NoiseEmitted noise))
                 Publish(noise);
             // M6 총성 소리 (§11 거리 레이어, Q14) → Audio. 발당 1회(펠릿 수 무관). AI 청각은 위 NoiseEmitted만 본다.
-            Publish(new ShotFired(origin, weapon, SoundSource.Player));
+            Publish(new ShotFired(origin, definition, SoundSource.Player));
 
-            Vector2 kick = Ballistics.RecoilKick(weapon.recoilV, weapon.recoilH, random);
+            Vector2 kick = Ballistics.RecoilKick(definition.recoilV, definition.recoilH, random);
             recoilReceiver?.AddRecoil(kick.x, kick.y);
         }
+
+        // 고장 순간 (탄 소모 없음) → Audio
+        private void OnJammed() => Publish(new WeaponClicked(MuzzlePosition, WeaponClickKind.Jammed));
 
         // 빠른 재장전 또는 회수 공간 없음 → 바닥으로 (Inventory가 WorldItem을 만든다)
         private void OnMagazineDropped(Magazine dropped)
         {
-            Vector3 position = muzzle != null ? muzzle.position : transform.position;
+            Vector3 position = MuzzlePosition;
             float speed = handling != null ? handling.magazineDropSpeed : 0f;
             Vector3 velocity = -transform.up * speed;
             Debug.Log($"[WeaponController] 탄창 버림 {dropped}");
             Publish(new ItemDropRequested(dropped, position, velocity));
         }
 
+        // 든 슬롯의 무기가 빠지면 비무장, 들어오면 교체 시간을 두고 든다. 다른 슬롯은 키로 바꿀 때 읽는다.
         private void OnEquipmentChanged(EquipmentChanged evt)
         {
-            if (evt.Slot != EquipSlot.Primary1)
+            if (!WeaponSwitchModel.IsWeaponSlot(evt.Slot) || switcher == null)
                 return;
-            TryResolveInventory(out _);
-            Bind(evt.Item);
+            if (!TryResolveInventory())
+                return;
+            // 인벤토리 Start가 이 컨트롤러 Start보다 먼저 장비를 알리면 그때 시작 무기를 고른다 (교체 시간 없음).
+            if (!initialized)
+            {
+                InitializeFromInventory();
+                return;
+            }
+            if (evt.Slot != switcher.ActiveSlot)
+                return;
+            Equip(evt.Item as WeaponItem, withSwitchTime: true);
         }
 
         private void OnConditionChanged(PlayerConditionChanged evt) => swayMultiplier = evt.Modifiers.AimSwayMultiplier;
@@ -294,7 +526,10 @@ namespace Ashfall.Weapons
         {
             screenOpen = evt.Screen != ScreenKind.None;
             if (screenOpen)
+            {
                 magazineCheck?.Cancel();
+                jamClear?.Reset();
+            }
         }
 
         private void OnPlayerDied(PlayerDied evt)
@@ -302,6 +537,7 @@ namespace Ashfall.Weapons
             dead = true;
             Model?.CancelReload();   // 진행 중 재장전이 사망 후 완료되어 인벤토리를 건드리지 않게
             magazineCheck?.Cancel();
+            jamClear?.Reset();
         }
 
         // M4 리뷰 수정: 탈출 대기 중 시작한 재장전이 종료 스냅샷 뒤에 끝나 탄창이 이중·누락되지 않게 취소하고 이후 Tick을 멈춘다.
@@ -310,6 +546,7 @@ namespace Ashfall.Weapons
             raidOver = true;
             Model?.CancelReload();
             magazineCheck?.Cancel();
+            jamClear?.Reset();
         }
 
         private static void Publish<T>(in T evt) where T : struct, IGameEvent

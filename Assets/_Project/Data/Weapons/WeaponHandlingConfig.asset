@@ -18,3 +18,12 @@ MonoBehaviour:
   aimSwayBaseDeg: 0.15
   aimSwayFrequencyHz: 0.5
   magazineDropSpeed: 1
+  jamDurabilityThreshold: 50
+  jamChancePerDurabilityPoint: 0.001
+  jamClearHoldSec: 1.2
+  weaponSwitchTimeSec: 0.5
+  ammoDefinitions:
+  - {fileID: 11400000, guid: bd4ba6ed4baf1e2469098365816f2e6a, type: 2}
+  - {fileID: 11400000, guid: 8c0f6cda657b7f54c8030fab41bad15c, type: 2}
+  - {fileID: 11400000, guid: 0850db641fac12f4cb44011c328d6088, type: 2}
+  - {fileID: 11400000, guid: 8c3e126713db25f42b1d19d7d8b18f6e, type: 2}

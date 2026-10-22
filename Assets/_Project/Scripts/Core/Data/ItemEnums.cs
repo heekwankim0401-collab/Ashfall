@@ -18,6 +18,7 @@ namespace Ashfall.Core
         AssaultRifle,
         Shotgun,
         Sniper,
+        MachineGun,   // M7 Q27: 적 전용 경기관총 WPN-LMG-01(§7 AI-BOS 무장, §5.2 표 밖). 끝에 추가 — 기존 직렬화 값 유지
     }
 
     // §5.2 탄

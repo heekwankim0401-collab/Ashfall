@@ -51,8 +51,8 @@ namespace Ashfall.Tests.PlayMode
         public BodyHealthModel PlayerBody => Health.Body;
         public Transform PlayerEye => Motor.transform.Find("Eye");
         public Transform PlayerCamera => PlayerEye.GetChild(0);
-        public Transform PlayerMuzzle =>
-            Weapon.GetComponentsInChildren<Transform>(true).First(t => t.name == "Muzzle");
+        // 든 무기의 총구 (WeaponController.MuzzlePosition — 프리팹 뷰모델이면 그 총구, 아니면 직렬화 총구). M7 리뷰 7A 낮음 7: 계층 순서 검색을 쓰지 않는다.
+        public Vector3 PlayerMuzzlePosition => Weapon.MuzzlePosition;
 
         // 씬을 불러오고 모든 적이 등록(Brain)·무장(Weapon)되고 director가 서비스를 잡을 때까지 기다린다.
         public static IEnumerator Load(M3Scene into, string path = AiScenePath)
@@ -196,7 +196,7 @@ namespace Ashfall.Tests.PlayMode
             for (int i = 0; i < iterations; i++)
             {
                 Vector3 point = pointOf();
-                Vector3 origin = fromMuzzle ? PlayerMuzzle.position : PlayerCamera.position;
+                Vector3 origin = fromMuzzle ? PlayerMuzzlePosition : PlayerCamera.position;
                 Vector3 d = (point - origin).normalized;
                 Vector3 flat = new Vector3(d.x, 0f, d.z);
                 if (flat.sqrMagnitude > 1e-6f)

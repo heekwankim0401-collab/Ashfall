@@ -142,10 +142,11 @@ namespace Ashfall.Tests.EditMode
         }
 
         // 가격 표가 프로젝트의 탄약 외 아이템 정의를 전부 덮는다 (새 아이템을 추가하면 가격도 정할 것).
+        // M7 7A 아이템 가격은 M7WeaponDataAssetTests.PriceTable(설계 §3.1·§3.2)이 갖는다.
         [Test]
         public void Prices_CoverEveryNonAmmoItemDefinition()
         {
-            var tableIds = new HashSet<string>(PriceTable.Select(p => p.id));
+            var tableIds = new HashSet<string>(PriceTable.Select(p => p.id).Concat(M7WeaponDataAssetTests.PriceTable.Select(p => p.id)));
             var missing = AllItemDefinitionsInProject()
                 .Where(i => !(i is AmmoDefinitionSO) && !tableIds.Contains(i.id))
                 .Select(i => i.id).ToArray();
@@ -235,9 +236,11 @@ namespace Ashfall.Tests.EditMode
             var t = Load<TraderConfigSO>(TraderConfigPath);
             Assert.IsNotNull(t.catalog);
             Assert.IsTrue(t.catalog.All(i => i != null), "빈 항목");
-            CollectionAssert.AreEqual(TraderCatalogIds, t.catalog.Select(i => i.id).ToArray());
+            // M5 목록 뒤에 M7 Q20 추가분(SHT·DMR·MAG-762-5·BOX-12GA-8 — 값은 M7WeaponDataAssetTests가 확인)
+            CollectionAssert.AreEqual(TraderCatalogIds.Concat(M7WeaponDataAssetTests.TraderAdditionIds).ToArray(),
+                t.catalog.Select(i => i.id).ToArray());
             CollectionAssert.AllItemsAreUnique(t.catalog);
-            foreach (ItemDefinitionSO item in t.catalog)
+            foreach (ItemDefinitionSO item in t.catalog.Take(TraderCatalogIds.Length))
                 Assert.AreSame(Load<ItemDefinitionSO>(PathOf(item.id)), item, $"{item.id} 실제 에셋 참조");
         }
 
@@ -266,7 +269,9 @@ namespace Ashfall.Tests.EditMode
                 Assert.AreEqual(expected.displayName, asset.displayName);
                 Assert.AreEqual(expected.buyPriceMultiplier, asset.buyPriceMultiplier, Eps);
                 Assert.AreEqual(expected.sellPriceMultiplier, asset.sellPriceMultiplier, Eps);
-                CollectionAssert.AreEqual(expected.catalog.Select(i => i.id).ToArray(), asset.catalog.Select(i => i.id).ToArray());
+                // M5 규칙 테스트 기준 = 앞부분 (뒤는 M7 추가분)
+                CollectionAssert.AreEqual(expected.catalog.Select(i => i.id).ToArray(),
+                    asset.catalog.Take(expected.catalog.Length).Select(i => i.id).ToArray());
             }
             finally
             {

@@ -32,4 +32,8 @@ MonoBehaviour:
     weight: 0.5
   - item: {fileID: 11400000, guid: 7825228d32ef84a45b5dea8200020a93, type: 2}
     weight: 0.5
+  - item: {fileID: 11400000, guid: ff0b5f8e7799c9544b9f9616d6fce58a, type: 2}
+    weight: 1.5
+  - item: {fileID: 11400000, guid: ffa37bc5de17ce842a0c15b4d7b2afeb, type: 2}
+    weight: 0.5
   rollCount: {x: 1, y: 3}

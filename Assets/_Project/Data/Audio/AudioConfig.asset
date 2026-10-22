@@ -72,6 +72,16 @@ MonoBehaviour:
     mid: {fileID: 8300000, guid: 8336814e99d44dd45a3f45c53daaa794, type: 3}
     far: {fileID: 8300000, guid: 46038166a35013c4083155ae2ba11a71, type: 3}
     volume: 1
+  - weaponClass: 3
+    near: {fileID: 8300000, guid: 588cead9122b4a74e82a9f6faf503530, type: 3}
+    mid: {fileID: 8300000, guid: 843f7a45acdb49845bef621fb7a78c6f, type: 3}
+    far: {fileID: 8300000, guid: 6c99506a555287c48968bac4da9560f7, type: 3}
+    volume: 1
+  - weaponClass: 4
+    near: {fileID: 8300000, guid: bb2bb4c8cd1f46c428ebcb8fabb5dee4, type: 3}
+    mid: {fileID: 8300000, guid: da957dc42f24f8141b10290e8e8b4aa2, type: 3}
+    far: {fileID: 8300000, guid: 4a3e3b1527635554f836ce1af858a38e, type: 3}
+    volume: 1
   fallbackGunshotClass: 2
   nearMaxM: 50
   midMaxM: 250
@@ -80,6 +90,10 @@ MonoBehaviour:
   gainAtNear: 0.7
   gainAtMid: 0.35
   gainAtFar: 0.1
+  dryFireClip: {fileID: 8300000, guid: 442804b901d544e4aa72cc220b93d9fd, type: 3}
+  jamClearClip: {fileID: 8300000, guid: 3a171a9c02c6ac345868591cc0767265, type: 3}
+  dryFireVolume: 0.8
+  jamClearVolume: 0.8
   voiceCount: 24
   serviceRetrySec: 0.5
   listenerSearchRetrySec: 5

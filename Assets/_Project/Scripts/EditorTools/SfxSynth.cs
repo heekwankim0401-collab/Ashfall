@@ -25,6 +25,8 @@ namespace Ashfall.EditorTools
         public const float CollapseSec = 3.5f;
         public const float GeigerClickSec = 0.004f;
         public const float DroneSec = 30f;   // 화음 주파수가 30초에 정수 주기 → 이음매 없음
+        public const float DryFireSec = 0.1f;   // M7 헛격발 클릭 (3ms 클릭 + 공진)
+        public const float JamClearSec = 0.4f;  // M7 고장 해제
 
         private const double TwoPi = Math.PI * 2.0;
 
@@ -173,6 +175,67 @@ namespace Ashfall.EditorTools
                 s[i] = (float)((i == 0 ? 1.0 : 0.0) + Noise(r) * Math.Exp(-t / 0.0006));
             }
             FadeOutTail(s, rate, 0.001);
+            return Normalize(s);
+        }
+
+        // M7 공이 헛격발: 3ms 금속 클릭 + 짧은 공진 (설계 §2.2, 0.1초)
+        public static float[] DryFireClick(int rate = DefaultRate)
+        {
+            var r = new Random(6001);
+            int n = SampleCount(DryFireSec, rate);
+            var s = new float[n];
+            var lp = new OnePole(1500, rate);
+            double[] partials = { 2650, 4180, 6230 };
+            double[] amps = { 1.0, 0.6, 0.35 };
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)rate;
+                double x = Noise(r) * (t < 0.003 ? 1.0 : 0.0);
+                double click = (x - lp.Run(x)) * 1.5;
+                double ring = 0;
+                for (int k = 0; k < partials.Length; k++)
+                    ring += amps[k] * Math.Sin(TwoPi * partials[k] * t) * Env(t, 0.0005, 0.025 / (k + 1));
+                s[i] = (float)(click + ring * 0.5);
+            }
+            FadeOutTail(s, rate, 0.01);
+            return Normalize(s);
+        }
+
+        // M7 고장 해제: 슬라이드 긁힘 노이즈 + 클릭 2개 (설계 §2.2, 0.4초)
+        public static float[] JamClear(int rate = DefaultRate)
+        {
+            var r = new Random(6002);
+            int n = SampleCount(JamClearSec, rate);
+            var s = new float[n];
+            var bandLo = new OnePole(900, rate);
+            var bandHi = new OnePole(4500, rate);
+            double[] clickAt = { 0.04, 0.30 };
+            double[] clickPartials = { 1900, 3300 };
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)rate;
+                double x = Noise(r);
+                double band = bandHi.Run(x);
+                band -= bandLo.Run(band);
+                // 0.06~0.28초 긁힘 (가운데가 가장 크다)
+                double scrape = 0;
+                if (t >= 0.06 && t <= 0.28)
+                {
+                    double u = (t - 0.06) / 0.22;
+                    scrape = band * Math.Sin(Math.PI * u) * (0.7 + 0.3 * Math.Sin(TwoPi * 38 * t)) * 1.2;
+                }
+                double clicks = 0;
+                for (int c = 0; c < clickAt.Length; c++)
+                {
+                    double tc = t - clickAt[c];
+                    if (tc < 0)
+                        continue;
+                    clicks += (x * (tc < 0.002 ? 1.0 : 0.0)) * 1.2
+                              + Math.Sin(TwoPi * clickPartials[c] * tc) * Env(tc, 0.0005, 0.015) * 0.8;
+                }
+                s[i] = (float)(scrape + clicks);
+            }
+            FadeOutTail(s, rate, 0.02);
             return Normalize(s);
         }
 
@@ -325,18 +388,25 @@ namespace Ashfall.EditorTools
         {
             public double Pitch;
             public float LengthScale;
+            // M7 7A-2c 음색 배율 (1 = M6 그대로 — 기존 분류 샘플은 비트 단위로 같다)
+            public double Crack;        // 근거리 고역 크랙
+            public double Body;         // 근·중거리 몸통·펀치 (산탄 = 넓은 폭발)
+            public double Echo;         // 원거리 메아리 크기
+            public double EchoSpread;   // 원거리 메아리 간격 (저격 = 긴 메아리)
         }
 
         // 분류별 음높이·길이 (권총 높고 짧게, 소총 낮고 길게). TODO(GDD-?) 자리표시
+        // M7(설계 §2.2): 산탄 = 낮고 넓은 폭발(크랙 약, 몸통 강), 저격 = 날카로운 크랙 + 긴 메아리.
+        // 새 분류(7B MachineGun 등)는 여기 case 하나 + M6AudioSetup.M7GunshotClasses에 한 항목이면 된다(없으면 기본 음색).
         private static GunParams ClassParams(WeaponClass cls)
         {
             switch (cls)
             {
-                case WeaponClass.Pistol: return new GunParams { Pitch = 1.25, LengthScale = 0.85f };
-                case WeaponClass.Smg: return new GunParams { Pitch = 1.1, LengthScale = 0.92f };
-                case WeaponClass.Shotgun: return new GunParams { Pitch = 0.8, LengthScale = 1.1f };
-                case WeaponClass.Sniper: return new GunParams { Pitch = 0.85, LengthScale = 1.15f };
-                default: return new GunParams { Pitch = 0.9, LengthScale = 1f };
+                case WeaponClass.Pistol: return new GunParams { Pitch = 1.25, LengthScale = 0.85f, Crack = 1, Body = 1, Echo = 1, EchoSpread = 1 };
+                case WeaponClass.Smg: return new GunParams { Pitch = 1.1, LengthScale = 0.92f, Crack = 1, Body = 1, Echo = 1, EchoSpread = 1 };
+                case WeaponClass.Shotgun: return new GunParams { Pitch = 0.8, LengthScale = 1.1f, Crack = 0.6, Body = 1.6, Echo = 1, EchoSpread = 1 };
+                case WeaponClass.Sniper: return new GunParams { Pitch = 0.85, LengthScale = 1.15f, Crack = 2.2, Body = 0.9, Echo = 1.3, EchoSpread = 1.25 };
+                default: return new GunParams { Pitch = 0.9, LengthScale = 1f, Crack = 1, Body = 1, Echo = 1, EchoSpread = 1 };
             }
         }
 
@@ -351,11 +421,11 @@ namespace Ashfall.EditorTools
             {
                 double t = i / (double)rate;
                 double x = Noise(r);
-                double crack = (x - crackLp.Run(x)) * Env(t, 0.0005, 0.006);
-                double body = bodyLp.Run(x) * Env(t, 0.001, 0.07 * ls) * 1.6;
+                double crack = (x - crackLp.Run(x)) * Env(t, 0.0005, 0.006) * p.Crack;
+                double body = bodyLp.Run(x) * Env(t, 0.001, 0.07 * ls) * 1.6 * p.Body;
                 double freq = 60 * p.Pitch * (1 + 1.5 * Math.Exp(-t / 0.02));
                 phase += TwoPi * freq / rate;
-                double punch = Math.Sin(phase) * Env(t, 0.001, 0.08) * 0.9;
+                double punch = Math.Sin(phase) * Env(t, 0.001, 0.08) * 0.9 * p.Body;
                 double tail = tailLp.Run(x) * Env(t, 0.01, 0.18 * ls) * 0.8;
                 s[i] = (float)(crack + body + punch + tail);
             }
@@ -372,10 +442,10 @@ namespace Ashfall.EditorTools
             {
                 double t = i / (double)rate;
                 double x = Noise(r);
-                double body = lp2.Run(lp1.Run(x)) * Env(t, 0.004, 0.12 * ls) * 3.0;
+                double body = lp2.Run(lp1.Run(x)) * Env(t, 0.004, 0.12 * ls) * 3.0 * p.Body;
                 double freq = 50 * p.Pitch * (1 + Math.Exp(-t / 0.03));
                 phase += TwoPi * freq / rate;
-                double punch = Math.Sin(phase) * Env(t, 0.003, 0.15) * 0.8;
+                double punch = Math.Sin(phase) * Env(t, 0.003, 0.15) * 0.8 * p.Body;
                 double tail = tailLp.Run(x) * Env(t, 0.02, 0.3 * ls) * 1.2;
                 s[i] = (float)(body + punch + tail);
             }
@@ -403,9 +473,9 @@ namespace Ashfall.EditorTools
                 double echo = 0;
                 for (int k = 0; k < delays.Length; k++)
                 {
-                    int d = (int)(delays[k] * ls * rate);
+                    int d = (int)(delays[k] * ls * p.EchoSpread * rate);
                     if (i - d >= 0)
-                        echo += dry[i - d] * gains[k];
+                        echo += dry[i - d] * gains[k] * p.Echo;
                 }
                 s[i] = (float)(dry[i] + echoLp.Run(echo) * 1.5);
             }

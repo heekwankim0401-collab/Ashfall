@@ -9,7 +9,8 @@ using UnityEngine;
 namespace Ashfall.EditorTools
 {
     // M6 자리표시 오디오 (M6 설계 §2.1·§2.2, Q18·Q21). 전부 TODO(GDD-?) 자리표시 — 실제 에셋 교체 위치는 설계 §2.3.
-    // ① WAV 27개를 SfxSynth로 합성해 Audio/Placeholder/...에 쓴다 — **파일이 없을 때만**(Q21: 사용자가 같은 경로에 덮어쓴 WAV 보존).
+    // ① WAV 27개(M6 Recipes) + M7 8개(M7Recipes: 산탄·저격 총성 근/중/원, 헛격발·고장 해제)를 SfxSynth로 합성해 Audio/Placeholder/...에 쓴다
+    //    — **파일이 없을 때만**(Q21: 사용자가 같은 경로에 덮어쓴 WAV 보존).
     // ② 임포트 설정: 모노 강제, 1초 미만 = DecompressOnLoad, 루프·긴 소리 = CompressedInMemory(Vorbis 0.7), preload.
     //    **이번에 새로 쓴 파일에만** 적용한다(리뷰 낮음 3 — 덮어쓴 사용자 WAV의 임포트 설정, 예: 스테레오 루프를 보존). 값이 다를 때만 다시 임포트.
     // ③ Data/Audio/AudioConfig.asset(1b가 만든다, 없으면 M6 데이터 메뉴를 먼저 부른다)의 **빈 클립 필드만** 채운다(Q21).
@@ -27,7 +28,11 @@ namespace Ashfall.EditorTools
         public const float VorbisQuality = 0.7f;
 
         public static readonly SurfaceKind[] Surfaces = { SurfaceKind.Dirt, SurfaceKind.Metal, SurfaceKind.Debris, SurfaceKind.Water };
+        // M6 세트 (기존 에셋에 세트가 없으면 경고만 — 사용자 구성 보존)
         public static readonly WeaponClass[] GunshotClasses = { WeaponClass.Pistol, WeaponClass.Smg, WeaponClass.AssaultRifle };
+        // M7 확장 세트 (7A-2c). 기존 AudioConfig에 세트가 없으면 gunshots 끝에 추가한 뒤 빈 클립을 채운다(M7 설계 §2.1).
+        // 새 분류(7B MachineGun)는 이 배열에 한 항목을 더하면 WAV 3개·세트·클립 연결이 함께 생긴다(음색은 SfxSynth.ClassParams, 없으면 기본).
+        public static readonly WeaponClass[] M7GunshotClasses = { WeaponClass.Shotgun, WeaponClass.Sniper };
         public static readonly GunshotLayer[] GunshotLayers = { GunshotLayer.Near, GunshotLayer.Mid, GunshotLayer.Far };
 
         public const string WindLoopPath = M6Names.AmbienceAudioFolder + "/AMB_Wind_Loop.wav";
@@ -47,9 +52,56 @@ namespace Ashfall.EditorTools
         public static string CollapsePath(int variant) =>
             $"{M6Names.AmbienceAudioFolder}/AMB_MetalCollapse_{variant + 1:00}.wav";
 
-        private static string ClassFileName(WeaponClass cls) => cls == WeaponClass.AssaultRifle ? "Rifle" : cls.ToString();
+        // 파일 이름 (설계 §2.2: GS_Rifle_*, GS_Shotgun_*, GS_Sniper_*, 7B GS_Lmg_*)
+        private static string ClassFileName(WeaponClass cls)
+        {
+            switch (cls)
+            {
+                case WeaponClass.AssaultRifle: return "Rifle";
+                case WeaponClass.MachineGun: return "Lmg";
+                default: return cls.ToString();
+            }
+        }
 
-        // 경로 → 합성 레시피 (모든 자리표시 WAV)
+        // 모든 총성 세트 분류 (M6 + M7)
+        public static WeaponClass[] AllGunshotClasses()
+        {
+            var all = new WeaponClass[GunshotClasses.Length + M7GunshotClasses.Length];
+            GunshotClasses.CopyTo(all, 0);
+            M7GunshotClasses.CopyTo(all, GunshotClasses.Length);
+            return all;
+        }
+
+        // M7 자리표시 WAV (7A-2c): 확장 총성 세트 + 무기 클릭 2개(M7Names 경로)
+        public static IReadOnlyList<(string path, Func<float[]> synth)> M7Recipes()
+        {
+            var list = new List<(string, Func<float[]>)>();
+            AddGunshotRecipes(list, M7GunshotClasses);
+            list.Add((M7Names.DryFireClipPath, () => SfxSynth.DryFireClick(SampleRate)));
+            list.Add((M7Names.JamClearClipPath, () => SfxSynth.JamClear(SampleRate)));
+            return list;
+        }
+
+        // 메뉴가 쓰는 전체 레시피 (M6 + M7)
+        public static IReadOnlyList<(string path, Func<float[]> synth)> AllRecipes()
+        {
+            var list = new List<(string, Func<float[]>)>(Recipes());
+            list.AddRange(M7Recipes());
+            return list;
+        }
+
+        private static void AddGunshotRecipes(List<(string, Func<float[]>)> list, WeaponClass[] classes)
+        {
+            foreach (WeaponClass cls in classes)
+                foreach (GunshotLayer layer in GunshotLayers)
+                {
+                    WeaponClass c = cls;
+                    GunshotLayer l = layer;
+                    list.Add((GunshotPath(c, l), () => SfxSynth.Gunshot(c, l, SampleRate)));
+                }
+        }
+
+        // 경로 → 합성 레시피 (M6 자리표시 WAV 27개. M7 추가분은 M7Recipes, 메뉴는 AllRecipes)
         public static IReadOnlyList<(string path, Func<float[]> synth)> Recipes()
         {
             var list = new List<(string, Func<float[]>)>();
@@ -87,7 +139,7 @@ namespace Ashfall.EditorTools
 
             // 임포트 설정은 이번에 새로 쓴 파일에만 강제한다 — 사용자가 같은 경로에 덮어쓴 WAV의 설정(스테레오 루프 등, 설계 §2.3)을
             // 다음 메뉴 실행이 되돌리지 않게(M6 리뷰 낮음 3).
-            List<string> created = WritePlaceholderWavs(Recipes());
+            List<string> created = WritePlaceholderWavs(AllRecipes());
             int reimported = ApplyImportSettings(created);
             int written = created.Count;
             int filled = FillAudioConfig();
@@ -252,10 +304,27 @@ namespace Ashfall.EditorTools
                     Debug.LogWarning($"{Tag} AudioConfig.gunshots에 {cls} 세트가 없다 — 채우지 않음(사용자 구성 보존)");
                     continue;
                 }
-                if (set.near == null) { set.near = SetupUtil.Load<AudioClip>(GunshotPath(cls, GunshotLayer.Near)); filled++; }
-                if (set.mid == null) { set.mid = SetupUtil.Load<AudioClip>(GunshotPath(cls, GunshotLayer.Mid)); filled++; }
-                if (set.far == null) { set.far = SetupUtil.Load<AudioClip>(GunshotPath(cls, GunshotLayer.Far)); filled++; }
+                filled += FillGunshotSet(set, cls);
             }
+
+            // M7 확장 세트: 없으면 끝에 추가(기존 세트·순서는 그대로), 그다음 빈 클립만 채운다
+            foreach (WeaponClass cls in M7GunshotClasses)
+            {
+                GunshotSet set = GunshotMix.FindSet(config, cls);
+                if (set == null)
+                {
+                    set = new GunshotSet(cls, 1f);
+                    var list = new List<GunshotSet>(config.gunshots ?? new GunshotSet[0]) { set };
+                    config.gunshots = list.ToArray();
+                    filled++;
+                    Debug.Log($"{Tag} AudioConfig.gunshots에 {cls} 세트 추가(M7)");
+                }
+                filled += FillGunshotSet(set, cls);
+            }
+
+            // M7 무기 클릭 (WeaponClicked)
+            if (config.dryFireClip == null) { config.dryFireClip = SetupUtil.Load<AudioClip>(M7Names.DryFireClipPath); filled++; }
+            if (config.jamClearClip == null) { config.jamClearClip = SetupUtil.Load<AudioClip>(M7Names.JamClearClipPath); filled++; }
 
             if (config.windLoop == null) { config.windLoop = SetupUtil.Load<AudioClip>(WindLoopPath); filled++; }
             if (config.stormLoop == null) { config.stormLoop = SetupUtil.Load<AudioClip>(StormLoopPath); filled++; }
@@ -275,6 +344,16 @@ namespace Ashfall.EditorTools
                 EditorUtility.SetDirty(config);
                 Debug.Log($"{Tag} AudioConfig 빈 클립 필드 {filled}개 채움");
             }
+            return filled;
+        }
+
+        // 세트의 빈 근/중/원 클립만 자리표시로. 채운 수.
+        private static int FillGunshotSet(GunshotSet set, WeaponClass cls)
+        {
+            int filled = 0;
+            if (set.near == null) { set.near = SetupUtil.Load<AudioClip>(GunshotPath(cls, GunshotLayer.Near)); filled++; }
+            if (set.mid == null) { set.mid = SetupUtil.Load<AudioClip>(GunshotPath(cls, GunshotLayer.Mid)); filled++; }
+            if (set.far == null) { set.far = SetupUtil.Load<AudioClip>(GunshotPath(cls, GunshotLayer.Far)); filled++; }
             return filled;
         }
     }

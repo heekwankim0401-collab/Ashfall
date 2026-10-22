@@ -12,6 +12,7 @@ namespace Ashfall.Audio
         Footstep,
         Gunshot,
         Collapse,
+        WeaponClick,   // M7 WeaponClicked (헛격발·고장·해제)
     }
 
     // 마지막 재생 요청 (§7 AC2 R3: 배치모드에 오디오 장치가 없을 수 있어 isPlaying 대신 이것으로 확인한다). 할당 없음.
@@ -51,6 +52,7 @@ namespace Ashfall.Audio
     // - FootstepTaken: 들리는 거리 밖이면 버림 → SurfaceProbe로 재질 → 재질 세트 클립(직전과 다르게) → 3D voice.
     // - ShotFired: 거리 → 근/중/원 레이어 하나(Q15) → 무기 분류 세트 → 3D voice. 지연·차폐 없음(Q16·Q17).
     // - AshStormChanged + IAshStormInfo: 바람·폭풍 루프·가이거(Q22). 금속 붕괴는 무작위 간격.
+    // - WeaponClicked(M7): 헛격발·고장 = dryFireClip, 해제 = jamClearClip → 이벤트 위치 3D voice(우선순위 = 내 발소리보다 높음).
     // - 일시정지(Q19): GameFlow.IsWorldPaused를 AudioListener.pause에 반영(timeScale은 건드리지 않는다). 파괴 시 false로 되돌린다.
     // 이벤트 경로는 할당 없음(설계 §1.7). 청취자 = IPlayerTarget.EyePosition(카메라의 AudioListener와 같은 위치).
     public sealed class AudioDirector : MonoBehaviour
@@ -82,12 +84,15 @@ namespace Ashfall.Audio
         private Action<FootstepTaken> onFootstep;
         private Action<ShotFired> onShot;
         private Action<AshStormChanged> onStorm;
+        private Action<WeaponClicked> onWeaponClick;
 
         public AudioConfigSO Config => config;
         public AudioVoicePool Voices => voices;
         public AmbientSoundscape Ambient => ambient;
         public SurfaceProbe Probe => probe;
         public PlayedSound LastPlayed { get; private set; }
+        // 마지막으로 재생한 무기 클릭 종류 (LastPlayed.Kind == WeaponClick일 때 의미, 테스트용)
+        public WeaponClickKind LastWeaponClick { get; private set; }
         // 누적: 재생 요청 성공 수 / 들리는 거리 밖이라 버린 수
         public int PlayedCount { get; private set; }
         public int CulledCount { get; private set; }
@@ -112,6 +117,7 @@ namespace Ashfall.Audio
             onFootstep = HandleFootstep;
             onShot = HandleShot;
             onStorm = HandleStormChanged;
+            onWeaponClick = HandleWeaponClicked;
             Initialize();
         }
 
@@ -178,6 +184,7 @@ namespace Ashfall.Audio
             subscribedBus.Subscribe(onFootstep);
             subscribedBus.Subscribe(onShot);
             subscribedBus.Subscribe(onStorm);
+            subscribedBus.Subscribe(onWeaponClick);
             subscribed = true;
         }
 
@@ -190,6 +197,7 @@ namespace Ashfall.Audio
                 subscribedBus.Unsubscribe(onFootstep);
                 subscribedBus.Unsubscribe(onShot);
                 subscribedBus.Unsubscribe(onStorm);
+                subscribedBus.Unsubscribe(onWeaponClick);
             }
             subscribedBus = null;
             subscribed = false;
@@ -309,6 +317,21 @@ namespace Ashfall.Audio
             Play(PlayedSoundKind.Gunshot, clip, e.Position, gain * volume, 1f, FootstepMix.PriorityGunshot, e.Source, default, layer);
         }
 
+        // M7 7A-2c: 플레이어 무기 클릭(설계 §1.2, Q10 — HUD 없이 소리만). DryFire·Jammed = dryFireClip, JamCleared = jamClearClip.
+        // 플레이어 자신의 소리라 거리 판정 없이 이벤트 위치(총구)에서 3D로, 피치 변주 없음. 클립이 비면 소리 없음.
+        private void HandleWeaponClicked(WeaponClicked e)
+        {
+            if (!initialized)
+                return;
+            bool clear = e.Kind == WeaponClickKind.JamCleared;
+            AudioClip clip = clear ? config.jamClearClip : config.dryFireClip;
+            if (clip == null)
+                return;
+            float gain = Mathf.Clamp01(clear ? config.jamClearVolume : config.dryFireVolume);
+            if (Play(PlayedSoundKind.WeaponClick, clip, e.Position, gain, 1f, FootstepMix.PriorityWeaponClick, SoundSource.Player, default, default))
+                LastWeaponClick = e.Kind;
+        }
+
         private void HandleStormChanged(AshStormChanged e)
         {
             if (!initialized)
@@ -330,13 +353,14 @@ namespace Ashfall.Audio
                 SoundSource.Enemy, default, default);
         }
 
-        private void Play(PlayedSoundKind kind, AudioClip clip, Vector3 position, float gain, float pitch, int priority,
+        private bool Play(PlayedSoundKind kind, AudioClip clip, Vector3 position, float gain, float pitch, int priority,
             SoundSource source, SurfaceKind surface, GunshotLayer layer)
         {
             if (!voices.Play(clip, position, gain, pitch, priority, Time.time))
-                return;
+                return false;
             PlayedCount++;
             LastPlayed = new PlayedSound(kind, clip, position, gain, pitch, priority, voices.LastVoice, source, surface, layer);
+            return true;
         }
 
         private static float Sanitize(float v) => float.IsNaN(v) || float.IsInfinity(v) ? 0f : Mathf.Max(0f, v);

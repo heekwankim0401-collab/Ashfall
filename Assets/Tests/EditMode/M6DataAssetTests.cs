@@ -214,7 +214,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(0.06f, a.pitchJitter, Eps);
 
             CollectionAssert.AreEqual(
-                new[] { WeaponClass.Pistol, WeaponClass.Smg, WeaponClass.AssaultRifle },
+                new[] { WeaponClass.Pistol, WeaponClass.Smg, WeaponClass.AssaultRifle, WeaponClass.Shotgun, WeaponClass.Sniper },   // M7 7A-2c: 끝에 Shotgun·Sniper
                 a.gunshots.Select(g => g.weaponClass).ToArray());
             Assert.IsTrue(a.gunshots.All(g => Mathf.Approximately(g.volume, 1f)));
             Assert.AreEqual(WeaponClass.AssaultRifle, a.fallbackGunshotClass);

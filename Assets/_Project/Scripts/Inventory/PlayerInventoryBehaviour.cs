@@ -8,6 +8,7 @@ namespace Ashfall.Inventory
 {
     // SYS-INV 플레이어 인벤토리의 얇은 브리지 (플레이어 루트에 붙는다). 규칙은 PlayerInventory에 있다.
     // - IInventoryService·IMagazineSource 등록, 모델 변화 → 버스 이벤트
+    //   M7: ILooseAmmoSource(튜브 장전 낱탄)도 같은 인스턴스로 등록 — WeaponModel은 보통 IMagazineSource를 `as ILooseAmmoSource`로 쓴다
     // - F 상호작용(레이캐스트), 4~7 의약품 퀵슬롯, 열린 루트 검색 진행
     //   M4: 대상에 Core IWorldInteractable(다른 기능의 장치, EXT-02 전원 스위치)도 포함 (InteractionTargets)
     // - ItemDropRequested·버리기 → WorldItem 생성, 의약품 사용 시작/완료 → 잠금/차감, 사망 → 잠금
@@ -84,6 +85,7 @@ namespace Ashfall.Inventory
                 return;
             GameManager.Instance.Services.Register<IInventoryService>(Inventory);
             GameManager.Instance.Services.Register<IMagazineSource>(Inventory);
+            GameManager.Instance.Services.Register<ILooseAmmoSource>(Inventory);
             var events = GameManager.Instance.Events;
             events.Subscribe<ItemDropRequested>(OnItemDropRequested);
             events.Subscribe<MedicalUseStarted>(OnMedicalUseStarted);
@@ -100,6 +102,7 @@ namespace Ashfall.Inventory
                 return;
             GameManager.Instance.Services.Unregister<IInventoryService>(Inventory);
             GameManager.Instance.Services.Unregister<IMagazineSource>(Inventory);
+            GameManager.Instance.Services.Unregister<ILooseAmmoSource>(Inventory);
             var events = GameManager.Instance.Events;
             events.Unsubscribe<ItemDropRequested>(OnItemDropRequested);
             events.Unsubscribe<MedicalUseStarted>(OnMedicalUseStarted);
@@ -139,7 +142,13 @@ namespace Ashfall.Inventory
                     continue;
                 ItemInstance instance = ItemFactory.Create(entry.item);
                 if (instance is WeaponItem weapon && entry.loadedMagazine != null)
-                    weapon.LoadedMagazine = Magazine.Full(entry.loadedMagazine);
+                {
+                    // M7(Q5): 탄 상자는 무기에 넣을 수 없고, 튜브 무기는 내장 튜브를 바꾸지 않는다 (빈 튜브로 시작).
+                    if (entry.loadedMagazine.isAmmoBox || weapon.HasInternalMagazine)
+                        Debug.LogWarning($"[PlayerInventory] 시작 장비 {instance}에 탄창 {entry.loadedMagazine.id}를 넣지 않는다 (탄 상자·튜브 무기).", this);
+                    else
+                        weapon.LoadedMagazine = Magazine.Full(entry.loadedMagazine);
+                }
 
                 bool ok = entry.equip ? Inventory.TryEquipNew(instance, entry.slot) : Inventory.TryAutoStore(instance);
                 if (!ok)

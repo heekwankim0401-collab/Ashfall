@@ -18,7 +18,8 @@ namespace Ashfall.Weapons
         }
 
         // 재장전 중이거나 이미 확인 중이면 false.
-        // TODO(GDD-?): §5.1 T 길게 누르기(고장 해제)는 M7. 지금은 누름만.
+        // M7: §5.1 T 길게(고장 해제)는 JamClearModel. 고장 중에는 컨트롤러가 이것을 부르지 않는다(탄창 확인 불가, Q9).
+        // 샷건 내장 튜브도 탄창처럼 같은 비율 구간으로 분류한다 (TODO(GDD-?) Q5).
         public bool TryStart(bool isReloading)
         {
             if (isReloading || IsChecking)

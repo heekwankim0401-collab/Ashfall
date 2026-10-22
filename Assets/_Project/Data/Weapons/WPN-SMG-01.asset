@@ -26,9 +26,14 @@ MonoBehaviour:
   recoilV: 0.45
   recoilH: 0.35
   adsTime: 0.22
-  viewModel: {fileID: 0}
+  viewModel: {fileID: 304659307338457723, guid: dd1d46abd6a522d41a8bf55360a6a987, type: 3}
   reloadTimeSec: 2.3
   fastReloadTimeSec: 1.4
   hipSpreadDeg: 3
   damage: 30
   shotNoiseRadiusM: 90
+  internalMagazine: {fileID: 0}
+  roundReloadTimeSec: 0
+  pelletSpreadDeg: 0
+  durabilityLossPerShot: 0.04
+  enemyOnly: 0

@@ -5,7 +5,8 @@ namespace Ashfall.Core
 {
     // 탄창 목록만으로 된 IMagazineSource. 인벤토리가 없는 M1 씬과 테스트용, M3 적 예비 탄창.
     // 회수(TryStore)는 공간 제한이 없어 항상 성공한다.
-    public sealed class LocalMagazineSource : IMagazineSource
+    // M7: 탄 상자(isAmmoBox)도 같은 목록에 둔다 — ILooseAmmoSource(튜브 장전)로만 꺼내고 탄창 재장전(Fits)에는 쓰지 않는다 (Q5·Q6).
+    public sealed class LocalMagazineSource : IMagazineSource, ILooseAmmoSource
     {
         private readonly List<Magazine> magazines;
 
@@ -44,6 +45,31 @@ namespace Ashfall.Core
             return true;
         }
 
-        private static bool Fits(Magazine m, AmmoType ammo) => !m.IsEmpty && m.Definition.ammo == ammo;
+        // ── ILooseAmmoSource (M7) ────────────────────────────
+
+        public bool HasLooseRound(AmmoType ammo) => FindLeastBox(ammo) != null;
+
+        // 탄이 가장 적은 상자부터(같으면 목록 앞쪽). 빈 상자는 목록에 남는다 (Q6).
+        public bool TakeLooseRound(AmmoType ammo)
+        {
+            Magazine box = FindLeastBox(ammo);
+            return box != null && box.TakeRound();
+        }
+
+        private Magazine FindLeastBox(AmmoType ammo)
+        {
+            Magazine best = null;
+            for (int i = 0; i < magazines.Count; i++)
+            {
+                Magazine m = magazines[i];
+                if (IsLooseBox(m, ammo) && (best == null || m.Rounds < best.Rounds))
+                    best = m;
+            }
+            return best;
+        }
+
+        private static bool Fits(Magazine m, AmmoType ammo) => !m.IsEmpty && !m.Definition.isAmmoBox && m.Definition.ammo == ammo;
+
+        private static bool IsLooseBox(Magazine m, AmmoType ammo) => !m.IsEmpty && m.Definition.isAmmoBox && m.Definition.ammo == ammo;
     }
 }

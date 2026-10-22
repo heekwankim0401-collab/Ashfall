@@ -475,6 +475,34 @@ namespace Ashfall.Tests.EditMode
             Assert.IsNull(profiles.PendingNotice);
         }
 
+        // M7 Q14 A (리뷰 7A 중간 2): 고장 난 채 탈출 → 은신처 장비가 되는 순간 해제, 내구도는 그대로.
+        [Test]
+        public void ApplyRaidResult_Extracted_JammedWeaponCleared_DurabilityKept()
+        {
+            ProfileService profiles = Loaded();
+            profiles.BeginRaid(M5TestData.SampleLoadout(catalog, out _));
+            Loadout carried = M5TestData.SampleLoadout(catalog, out Dictionary<string, ItemInstance> items);
+            var rifle = (WeaponItem)items["rifle"];
+            rifle.Durability = 12f;
+            rifle.IsJammed = true;
+            // 배낭 등 저장 공간에 넣어 둔 고장 무기도 같다
+            WeaponItem spare = M5TestData.Rifle(catalog, 5);
+            spare.IsJammed = true;
+            var entries = new List<LoadoutEntry>(carried.Entries)
+            {
+                new LoadoutEntry(spare, ItemLocation.InGrid(new GridRef(GridKind.Backpack), Vector2Int.zero, false)),
+            };
+            carried = new Loadout(entries, carried.QuickSlots);
+
+            profiles.ApplyRaidResult(M5TestData.Extracted(carried));
+
+            Assert.AreSame(rifle, profiles.Profile.Loadout.Entries[0].Item);
+            Assert.IsFalse(rifle.IsJammed, "은신처 귀환 = 고장 해제");
+            Assert.IsFalse(spare.IsJammed);
+            Assert.AreEqual(12f, rifle.Durability, 1e-4f, "내구도는 그대로");
+            Assert.AreEqual(17, rifle.LoadedMagazine.Rounds, "탄 그대로");
+        }
+
         [TestCase(RaidOutcome.Killed)]
         [TestCase(RaidOutcome.MissingInAction)]
         [TestCase(RaidOutcome.Abandoned)]

@@ -464,6 +464,166 @@ namespace Ashfall.Tests.PlayMode
             Assert.IsNull(music.Source.clip);
         }
 
+        // ---------- M7 7A-2c: 무기 클릭 (WeaponClicked)·산탄·저격 총성 ----------
+
+        private void GiveClickClips()
+        {
+            cfg.dryFireClip = Clip("DryFire", 0.1f);
+            cfg.jamClearClip = Clip("JamClear", 0.4f);
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponClicked_EachKind_PlaysClip_At3DPosition_PriorityAbovePlayerFootstep()
+        {
+            GiveClickClips();
+            Vector3 muzzle = target.Eye + new Vector3(0.2f, -0.1f, 0.6f);
+            var cases = new (WeaponClickKind kind, AudioClip clip, float volume)[]
+            {
+                (WeaponClickKind.DryFire, cfg.dryFireClip, cfg.dryFireVolume),
+                (WeaponClickKind.Jammed, cfg.dryFireClip, cfg.dryFireVolume),
+                (WeaponClickKind.JamCleared, cfg.jamClearClip, cfg.jamClearVolume),
+            };
+            foreach (var c in cases)
+            {
+                int before = director.PlayedCount;
+                Publish(new WeaponClicked(muzzle, c.kind));
+                Assert.AreEqual(before + 1, director.PlayedCount, $"{c.kind}");
+                PlayedSound p = director.LastPlayed;
+                Assert.AreEqual(PlayedSoundKind.WeaponClick, p.Kind, $"{c.kind}");
+                Assert.AreEqual(c.kind, director.LastWeaponClick);
+                Assert.AreSame(c.clip, p.Clip, $"{c.kind}");
+                Assert.AreEqual(muzzle, p.Position);
+                Assert.AreEqual(c.volume, p.Gain, 1e-4f);
+                Assert.AreEqual(1f, p.Pitch);
+                Assert.AreEqual(SoundSource.Player, p.Source);
+                Assert.AreEqual(FootstepMix.PriorityWeaponClick, p.Priority);
+                Assert.Less(p.Priority, FootstepMix.PriorityPlayerFootstep, "내 발소리보다 높다(작을수록 높음)");
+                Assert.IsFalse(p.HasLayer);
+                Assert.IsFalse(p.HasSurface);
+
+                AudioSource voice = director.Voices.Source(p.Voice);
+                Assert.AreSame(c.clip, voice.clip);
+                Assert.AreEqual(1f, voice.spatialBlend, "3D");
+                Assert.AreEqual(muzzle, voice.transform.position);
+                Assert.AreEqual(c.volume, voice.volume, 1e-4f);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponClicked_NoClip_Silent()
+        {
+            int before = director.PlayedCount;
+            Publish(new WeaponClicked(target.Eye, WeaponClickKind.DryFire));
+            Publish(new WeaponClicked(target.Eye, WeaponClickKind.JamCleared));
+            Assert.AreEqual(before, director.PlayedCount, "클립이 없으면 소리 없음(예외 없음)");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponClicked_StealsPlayerFootstep_WhenPoolFull()
+        {
+            GiveClickClips();
+            Box("MetalFloor", Origin + new Vector3(0f, -0.5f, 0f), new Vector3(20f, 1f, 20f), SurfaceKind.Metal);
+            int voices = director.Voices.Count;
+            for (int i = 0; i < voices; i++)
+                Publish(new FootstepTaken(Origin, FootstepGait.Walk, SoundSource.Player));
+            Assert.AreEqual(voices, director.Voices.Allocator.BusyCount(Time.time), "내 발소리로 가득");
+            int steals = director.Voices.StealCount;
+            Publish(new WeaponClicked(target.Eye, WeaponClickKind.Jammed));
+            Assert.AreEqual(PlayedSoundKind.WeaponClick, director.LastPlayed.Kind);
+            Assert.AreEqual(steals + 1, director.Voices.StealCount, "클릭이 내 발소리를 빼앗는다");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponClicked_DroppedWhenGunshotsFillPool()
+        {
+            GiveClickClips();
+            int voices = director.Voices.Count;
+            for (int i = 0; i < voices; i++)
+                Publish(new ShotFired(target.Eye + Vector3.right * (10f + i), null, SoundSource.Enemy));
+            Assert.AreEqual(voices, director.Voices.Allocator.BusyCount(Time.time), "총성으로 가득");
+            int dropped = director.Voices.DroppedCount;
+            Publish(new WeaponClicked(target.Eye, WeaponClickKind.DryFire));
+            Assert.AreEqual(dropped + 1, director.Voices.DroppedCount, "총성으로 가득 차면 클릭은 버린다(총성 > 클릭)");
+            Assert.AreEqual(PlayedSoundKind.Gunshot, director.LastPlayed.Kind);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponClicked_Disabled_Unsubscribed_ReenableResubscribes()
+        {
+            GiveClickClips();
+            director.enabled = false;
+            int before = director.PlayedCount;
+            Publish(new WeaponClicked(target.Eye, WeaponClickKind.DryFire));
+            Assert.AreEqual(before, director.PlayedCount, "OnDisable → 구독 해제");
+            director.enabled = true;
+            Publish(new WeaponClicked(target.Eye, WeaponClickKind.DryFire));
+            Assert.AreEqual(before + 1, director.PlayedCount, "OnEnable → 다시 구독");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Gunshot_ShotgunAndDmr_UseOwnSets()
+        {
+            var shotgun = ScriptableObject.CreateInstance<WeaponDefinitionSO>();
+            shotgun.cls = WeaponClass.Shotgun;
+            var dmr = ScriptableObject.CreateInstance<WeaponDefinitionSO>();
+            dmr.cls = WeaponClass.Sniper;
+            owned.Add(shotgun);
+            owned.Add(dmr);
+            // 실제 에셋은 M6 오디오 메뉴가 세트를 추가한다(AudioConfigAssetTests). 여기서는 같은 모양으로 끝에 붙인다.
+            Assert.IsNull(GunshotMix.FindSet(cfg, WeaponClass.Shotgun), "기본 인스턴스에는 산탄 세트가 없다(대체 규칙 유지)");
+            var shotgunSet = new GunshotSet(WeaponClass.Shotgun, 1f)
+                { near = Clip("Shotgun_Near", 1f), mid = Clip("Shotgun_Mid", 1.5f), far = Clip("Shotgun_Far", 3f) };
+            var sniperSet = new GunshotSet(WeaponClass.Sniper, 1f)
+                { near = Clip("Sniper_Near", 1f), mid = Clip("Sniper_Mid", 1.5f), far = Clip("Sniper_Far", 3f) };
+            cfg.gunshots = cfg.gunshots.Concat(new[] { shotgunSet, sniperSet }).ToArray();
+            Publish(new ShotFired(target.Eye + Vector3.forward * 20f, shotgun, SoundSource.Player));
+            Assert.AreSame(shotgunSet.near, director.LastPlayed.Clip, "디렉터는 설정의 현재 세트 배열을 읽는다");
+
+            var cases = new (WeaponDefinitionSO weapon, float d, GunshotLayer layer, AudioClip clip)[]
+            {
+                (shotgun, 20f, GunshotLayer.Near, shotgunSet.near),
+                (shotgun, 150f, GunshotLayer.Mid, shotgunSet.mid),
+                (dmr, 30f, GunshotLayer.Near, sniperSet.near),
+                (dmr, 600f, GunshotLayer.Far, sniperSet.far),
+            };
+            foreach (var c in cases)
+            {
+                Publish(new ShotFired(target.Eye + Vector3.forward * c.d, c.weapon, SoundSource.Player));
+                PlayedSound p = director.LastPlayed;
+                Assert.AreEqual(PlayedSoundKind.Gunshot, p.Kind, $"{c.weapon.cls} {c.d}m");
+                Assert.AreEqual(c.layer, p.Layer, $"{c.weapon.cls} {c.d}m");
+                Assert.AreSame(c.clip, p.Clip, $"{c.weapon.cls} {c.d}m");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator WeaponClicked_300Events_NoGcAlloc()
+        {
+            GiveClickClips();
+            EventBus bus = Gm.Events;
+            var dry = new WeaponClicked(target.Eye, WeaponClickKind.DryFire);
+            var jam = new WeaponClicked(target.Eye, WeaponClickKind.Jammed);
+            var clear = new WeaponClicked(target.Eye, WeaponClickKind.JamCleared);
+            int before = director.PlayedCount;
+            AssertNoAlloc(() =>
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                    bus.Publish(dry);
+                    bus.Publish(jam);
+                    bus.Publish(clear);
+                }
+            });
+            Assert.Greater(director.PlayedCount, before);
+            yield return null;
+        }
+
         // ---------- 가짜 서비스 ----------
 
         private sealed class FakeTarget : IPlayerTarget

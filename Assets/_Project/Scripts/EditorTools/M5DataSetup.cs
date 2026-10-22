@@ -201,7 +201,8 @@ namespace Ashfall.EditorTools
             return items;
         }
 
-        private static void CreateItemDatabase()
+        // M7 데이터 메뉴도 새 아이템을 만든 뒤 이것을 부른다(공개만, 동작 같음). 저장(SaveAssets)은 부르는 쪽이 한다.
+        public static void CreateItemDatabase()
         {
             // 검사를 먼저 끝낸다 — 실패하면 기존 DB를 건드리지 않는다.
             List<ItemDefinitionSO> items = CollectItemDefinitions();

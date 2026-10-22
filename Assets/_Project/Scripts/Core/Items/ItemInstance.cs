@@ -26,7 +26,8 @@ namespace Ashfall.Core
     public static class ItemFactory
     {
         // 정의 종류에 맞는 런타임 인스턴스를 만든다.
-        // 탄창 → 꽉 찬 탄창, 무기 → 탄창 없는 무기, 의약품 → 사용 횟수 가득, 그 밖 → 상태 없는 ItemInstance.
+        // 탄창 → 꽉 찬 탄창(탄 상자도 가득), 무기 → 탄창 없는 무기(내장 튜브 무기는 빈 튜브, M7 Q5)·내구도 100(Q12),
+        // 의약품 → 사용 횟수 가득, 그 밖 → 상태 없는 ItemInstance.
         public static ItemInstance Create(ItemDefinitionSO definition)
         {
             switch (definition)

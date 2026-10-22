@@ -12,6 +12,8 @@ namespace Ashfall.Audio
         public const int PriorityCollapse = 1;
         public const int PriorityEnemyFootstep = 2;
         public const int PriorityPlayerFootstep = 3;
+        // M7 무기 클릭(헛격발·고장·해제, 플레이어 자신): 내 발소리보다 높게(M7 설계 §4.9) — 적 발소리와 같은 단계. TODO(GDD-?)
+        public const int PriorityWeaponClick = PriorityEnemyFootstep;
 
         // 들리면 true(그때만 지면 레이캐스트를 한다). 들리는 거리 ≤ 0·NaN 거리면 false.
         public static bool Evaluate(float distanceM, FootstepGait gait, SoundSource source, AudioConfigSO cfg, out float gain)

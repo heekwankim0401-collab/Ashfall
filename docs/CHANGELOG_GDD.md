@@ -246,3 +246,49 @@
   메뉴 상수였던 보기 수치(하늘 곡선·태양 번짐·재 노이즈 주파수·상자 높이·화면 크기 상한·지형 노이즈 하한·타일)와 오디오 레이 시작 높이·서비스 재조회 주기를 SO로 옮겼다(값 동일).
   폭풍 시작 시각 로그는 개발 빌드·에디터에서만 남긴다. 지면 판정 캐시는 미리 등록한 GroundSurface만 담고(레이드 중 자라지 않음), 청취자 재탐색은 5초 간격.
   M6 적용이 실패하면 M4·M5 씬 메뉴도 예외로 멈춘다(반쯤 적용된 씬을 저장하지 않음). 단계별 확인용 메뉴는 통합 메뉴와 겹쳐 지웠다.
+
+## 2026-10-22 — M7 설계 결정 (§5, §5.1, §5.2, §12.1, §13.3, §14, §15 M7) — 7A 무기
+문서 본문은 바꾸지 않았다. 아래는 M7 구현을 위한 해석이며, 기획 확정 시 문서에 반영하거나 되돌린다.
+사용자 지시로 GDD에 없거나 모호한 53개 항목(설계 문서 `docs/design/M7_design.md` §5의 Q1~Q53)은 가장 단순한 추천안으로 정했다(Q19 = B, 나머지 = A).
+코드의 결정 지점에는 `TODO(GDD-?) Qn` 주석이 있다. M7은 하위 단계 7A(무기)·7B(AI)·7C(생존·제작)·7D(성능·빌드)로 나눠 커밋한다.
+이 절은 7A(Q1~Q21)만 담는다. 7B·7C·7D 결정은 나중에 같은 절 아래에 추가한다.
+- **§5·§5.2 무기 5종 (Q1~Q8, Q20, Q21):** WPN-SHT-01(12ga, 70RPM, 펠릿 18×8, 내장 튜브 6), WPN-DMR-01(7.62, 40RPM, 110, 탄창 5 MAG-762-5) 추가.
+  - Q1 교체 1/2/3 = 주무기1·주무기2·보조무기(§12.1 키 1·2·3, 입력 액션 `Weapon1/2/3`), 든 슬롯·빈 슬롯 키 무시, 교체 0.5초 동안 사격·조준·재장전·탄창 확인 불가, 교체 시 재장전·탄창 확인 취소.
+  - Q2 레이드 시작 무기 = 주무기1 → 주무기2 → 보조무기 중 첫 비지 않은 슬롯(교체 시간 없음, 든 슬롯은 저장 안 함). 키트 권총만 반입해도 무장(M5 Q16 해소).
+  - Q3 무기 → 탄약 정의는 `WeaponHandlingConfigSO.ammoDefinitions`(AmmoType마다 1개). Q4 무기별 자리표시 1인칭 뷰모델 프리팹(`WeaponDefinitionSO.viewModel`), 처음 들 때 생성·캐시.
+  - Q5 샷건 튜브 = 무기 정의의 내장 탄창(`internalMagazine`, 그리드에 없음), 낱탄 = 탄 상자 BOX-12GA-8(`isAmmoBox` 탄창). R = 한 발씩 0.5초, 빠른 재장전 없음.
+    탄 상자는 무기에 넣을 수 없고 일반 재장전 탄창 선택에서도 빠진다. 낱탄 순서는 조끼 → 주머니 → (설정 시) 배낭, 탄이 가장 적은 상자부터. Q6 빈 탄 상자는 0발 아이템으로 남는다.
+  - Q7 튜브 장전 중 사격 → 발사가 실제로 성립할 때(튜브 1발 이상·새 당김·연사 간격)만 장전을 멈추고 쏜다. Q8 산탄은 펠릿마다 `pelletSpreadDeg` 원뿔(조준 중에도), 지향 퍼짐은 묶음 방향에만.
+  - Q20 상인 판매 목록 끝에 SHT·DMR·MAG-762-5·BOX-12GA-8(LMG·튜브 제외). Q21 약실 탄(+1) 없음(M1 유지).
+- **§5.1 고장·내구도 (Q9~Q18):** `WeaponItem.Durability`(0~100). 발당 무기별 고정 감소(`durabilityLossPerShot`, Q11). 내구도 < 50이면 발당 (50 − 내구도) × 0.1%로 고장(§5.1 값).
+  - Q9 고장 = 탄 소모·마모 없이 발사 안 됨, 고장 중 방아쇠 = 헛격발 소리, 재장전·탄창 확인 불가, T를 1.2초 계속 누르면 해제(떼면 처음부터). 고장 굴림은 발사가 성립하고 탄이 있을 때만.
+  - Q10 알림은 소리만(`WeaponClicked`: 헛격발·고장·해제), HUD 없음. Q12 상인·제작·키트·상자 무기는 100, 적 무기는 유형별 스폰 내구도(7B).
+  - Q13 내구도 저장 → save.json version 2(아래). Q14 고장 상태는 저장하지 않고 은신처 귀환 = 해제(탈출해 은신처 장비가 되는 무기는 `ProfileService.ApplyRaidResult`에서 푼다).
+  - Q15 상인 가격에 내구도 미반영, Q16 수리 없음, Q17 내구도 표시 없음, Q18 적 무기는 마모·고장 없음(스폰 내구도만 — 시체에서 주운 무기는 고장 가능).
+- **§13.3 세이브 (Q13):** save.json version 2 — `ItemRecord.durability`(기본 −1 = 해당 없음) 추가. v1은 읽을 때 모든 무기 내구도 100으로 이전하고 다음 저장이 v2로 쓴다(이전 파일은 `.bak`).
+  튜브 무기는 내장 탄창 id·탄 수를 기존 장착 탄창 필드에 쓴다. 다른 탄창 id가 기록된 튜브 = 빈 튜브 + 버림 집계, 모르는 id = 빈 튜브 + 알림.
+  v2 파일을 M6 빌드로 열면 "지원하지 않는 버전"으로 격리된다.
+- **§5.3 (Q19 = B):** 방어구 관통·둔탁 피해·방어구 내구도는 M7 범위 밖(어느 마일스톤 AC에도 없음) — 미구현으로 남긴다(MVP 남은 목록).
+- **§13.3 경계:** Core 추가 — `ILooseAmmoSource`(Inventory 등록), `JamRules`·`WeaponWear`, 이벤트 `WeaponClicked`(`WeaponClickKind`), enum `WeaponClass.MachineGun`.
+  `WeaponModel`·`FireControl`에 "방아쇠 상태는 기록하되 쏘지 않음" 인자 추가(교체 중·튜브 장전 중 누른 채인 방아쇠가 끝난 뒤 새 당김이 되지 않게).
+- **§14 스키마에 없는 추가:** `WeaponDefinitionSO`(internalMagazine, roundReloadTimeSec, pelletSpreadDeg, durabilityLossPerShot, enemyOnly), `MagazineDefinitionSO.isAmmoBox`,
+  `WeaponHandlingConfigSO`(jamDurabilityThreshold 50, jamChancePerDurabilityPoint 0.001, jamClearHoldSec 1.2, weaponSwitchTimeSec 0.5, ammoDefinitions),
+  `AudioConfigSO`(dryFireClip, jamClearClip, dryFireVolume, jamClearVolume).
+- **7A 구현 중 설계와 달라진 점:**
+  - `WeaponClass.MachineGun`·WPN-LMG-01(적 전용 경기관총, `enemyOnly`)·MAG-762-100(탄띠)·오디오 파일 이름 규칙 `"Lmg"`를 7B 대신 **7A-1b에서 미리 추가**했다(데이터는 "없을 때만" 생성이라 임시 분류로 만들면 남는다). 7B는 다시 추가하지 않는다.
+  - 뷰모델 프리팹 이름은 설계 §2.2 `VM_{분류}`가 아니라 `Prefabs/Weapons/VM_{무기 id}.prefab`(예: `VM_WPN-SHT-01`). 헛격발 WAV는 `Weapon/WPN_DryClick.wav`가 아니라 `Audio/Placeholder/Weapon/WPN_DryFire.wav`.
+  - `AudioConfigSO`의 코드 기본 `gunshots`에는 산탄·저격 세트를 넣지 않았다(설계 §4.9와 다름 — 기존 "세트 없는 분류 → 대체" 테스트 유지). 실제 에셋은 메뉴가 세트를 끝에 추가한다.
+  - T 짧게/길게는 누른 시간이 아니라 고장 여부로 가른다: 고장 중 T = 누르는 동안 해제 진행, 고장이 아니면 T = RULE-04 탄창 확인(오래 눌러도 1회).
+  - `WeaponModel` 생성자는 오버로드가 아니라 선택 인자 `(item, source, looseAmmo = null, wear = default)` — 기존 2인자 호출(적 무기) = 마모 없음 그대로.
+  - `M5DataSetup.CreateItemDatabase`를 공개로 앞당겼다(설계 §4.10에선 7C).
+  - 세이브 내구도 읽기: 설계 §1.6 "0~100으로 자름"과 달리 **음수(−1 포함)·NaN은 0이 아니라 100**으로 읽는다(손으로 고친 값·필드 누락이 고장 연발 무기가 되지 않게). 100 초과 → 100, 0~100 그대로.
+  - LT-CRATE에는 7A 몫으로 BOX-12GA-8(가중치 1.5)·MAG-762-5(0.5)만 더했다. **무기(SHT·DMR)는 넣지 않았다**(상자에서 무기가 나오지 않는 M4 규칙 유지, §3.9 표에 없음).
+  - 기존 무기 3종 `durabilityLossPerShot`은 파일에 없거나 0일 때만 쓴다(0 = 미설정 — 뷰모델 메뉴가 먼저 정의를 저장해도 채워진다).
+- **자리표시 에셋 (사용자 지시 — 외부 에셋 없음):** 새 WAV **8개**(`Audio/Placeholder/Gunshots/GS_Shotgun_{Near,Mid,Far}`·`GS_Sniper_{Near,Mid,Far}`, `Audio/Placeholder/Weapon/WPN_DryFire`·`WPN_JamClear`,
+  22kHz 모노 PCM16 — 합계 WAV 27 → 35), 뷰모델 프리팹 **5개**(`Prefabs/Weapons/VM_WPN-PST-01`·`SMG-01`·`RIF-01`·`SHT-01`·`DMR-01`, 프리미티브 + 팔레트 머티리얼, LMG 없음).
+  메뉴 `Ashfall/Setup/Apply M7 Content`(배치 `M7SceneSetup.ApplyAll`)가 데이터 → 프리팹 → 오디오 순으로 만들고, M4 레이드 씬 메뉴도 저장 전에 부른다. 파일은 없을 때만, SO 필드는 비었을 때만 쓴다(사용자 교체 보존).
+- **GDD에 수치가 없어 임시값을 넣은 항목 (TODO(GDD-?)):** 새 무기 반동·조준 시간·발당 장전 0.5초·재장전·지향 퍼짐·펠릿 퍼짐 2.5°·소음 반경·크기·무게·가격·희귀도, 무기 5종 발당 마모
+  (PST 0.06·SMG 0.04·RIF 0.05·SHT 0.12·DMR 0.10), 12ga·7.62 탄 관통·초속·비행 시간, 새 탄창·탄 상자 크기·무게·가격, LMG 수치 전부(600RPM·피해 40 등), 고장 해제 1.2초, 교체 0.5초,
+  M1 씬 튜브 무기 시작 탄(튜브 가득 + 탄 상자), 펌프·볼트 = 반자동, 상인 목록·LT-CRATE 가중치, 무기 클릭 음량 0.8·우선순위(= 적 발소리), 모든 자리표시 소리·프리팹(크기·위치는 hip/ads 공용 값).
+- **리뷰 수정 (M7_review.md "7A 무기"):** 튜브 장전 중 방아쇠가 발사로 이어지지 않으면(누른 채 R, 연사 간격 안 클릭) 장전을 끊지 않는다(Q7).
+  고장 난 채 탈출한 무기는 은신처 장비가 되면서 해제된다(Q14 — 같은 실행의 다음 레이드에 남지 않음). 좌클릭을 누른 채 교체가 끝나도 반자동 무기는 새로 당겨야 쏜다.

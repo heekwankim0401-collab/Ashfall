@@ -113,6 +113,8 @@ namespace Ashfall.Audio
             new GunshotSet(WeaponClass.Pistol, 1f),
             new GunshotSet(WeaponClass.Smg, 1f),
             new GunshotSet(WeaponClass.AssaultRifle, 1f),
+            // M7 산탄·저격 세트(7A-2c)는 코드 기본값에 넣지 않는다 — 기존 테스트가 "세트 없는 분류 → 대체"를 기본 인스턴스로 확인한다.
+            // 에셋에는 M6 오디오 메뉴(M6AudioSetup.M7GunshotClasses)가 없는 세트를 끝에 추가한다(M7 설계 §2.1). 7B MachineGun도 같은 방식.
         };
         [Tooltip("무기 정의가 없거나 세트가 없는 분류일 때 쓰는 세트")]
         public WeaponClass fallbackGunshotClass = WeaponClass.AssaultRifle;
@@ -130,6 +132,16 @@ namespace Ashfall.Audio
         public float gainAtMid = 0.35f;
         [Tooltip("farMaxM 게인")]
         public float gainAtFar = 0.1f;
+
+        [Header("무기 클릭 (M7 WeaponClicked, 설계 §1.2·§4.9, Q10 — 소리만)")]
+        [Tooltip("공이 헛격발 클릭 (DryFire·Jammed가 같이 쓴다)")]
+        public AudioClip dryFireClip;
+        [Tooltip("고장 해제 완료 (슬라이드 긁힘 + 클릭)")]
+        public AudioClip jamClearClip;
+        [Tooltip("헛격발·고장 클릭 음량. TODO(GDD-?)")]
+        [Range(0f, 1f)] public float dryFireVolume = 0.8f;
+        [Tooltip("고장 해제 음량. TODO(GDD-?)")]
+        [Range(0f, 1f)] public float jamClearVolume = 0.8f;
 
         [Header("voice 풀")]
         [Tooltip("효과음 AudioSource 수 (Awake 1회 생성)")]

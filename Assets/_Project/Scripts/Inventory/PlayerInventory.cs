@@ -7,6 +7,8 @@ namespace Ashfall.Inventory
 {
     // SYS-INV 플레이어 인벤토리 (§6): 장착 슬롯 7개, 저장 공간(주머니 + 조끼 + 배낭), 퀵슬롯, 무게, 루트 세션.
     // IInventoryService(UI 조회·명령)와 IMagazineSource(재장전 탄창)를 구현한다. 버스는 모른다 (브리지가 옮김).
+    // M7(설계 §1.3, Q5·Q6): ILooseAmmoSource(샷건 튜브 장전의 낱탄)도 구현한다 — 탄 상자(isAmmoBox)에서 한 발씩.
+    //   탄 상자는 일반 재장전 후보(IsLoadable)가 아니다. 빈 상자는 0발 아이템으로 그리드에 남는다.
     // 규칙 (설계 §5.3, D5, D7)
     // - 조끼·배낭의 내용물 그리드는 슬롯별로 여기서 가진다. 내용물이 있으면 해제·이동·버리기 불가.
     // - 검색 전 루트 아이템, 사용 중 의약품은 옮길 수 없다. 사망·레이드 종료 후 모든 명령 거부(IsFrozen).
@@ -15,7 +17,7 @@ namespace Ashfall.Inventory
     //   밖에서 새로 들어오는 아이템은 TryAutoStore(줍기·회수)와 TryEquipNew(시작 장비)로만 받는다.
     // - 자동 배치 순서: 조끼 → 주머니 → 배낭 (TODO(GDD-?)).
     // - M5: 반입(Loadout)을 위치 그대로 놓는다(TryApplyLoadout, TryPlaceNew). 은신처는 버리기·의약품 사용을 끈다(AllowDrop/AllowUse, Q27).
-    public sealed class PlayerInventory : IInventoryService, IMagazineSource
+    public sealed class PlayerInventory : IInventoryService, IMagazineSource, ILooseAmmoSource
     {
         // §12.1 의약품 퀵슬롯 키 4~7 (입력 액션 QuickSlot1~4와 같은 수). M5: 반입(Loadout)과 같은 수
         public const int QuickSlotCount = Loadout.QuickSlotCount;
@@ -413,6 +415,24 @@ namespace Ashfall.Inventory
         // 일반 재장전 회수 = 자동 배치 (조끼 → 주머니 → 배낭). 공간 없으면 false.
         public bool TryStore(Magazine magazine) => !IsFrozen && TryAutoStore(magazine);
 
+        // ── ILooseAmmoSource (M7 튜브 장전, 설계 §1.3, TODO(GDD-?) Q5·Q6) ─────
+        // 범위·순서는 재장전과 같다: 조끼 → 주머니 → (reloadFromBackpack일 때) 배낭. 잠긴 상자 제외, 사망·레이드 종료 후 거부.
+        // 고르는 기준: 그 범위 전체에서 탄이 가장 적은 상자(상자 정리). 같으면 먼저 찾은 것(조끼 쪽).
+
+        public bool HasLooseRound(AmmoType ammo) => !IsFrozen && FindLeastBoxInReloadGrids(ammo) != null;
+
+        // 한 발 꺼낸다. 상자는 비어도 그대로 남는다 (Q6). 성공하면 Changed(→ InventoryChanged).
+        public bool TakeLooseRound(AmmoType ammo)
+        {
+            if (IsFrozen)
+                return false;
+            Magazine box = FindLeastBoxInReloadGrids(ammo);
+            if (box == null || !box.TakeRound())
+                return false;
+            RaiseChanged();
+            return true;
+        }
+
         // ── 내부 ─────────────────────────────────────────────
 
         // 이 인벤토리 안에 있고 옮길 수 있는 상태인가 (원래 자리 기준)
@@ -451,8 +471,37 @@ namespace Ashfall.Inventory
             RaiseChanged();
         }
 
+        // M7: 탄 상자(isAmmoBox)는 무기에 넣을 수 없다 — 일반 재장전 후보에서 뺀다 (Q5).
         private bool IsLoadable(ItemInstance item, AmmoType ammo) =>
-            item is Magazine m && !m.IsEmpty && m.Definition.ammo == ammo && !locked.Contains(m);
+            item is Magazine m && !m.IsEmpty && !m.Definition.isAmmoBox && m.Definition.ammo == ammo && !locked.Contains(m);
+
+        // M7: 낱탄을 꺼낼 수 있는 탄 상자 (1발 이상, 잠기지 않음)
+        private bool IsLooseBox(ItemInstance item, AmmoType ammo) =>
+            item is Magazine m && !m.IsEmpty && m.Definition.isAmmoBox && m.Definition.ammo == ammo && !locked.Contains(m);
+
+        // 할당 없이 순회 (튜브 장전·HUD가 자주 부를 수 있다)
+        private Magazine FindLeastBoxInReloadGrids(AmmoType ammo)
+        {
+            Magazine best = null;
+            if (vestGrid != null)
+                FindLeastBoxIn(vestGrid, ammo, ref best);
+            for (int i = 0; i < pockets.Length; i++)
+                FindLeastBoxIn(pockets[i], ammo, ref best);
+            if (config.reloadFromBackpack && backpackGrid != null)
+                FindLeastBoxIn(backpackGrid, ammo, ref best);
+            return best;
+        }
+
+        private void FindLeastBoxIn(ItemGrid grid, AmmoType ammo, ref Magazine best)
+        {
+            IReadOnlyList<PlacedItem> items = grid.Items;
+            for (int i = 0; i < items.Count; i++)
+            {
+                ItemInstance item = items[i].Item;
+                if (IsLooseBox(item, ammo) && (best == null || ((Magazine)item).Rounds < best.Rounds))
+                    best = (Magazine)item;
+            }
+        }
 
         // 할당 없이 순회 (WeaponModel.CanReload가 자주 부를 수 있다)
         private void FindFullestInReloadGrids(AmmoType ammo, ref Magazine best)

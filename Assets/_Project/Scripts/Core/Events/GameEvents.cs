@@ -329,6 +329,29 @@ namespace Ashfall.Core
         }
     }
 
+    // ── M7: Weapons → Audio ───────────────────────────────
+
+    // 방아쇠·고장 소리 종류 (§5.1, M7 Q9·Q10). HUD 문구 없음 — 소리만.
+    public enum WeaponClickKind
+    {
+        DryFire,      // 빈 탄창·고장 상태에서 방아쇠를 새로 당김 (헛격발)
+        Jammed,       // 고장 난 순간
+        JamCleared,   // T 길게 눌러 해제 완료
+    }
+
+    // 플레이어 무기 클릭 소리 → Audio (플레이어 자신 3D). 발행: Weapons WeaponController.
+    public readonly struct WeaponClicked : IGameEvent
+    {
+        public readonly Vector3 Position;   // 총구 (없으면 무기 위치)
+        public readonly WeaponClickKind Kind;
+
+        public WeaponClicked(Vector3 position, WeaponClickKind kind)
+        {
+            Position = position;
+            Kind = kind;
+        }
+    }
+
     // ── M6: Raid(재 폭풍) → 다른 기능 ─────────────────────
 
     // 재 폭풍 단계 (§8.3, M6 Q23·Q24). 레이드당 Pending → Rising → Peak → Falling → Over 한 번씩.

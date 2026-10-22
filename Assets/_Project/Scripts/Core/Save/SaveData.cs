@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Ashfall.Core
 {
-    // save.json 최상위 (M5 설계 §2.2, version 1). JsonUtility DTO — 필드 이름 = JSON 키.
+    // save.json 최상위 (M5 설계 §2.2, version 1 → M7 version 2: ItemRecord.durability). JsonUtility DTO — 필드 이름 = JSON 키.
     // §13.3의 raid_in_progress는 키 raidInProgress로 쓴다(의미 같음).
     [Serializable]
     public sealed class SaveData
@@ -33,7 +33,8 @@ namespace Ashfall.Core
         public bool rotated;
         public int rounds = -1;    // Magazine 탄 수, 그 밖 -1
         public int usesLeft = -1;  // MedicalItem 남은 횟수, 그 밖 -1
-        public string loadedMagazineId;
+        public string loadedMagazineId;   // 튜브 무기는 내장 튜브 id (M7 §1.6)
         public int loadedMagazineRounds;
+        public float durability = -1f;  // v2: WeaponItem 내구도 0~100, 그 밖 -1 (M7 Q13). v1 파일은 버전으로 판정해 100으로 이전
     }
 }

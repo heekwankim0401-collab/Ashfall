@@ -245,8 +245,23 @@ namespace Ashfall.Core
                 return;
             }
             Profile.Loadout = result.Survived && result.CarriedOutLoadout != null ? result.CarriedOutLoadout : Loadout.Empty;
+            ClearJams(Profile.Loadout);
             Profile.RaidInProgress = false;
             raidLoadout = null;
+        }
+
+        // M7 Q14 A: 고장 상태는 저장하지 않고 은신처 귀환 = 해제. 같은 실행에서 다음 레이드로 고장이 넘어가지 않게
+        // 은신처 장비가 되는 반출 장비의 무기를 전부 푼다(세이브를 다시 읽은 경우와 같게 — M7 리뷰 7A 중간 2). 내구도는 그대로.
+        private static void ClearJams(Loadout loadout)
+        {
+            IReadOnlyList<LoadoutEntry> entries = loadout?.Entries;
+            if (entries == null)
+                return;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                if (entries[i].Item is WeaponItem weapon)
+                    weapon.IsJammed = false;
+            }
         }
 
         // 같은 실행에서 결과 없이 은신처로 돌아옴(디버그·테스트) = 사망과 같게 + RULE-03 알림 1회 (§1.4).

@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ad0b09714b5dd74087fc14524f7f4bc, type: 3}
+  m_Name: WPN-SHT-01
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.WeaponDefinitionSO
+  id: WPN-SHT-01
+  displayName: "\uD38C\uD504 \uC0F7\uAC74"
+  size: {x: 4, y: 1}
+  weightKg: 3.4
+  rarity: 2
+  basePrice: 2500
+  icon: {fileID: 0}
+  cls: 3
+  ammo: 3
+  rpm: 70
+  modes: 00000000
+  recoilV: 3.5
+  recoilH: 1
+  adsTime: 0.3
+  viewModel: {fileID: 3458399909551124284, guid: eb3f930c951e41741ae5c0f7a323331c, type: 3}
+  reloadTimeSec: 0
+  fastReloadTimeSec: 0
+  hipSpreadDeg: 3
+  damage: 18
+  shotNoiseRadiusM: 110
+  internalMagazine: {fileID: 11400000, guid: 5b7c20fe1e038e445ada04b1567db63d, type: 2}
+  roundReloadTimeSec: 0.5
+  pelletSpreadDeg: 2.5
+  durabilityLossPerShot: 0.12
+  enemyOnly: 0

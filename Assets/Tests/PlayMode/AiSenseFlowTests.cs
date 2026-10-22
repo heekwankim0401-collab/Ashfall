@@ -213,7 +213,7 @@ namespace Ashfall.Tests.PlayMode
             input = new SimInput();
             using var noises = new EventLog<NoiseEmitted>(scene.Events);
             var enemies = scene.Enemies.ToList();
-            Vector3 muzzle = scene.PlayerMuzzle.position;
+            Vector3 muzzle = scene.PlayerMuzzlePosition;
             foreach (EnemyAgent e in enemies)
                 Assert.Less(Vector3.Distance(e.transform.position, muzzle), 120f, $"{e.name}: 소음 반경 안");
 

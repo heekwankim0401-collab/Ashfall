@@ -99,6 +99,7 @@ namespace Ashfall.EditorTools
                 problems.AppendLine("플레이어 인벤토리 없음");
 
             M6SceneSetup.ApplyRaidIfAssetsExist(scene); // M6 §1.6 Q1: 다시 만들어도 M6 아트·오디오·재 폭풍 유지
+            M7SceneSetup.ApplyRaidIfAssetsExist(scene); // M7 §1.7: 다시 만들어도 M7 씬 구성 유지 (7B 적·7C 방사능)
             if (!EditorSceneManager.SaveScene(scene, RaidScenePath))
             {
                 problems.AppendLine($"씬 저장 실패: {RaidScenePath}");

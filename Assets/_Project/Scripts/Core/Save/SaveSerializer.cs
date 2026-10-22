@@ -7,9 +7,12 @@ namespace Ashfall.Core
 {
     // JSON ↔ SaveData ↔ PlayerProfile (M5 설계 §2.1~§2.4). JsonUtility, 평평한 레코드, enum은 이름 문자열.
     // 예외를 밖으로 던지지 않는다(파싱). RULE-03 감지(raidInProgress → 장비 삭제)는 ProfileService가 한다.
+    // M7 (설계 §1.6, TODO(GDD-?) Q13): version 2 = ItemRecord.durability. v1은 읽을 때 모든 무기 내구도 100으로 이전한다
+    // (JsonUtility의 누락 필드 처리에 기대지 않고 버전으로 판정). 이전은 메모리에서만 — 다음 저장이 v2로 쓴다.
     public static class SaveSerializer
     {
-        public const int CurrentVersion = 1;
+        public const int CurrentVersion = 2;
+        public const int FirstVersion = 1;
 
         private const string PocketContainer = nameof(GridKind.Pocket);
         private const string VestContainer = nameof(GridKind.TacticalVest);
@@ -74,7 +77,8 @@ namespace Ashfall.Core
             return data;
         }
 
-        // 상태 필드만 채운다(id·탄 수·남은 횟수·장착 탄창). 자리(container·slot·index·x·y·rotated)는 호출자.
+        // 상태 필드만 채운다(id·탄 수·남은 횟수·장착 탄창·내구도). 자리(container·slot·index·x·y·rotated)는 호출자.
+        // 고장 상태는 쓰지 않는다 (Q14).
         public static ItemRecord ToRecord(ItemInstance item)
         {
             if (item == null)
@@ -94,9 +98,13 @@ namespace Ashfall.Core
                 case MedicalItem medical:
                     record.usesLeft = medical.UsesLeft;
                     break;
-                case WeaponItem weapon when weapon.LoadedMagazine != null:
-                    record.loadedMagazineId = weapon.LoadedMagazine.Definition.id ?? string.Empty;
-                    record.loadedMagazineRounds = weapon.LoadedMagazine.Rounds;
+                case WeaponItem weapon:
+                    record.durability = weapon.Durability;
+                    if (weapon.LoadedMagazine != null)
+                    {
+                        record.loadedMagazineId = weapon.LoadedMagazine.Definition.id ?? string.Empty;
+                        record.loadedMagazineRounds = weapon.LoadedMagazine.Rounds;
+                    }
                     break;
             }
             return record;
@@ -143,7 +151,7 @@ namespace Ashfall.Core
                 error = $"지원하지 않는 세이브 버전 {parsed.version} (현재 {CurrentVersion})";
                 return false;
             }
-            // version < CurrentVersion 변환은 지금 없다 (version 1이 처음).
+            // FirstVersion(1) ≤ version < CurrentVersion(2): 이 단계에서는 그대로 두고 ToProfile/FromRecord가 버전을 보고 이전한다 (v1 → 무기 내구도 100).
 
             parsed.stash ??= new List<ItemRecord>();
             parsed.loadout ??= new List<ItemRecord>();
@@ -180,7 +188,7 @@ namespace Ashfall.Core
                 for (int i = 0; i < data.stash.Count; i++)
                 {
                     ItemRecord record = data.stash[i];
-                    ItemInstance item = FromRecord(record, catalog, report);
+                    ItemInstance item = FromRecord(record, catalog, report, data.version);
                     if (item == null)
                         continue;
                     if (!profile.Stash.TryPlace(item, new Vector2Int(record.x, record.y), record.rotated))
@@ -195,7 +203,7 @@ namespace Ashfall.Core
             for (int i = 0; i < recordCount; i++)
             {
                 ItemRecord record = data.loadout[i];
-                ItemInstance item = FromRecord(record, catalog, report);
+                ItemInstance item = FromRecord(record, catalog, report, data.version);
                 if (item == null)
                     continue;
                 if (TryReadLocation(record, out ItemLocation location))
@@ -237,7 +245,12 @@ namespace Ashfall.Core
         }
 
         // 레코드 → 런타임 아이템. 모르는 id → null (report.UnknownItemIds). 탄 수·남은 횟수는 범위로 자른다.
-        public static ItemInstance FromRecord(ItemRecord record, IItemCatalog catalog, SaveLoadReport report)
+        // 현재 버전 레코드로 읽는다.
+        public static ItemInstance FromRecord(ItemRecord record, IItemCatalog catalog, SaveLoadReport report) =>
+            FromRecord(record, catalog, report, CurrentVersion);
+
+        // version = 레코드가 들어 있던 파일의 버전. 무기 내구도: v1 → 100(이전), v2 → 0~100으로 자름(음수·NaN = 해당 없음 → 100).
+        public static ItemInstance FromRecord(ItemRecord record, IItemCatalog catalog, SaveLoadReport report, int version)
         {
             if (record == null || catalog == null)
                 return null;
@@ -254,10 +267,24 @@ namespace Ashfall.Core
                 case MedicalDefinitionSO medical:
                     return new MedicalItem(medical, record.usesLeft);
                 case WeaponDefinitionSO weapon:
-                    return new WeaponItem(weapon, ReadLoadedMagazine(record, weapon, catalog, report));
+                    // 생성자가 탄창 null + 내장 튜브 무기 → 빈 튜브를 만든다
+                    return new WeaponItem(weapon, ReadLoadedMagazine(record, weapon, catalog, report))
+                    {
+                        Durability = ReadDurability(record.durability, version),
+                    };
                 default:
                     return new ItemInstance(definition);
             }
+        }
+
+        // 무기 내구도 (§1.6). v1 파일에는 필드가 없다 → 버전으로 100. 음수(-1 = 해당 없음)·NaN → 100, 100 초과 → 100.
+        // 설계 §1.6 "0~100 자름"과 달리 음수는 0이 아니라 100으로 읽는다 — 손으로 고친 값·필드 누락(-1)이 고장 연발 무기가 되지 않게
+        // (CHANGELOG "M7 설계 결정 — 7A", M7 리뷰 7A 낮음 9). 0~100은 그대로.
+        public static float ReadDurability(float recorded, int version)
+        {
+            if (version < 2 || float.IsNaN(recorded) || recorded < 0f)
+                return WeaponItem.MaxDurability;
+            return Math.Min(recorded, WeaponItem.MaxDurability);
         }
 
         // ── 자리 ─────────────────────────────────────────────
@@ -318,13 +345,18 @@ namespace Ashfall.Core
         }
 
         // 장착 탄창: 알 수 없는 id·탄창 아님 → 알 수 없는 id로 셈 / 탄약 종류가 무기와 다름(직접 고친 세이브) → 탄창 없는 무기 + 버림 집계 (M5 리뷰 8)
+        // M7 튜브 무기(§1.6): 자기 튜브 id면 그 탄 수로, id가 비면 빈 튜브(null 반환 → 생성자). 다른 id는 아래 규칙대로 집계하고 빈 튜브.
+        //   튜브 정의는 카탈로그가 아니라 무기 정의(internalMagazine)에서 바로 쓴다. 탄 상자(isAmmoBox)는 분리형 무기에도 못 넣는다(버림 집계).
         private static Magazine ReadLoadedMagazine(ItemRecord record, WeaponDefinitionSO weapon, IItemCatalog catalog, SaveLoadReport report)
         {
             if (string.IsNullOrEmpty(record.loadedMagazineId))
                 return null;
+            MagazineDefinitionSO tube = weapon.internalMagazine;
+            if (tube != null && record.loadedMagazineId == tube.id)
+                return new Magazine(tube, record.loadedMagazineRounds);
             if (catalog.TryGet(record.loadedMagazineId, out ItemDefinitionSO definition) && definition is MagazineDefinitionSO magazine)
             {
-                if (magazine.ammo != weapon.ammo)
+                if (tube != null || magazine.isAmmoBox || magazine.ammo != weapon.ammo)
                 {
                     if (report != null)
                         report.DroppedItemCount++;

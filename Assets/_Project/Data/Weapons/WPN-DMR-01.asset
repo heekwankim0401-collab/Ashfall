@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ad0b09714b5dd74087fc14524f7f4bc, type: 3}
+  m_Name: WPN-DMR-01
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.WeaponDefinitionSO
+  id: WPN-DMR-01
+  displayName: "\uBCFC\uD2B8\uC561\uC158"
+  size: {x: 5, y: 1}
+  weightKg: 4.2
+  rarity: 3
+  basePrice: 5000
+  icon: {fileID: 0}
+  cls: 4
+  ammo: 2
+  rpm: 40
+  modes: 00000000
+  recoilV: 2.8
+  recoilH: 0.4
+  adsTime: 0.4
+  viewModel: {fileID: 7242474093914238982, guid: 2bb4e33171ad7a74e9c93b3aca085e52, type: 3}
+  reloadTimeSec: 3.2
+  fastReloadTimeSec: 2.2
+  hipSpreadDeg: 4
+  damage: 110
+  shotNoiseRadiusM: 160
+  internalMagazine: {fileID: 0}
+  roundReloadTimeSec: 0
+  pelletSpreadDeg: 0
+  durabilityLossPerShot: 0.1
+  enemyOnly: 0
