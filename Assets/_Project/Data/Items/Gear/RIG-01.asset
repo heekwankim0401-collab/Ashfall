@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "\uC804\uC220\uC870\uB07C"
   size: {x: 2, y: 2}
   weightKg: 1.2
-  rarity: 0
+  rarity: 1
   basePrice: 600
   icon: {fileID: 0}
   kind: 0

@@ -11,6 +11,7 @@ namespace Ashfall.UI
     // - IHideoutService(Hideout의 HideoutController)·IInventoryService(Inventory의 HideoutInventoryBehaviour)는
     //   레지스트리에서 지연 획득한다(Awake 순서에 기대지 않는다). 매 프레임 같은 인스턴스인지 확인해 바뀌면 다시 묶는다.
     // - [장비] 탭 = 기존 InventoryScreenView(드래그·R 회전·Ctrl+클릭), 보관함은 열린 루트 자리(ActiveLoot, Q28·Q29).
+    // - [제작] 탭 = CraftingView (M7). 결과 문구는 허브 메시지 줄. 보관함이 바뀌면 HideoutChanged로 다시 그린다.
     //   떠나는 중(IsLeaving)에는 드래그 모델을 떼어 장비·보관함을 더 바꾸지 못하게 한다(반입 Capture 뒤 변경 방지).
     // - 커서: 항상 보이고 잠금 해제. EventSystem 없음(M2 방식, Input System UI 맵).
     // - 퀵슬롯 배정(Q19): [장비] 탭에서 마우스를 아이템에 올리고 Player/QuickSlot1~4. 그 액션의 복제본만 이 컴포넌트가 켜고 끈다(Player 맵은 건드리지 않는다).
@@ -37,6 +38,7 @@ namespace Ashfall.UI
         private HideoutNoticeView noticeView;
         private RaidResultView resultView;
         private TraderView traderView;
+        private CraftingView craftingView;
         private InventoryScreenView inventoryView;
         private bool viewsBuilt;
 
@@ -145,6 +147,7 @@ namespace Ashfall.UI
             noticeView = null;
             resultView = null;
             traderView = null;
+            craftingView = null;
             inventoryView = null;
             viewsBuilt = false;
         }
@@ -254,6 +257,7 @@ namespace Ashfall.UI
             noticeView = new HideoutNoticeView(root, OnNoticeConfirmClicked);
             resultView = new RaidResultView(root, OnResultConfirmClicked);
             traderView = new TraderView(root, OnBuyClicked, OnSellClicked);
+            craftingView = new CraftingView(root, OnCraftClicked);
             inventoryView = new InventoryScreenView(root, threshold, quickSlotKeys, IsQuickMoveModifierHeld);
             viewsBuilt = true;
             viewDirty = true;
@@ -269,6 +273,7 @@ namespace Ashfall.UI
                 noticeView.SetVisible(false);
                 resultView.SetVisible(false);
                 traderView.SetVisible(false);
+                craftingView.SetVisible(false);
                 inventoryView.SetVisible(false);
                 return;
             }
@@ -289,6 +294,11 @@ namespace Ashfall.UI
             traderView.SetVisible(trader);
             if (trader)
                 traderView.Render(presenter.Trader, presenter.HubEnabled);
+
+            bool craftingTab = hub && presenter.Tab == HideoutTab.Crafting;
+            craftingView.SetVisible(craftingTab);
+            if (craftingTab)
+                craftingView.Render(presenter.Crafting, presenter.HubEnabled);
 
             RenderInventory();
         }
@@ -345,6 +355,8 @@ namespace Ashfall.UI
         private void OnResultConfirmClicked() => presenter?.ConfirmResult();
 
         private void OnBuyClicked(ItemDefinitionSO item) => presenter?.Buy(item);
+
+        private void OnCraftClicked(string recipeId) => presenter?.Craft(recipeId);
 
         private void OnSellClicked(ItemInstance item)
         {

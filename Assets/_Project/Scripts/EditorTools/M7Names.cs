@@ -77,5 +77,41 @@ namespace Ashfall.EditorTools
         public const string MutantAttackClipPath = EnemyAudioFolder + "/MUT_Attack.wav";
 
         // ── 7C 생존·제작 (7C-1 계약이 추가) ────────────────────
+        // 새 아이템 (7C-1b M7SurvivalDataSetup, 설계 §3.7). 물·음식·해독제 = MedicalDefinitionSO(Q42) → 의약품 폴더, 방독면 = ArmorDefinitionSO(Helmet, Q37) → 방어구 폴더.
+        public const string MedicalDataFolder = M2DataSetup.MedicalFolder;      // Assets/_Project/Data/Items/Medical
+        public const string ArmorDataFolder = M2DataSetup.ArmorFolder;          // Assets/_Project/Data/Items/Armor
+        public const string WaterId = "ITM-WTR-01";              // 물병 (수분 +50)
+        public const string FoodId = "ITM-FOD-01";               // 통조림 (에너지 +60)
+        public const string AntiRadId = "MED-ANT-01";            // 해독제 (curesRadiation, Q36)
+        public const string GasMaskId = "GEAR-GSM-01";           // 방독면 (Helmet, blocksStormRadiation, Q37·Q38)
+        public const string WaterPath = MedicalDataFolder + "/" + WaterId + ".asset";
+        public const string FoodPath = MedicalDataFolder + "/" + FoodId + ".asset";
+        public const string AntiRadPath = MedicalDataFolder + "/" + AntiRadId + ".asset";
+        public const string GasMaskPath = ArmorDataFolder + "/" + GasMaskId + ".asset";
+        // 고철 재료 (기존 M2 잡동사니, Q48)
+        public const string PipePath = M5DataSetup.PipePath;                     // JNK-01 녹슨 파이프
+        public const string EnginePartPath = M5DataSetup.EnginePartPath;         // JNK-02 엔진 부품
+        public const string WiresPath = M5DataSetup.WiresPath;                   // JNK-03 전선 뭉치
+
+        // 제작 레시피 (7C-1b, 설계 §3.8, Q47). 에셋 하나에 전부.
+        public const string CraftingConfigPath = M5DataSetup.HideoutFolder + "/CraftingConfig.asset";
+        public const string RecipeAmmo9mm12Id = "RCP-AMMO-9MM12";
+        public const string RecipeAmmo556Id = "RCP-AMMO-556";
+        public const string RecipeAmmo762Id = "RCP-AMMO-762";
+        public const string RecipeAmmo12GaId = "RCP-AMMO-12GA";
+        public const string RecipeBandageId = "RCP-MED-BND";
+        public const string RecipeTourniquetId = "RCP-MED-TRQ";
+        public const string RecipeSplintId = "RCP-MED-SPL";
+        public const string RecipeAntiRadId = "RCP-MED-ANT";
+
+        // 방사능 구역 (7C-1b가 RaidConfig.radiationZones에 기록, 설계 §3.10, Q39). 중심 = POI-REF.
+        public const string RefineryZoneId = "RAD-REF";
+        public const string RaidConfigPath = M4DataSetup.RaidConfigPath;         // Assets/_Project/Data/Raid/RaidConfig.asset
+
+        // 씬 오브젝트 (7C-2c M7HazardSceneApply, Q40). 런타임(Raid)은 이름이 아니라 컴포넌트(RadiationField)로 찾는다.
+        public const string RadiationFieldObject = "RadiationField";             // 레이드 씬 최상위, IRadiationField 등록
+        public const string ToxicMarkersObject = "M7_ToxicMarkers";              // 레이드 씬 최상위, Toxic 자리표시 묶음 (콜라이더 없음)
+        public const string ToxicMarkerPrefix = "M7_Toxic_";                     // 묶음 아래 경고 기둥·드럼통 이름 접두어
+        public const string ToxicMaterialPath = M6Names.PaletteMaterialFolder + "/M_Toxic.mat";   // PaletteToken.Toxic (PaletteMaterialMap Toxic 키, 7C-2c)
     }
 }

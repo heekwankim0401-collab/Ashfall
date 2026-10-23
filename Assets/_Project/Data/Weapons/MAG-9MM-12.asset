@@ -16,8 +16,9 @@ MonoBehaviour:
   displayName: "\uAD8C\uCD1D \uD0C4\uCC3D (12\uBC1C)"
   size: {x: 1, y: 1}
   weightKg: 0.15
-  rarity: 0
+  rarity: 1
   basePrice: 120
   icon: {fileID: 0}
   ammo: 0
   capacity: 12
+  isAmmoBox: 0

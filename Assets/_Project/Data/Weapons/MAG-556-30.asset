@@ -16,8 +16,9 @@ MonoBehaviour:
   displayName: "5.56 \uD0C4\uCC3D (30\uBC1C)"
   size: {x: 1, y: 2}
   weightKg: 0
-  rarity: 0
+  rarity: 2
   basePrice: 400
   icon: {fileID: 0}
   ammo: 1
   capacity: 30
+  isAmmoBox: 0

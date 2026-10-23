@@ -32,11 +32,12 @@
             <ui:VisualElement name="inv-drag-layer" class="drag-layer" picking-mode="Ignore" />
         </ui:VisualElement>
 
-        <!-- RULE-05 부위 상태 (H). 수치 없음. -->
+        <!-- RULE-05 부위 상태 (H). 수치 없음. 7부위 목록 아래 M7 "전신" 한 줄(수분·에너지·방사능 등급 문구, Q43). -->
         <ui:VisualElement name="body-status-screen" class="screen body-status-screen">
             <ui:VisualElement class="panel bs-panel">
                 <ui:Label text="부위 상태" class="panel-title" picking-mode="Ignore" />
                 <ui:VisualElement name="body-status-list" class="bs-list" picking-mode="Ignore" />
+                <ui:VisualElement name="body-status-survival" class="bs-survival" picking-mode="Ignore" />
             </ui:VisualElement>
         </ui:VisualElement>
 

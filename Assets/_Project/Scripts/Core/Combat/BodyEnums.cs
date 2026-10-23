@@ -12,12 +12,31 @@ namespace Ashfall.Core
         RightLeg,
     }
 
-    // §4.3 상태이상. STAT-RAD/DEHY/HUNG은 M7에 추가한다.
+    // §4.3 부위 상태이상. 전신 상태(STAT-RAD/DEHY/HUNG)는 여기 넣지 않고 SurvivalStat으로 따로 둔다 (M7 설계 §1.5 —
+    // 부위 상태 화면이 StatusEffect를 부위마다 순회하므로 여기 넣으면 7줄 모두에 붙는다).
     public enum StatusEffect
     {
         Bleed,
         HeavyBleed,
         Fracture,
+    }
+
+    // M7 §4.3 전신 생존 수치 종류 (STAT-DEHY 수분, STAT-HUNG 에너지, STAT-RAD 방사능 선량). 값 자체는 Player 내부에만 있다.
+    public enum SurvivalStat
+    {
+        Hydration,
+        Energy,
+        Radiation,
+    }
+
+    // RULE-05: 전신 생존 수치 대신 보여 주는 등급 (M7 설계 §1.5, Q43). 수치는 UI로 내보내지 않는다.
+    // 수분·에너지: Low = 최대 × survivalLowRatio 이하, Critical = 0. 방사능: Low = 선량 ≥ radiationWarnDose,
+    // Critical = 선량 ≥ radiationSicknessDose(최대 HP 감소 중). 경계는 PlayerConfigSO (TODO(GDD-?) Q43).
+    public enum SurvivalTier
+    {
+        Normal,
+        Low,
+        Critical,
     }
 
     // RULE-05: 수치 대신 보여 주는 부위 상태 등급

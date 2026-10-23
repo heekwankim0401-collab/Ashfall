@@ -17,12 +17,15 @@ namespace Ashfall.Hideout
         [SerializeField] private TraderConfigSO trader;
         [Tooltip("세이브 id → 아이템 정의 (Data/Items/ItemDatabase.asset)")]
         [SerializeField] private ItemDatabaseSO itemDatabase;
+        [Tooltip("M7 제작대 레시피 (Data/Hideout/CraftingConfig.asset). 비어 있으면 [제작] 탭이 \"제작법 없음\" — 은신처는 그대로 시작한다")]
+        [SerializeField] private CraftingConfigSO crafting;
 
         private bool registered;
 
         public HideoutConfigSO Config => config;
         public TraderConfigSO Trader => trader;
         public ItemDatabaseSO ItemDatabase => itemDatabase;
+        public CraftingConfigSO Crafting => crafting;
 
         // 테스트·디버그. Awake가 실패(참조 누락·GameManager 없음)하면 null.
         public HideoutService Service { get; private set; }
@@ -46,10 +49,15 @@ namespace Ashfall.Hideout
                 return;
             }
 
+            // 제작대는 선택 참조 — 없어도 은신처는 시작한다 (레시피 없음)
+            if (crafting == null)
+                Debug.LogWarning("[HideoutController] CraftingConfigSO가 연결되지 않았다 — [제작] 탭에 제작법이 없다.", this);
+
             // W1: 첫 로드·RULE-03 감지 → 흐름 레이드 결과 반영 → 저장 → 진입 완료 표시(이 씬의 handle).
             // 예외가 나면 서비스 없이 멈추지 않게 Start에서 메인 메뉴로 돌아간다 (M5 리뷰 2).
             if (HideoutService.TryEnter(gm.Profiles, gm.Flow, itemDatabase, config.ToProfileDefaults(), gameObject.scene.handle,
-                    () => new HideoutService(gm.Profiles, gm.Flow, config, trader, FindInventory, () => DateTime.UtcNow, PublishChanged),
+                    () => new HideoutService(gm.Profiles, gm.Flow, config, trader, FindInventory, () => DateTime.UtcNow, PublishChanged,
+                        crafting),
                     out SaveLoadReport report, out HideoutService service))
             {
                 EntryReport = report;

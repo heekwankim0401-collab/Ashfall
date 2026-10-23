@@ -216,7 +216,8 @@ namespace Ashfall.Tests.EditMode
             // M4 항목 뒤에 M7 7A 추가분(설계 §3.9 — M7WeaponDataAssetTests.CrateAdditions)
             AssertEntries(t, new[] { ("MED-BND-01", 3f), ("JNK-03", 3f), ("MED-TRQ-01", 2f), ("MAG-556-30", 2f),
                 ("JNK-01", 2f), ("MED-SPL-01", 1f), ("MAG-9MM-12", 1f), ("ARM-HLM-01", 0.5f), ("ITM-FLR-01", 0.5f) }
-                .Concat(M7WeaponDataAssetTests.CrateAdditions).ToArray());
+                .Concat(M7WeaponDataAssetTests.CrateAdditions)
+                .Concat(M7SurvivalDataAssetTests.LootAdditions["LT-CRATE"]).ToArray());   // 그 뒤 7C 추가분
         }
 
         // Q7-A: 신호탄은 상자 테이블에 낮은 가중치로 들어 있다 (가장 낮은 가중치 이하).

@@ -736,4 +736,107 @@ namespace Ashfall.Tests.EditMode
             Assert.IsFalse(inventory.IsInStorage(bandage), "UsesLeft 0 붕대 부활 없음");
         }
     }
+
+    // M7 H 화면 "전신" 줄 (M7 설계 §1.5, Q43, §6 7C-2b): 등급 문구만, Normal은 비움, 숫자·막대 없음 (RULE-05)
+    public class SurvivalRowTests
+    {
+        [Test]
+        public void Null_Throws() =>
+            Assert.Throws<ArgumentNullException>(() => BodyStatusPresenter.BuildSurvival(null));
+
+        [Test]
+        public void AllNormal_LabelOnly_NoChips()
+        {
+            SurvivalRow row = BodyStatusPresenter.BuildSurvival(new FakeBodyStatusView());
+            Assert.AreEqual("전신", row.Label);
+            Assert.IsTrue(row.IsEmpty, "Normal이면 비움");
+        }
+
+        [TestCase(SurvivalStat.Hydration, SurvivalTier.Low, "목마름")]
+        [TestCase(SurvivalStat.Hydration, SurvivalTier.Critical, "탈수")]
+        [TestCase(SurvivalStat.Energy, SurvivalTier.Low, "배고픔")]
+        [TestCase(SurvivalStat.Energy, SurvivalTier.Critical, "허기")]
+        [TestCase(SurvivalStat.Radiation, SurvivalTier.Low, "방사능 오염")]
+        [TestCase(SurvivalStat.Radiation, SurvivalTier.Critical, "방사선 피폭")]
+        public void Tier_Text(SurvivalStat stat, SurvivalTier tier, string text)
+        {
+            var view = new FakeBodyStatusView();
+            view.SurvivalTiers[stat] = tier;
+            SurvivalRow row = BodyStatusPresenter.BuildSurvival(view);
+            Assert.AreEqual(1, row.Chips.Count);
+            Assert.AreEqual(text, row.Chips[0].Text);
+            Assert.AreEqual(stat, row.Chips[0].Stat);
+            Assert.AreEqual(tier == SurvivalTier.Critical ? BodyStatusPresenter.SurvivalCriticalClass : BodyStatusPresenter.SurvivalLowClass,
+                row.Chips[0].TierClass);
+            Assert.AreEqual(stat == SurvivalStat.Radiation ? BodyStatusPresenter.SurvivalRadiationClass : string.Empty,
+                row.Chips[0].StatClass);
+            Assert.AreEqual(string.Empty, UiText.SurvivalStatus(stat, SurvivalTier.Normal));
+        }
+
+        [Test]
+        public void Order_HydrationEnergyRadiation()
+        {
+            var view = new FakeBodyStatusView();
+            view.SurvivalTiers[SurvivalStat.Radiation] = SurvivalTier.Critical;
+            view.SurvivalTiers[SurvivalStat.Hydration] = SurvivalTier.Low;
+            view.SurvivalTiers[SurvivalStat.Energy] = SurvivalTier.Critical;
+            CollectionAssert.AreEqual(new[] { "목마름", "허기", "방사선 피폭" },
+                BodyStatusPresenter.BuildSurvival(view).Chips.Select(c => c.Text));
+        }
+
+        // RULE-05: 모든 등급 조합에서 숫자·퍼센트·막대 문자가 없다
+        [Test]
+        public void NoDigitsPercentOrBars_InAnyCombination()
+        {
+            var bar = new Regex("[0-9%０-９█▓▒░■□|/]");
+            SurvivalTier[] tiers = (SurvivalTier[])Enum.GetValues(typeof(SurvivalTier));
+            foreach (SurvivalTier h in tiers)
+            foreach (SurvivalTier e in tiers)
+            foreach (SurvivalTier r in tiers)
+            {
+                var view = new FakeBodyStatusView();
+                view.SurvivalTiers[SurvivalStat.Hydration] = h;
+                view.SurvivalTiers[SurvivalStat.Energy] = e;
+                view.SurvivalTiers[SurvivalStat.Radiation] = r;
+                SurvivalRow row = BodyStatusPresenter.BuildSurvival(view);
+                foreach (string text in new[] { row.Label }.Concat(row.Chips.Select(c => c.Text)))
+                    StringAssert.DoesNotMatch(bar.ToString(), text, $"{h}/{e}/{r}");
+            }
+        }
+
+        // GameUI.uxml: 7부위 목록 아래 "전신" 줄 자리, 뷰가 그 자리에 그린다 (부위 목록은 7줄 그대로)
+        [Test]
+        public void GameUxml_SurvivalRowBelowParts_Renders()
+        {
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.UIElements.VisualTreeAsset>("Assets/_Project/Art/UI/GameUI.uxml");
+            Assert.IsNotNull(asset);
+            UnityEngine.UIElements.VisualElement root = asset.CloneTree();
+            var screenView = new BodyStatusScreenView(root);
+            UnityEngine.UIElements.VisualElement list = UnityEngine.UIElements.UQueryExtensions.Q(root, BodyStatusScreenView.ListName);
+            UnityEngine.UIElements.VisualElement survival = UnityEngine.UIElements.UQueryExtensions.Q(root, BodyStatusScreenView.SurvivalName);
+            Assert.IsNotNull(survival);
+            Assert.AreSame(list.parent, survival.parent, "같은 패널");
+            Assert.Greater(survival.parent.IndexOf(survival), survival.parent.IndexOf(list), "7부위 아래");
+
+            var view = new FakeBodyStatusView();
+            view.SurvivalTiers[SurvivalStat.Hydration] = SurvivalTier.Critical;
+            view.SurvivalTiers[SurvivalStat.Radiation] = SurvivalTier.Low;
+            screenView.Render(BodyStatusPresenter.Build(view), BodyStatusPresenter.BuildSurvival(view));
+
+            Assert.AreEqual(7, list.childCount, "부위 7줄");
+            Assert.AreEqual(1, survival.childCount, "전신 한 줄");
+            var texts = UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.Label>(survival).ToList().Select(l => l.text).ToList();
+            CollectionAssert.AreEqual(new[] { "전신", "탈수", "방사능 오염" }, texts);
+            UnityEngine.UIElements.Label radiation = UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.Label>(survival).ToList()[2];
+            Assert.IsTrue(radiation.ClassListContains(BodyStatusPresenter.SurvivalRadiationClass));
+            Assert.IsTrue(radiation.ClassListContains(BodyStatusPresenter.SurvivalLowClass));
+
+            // Normal로 돌아가면 이름만 남는다
+            screenView.Render(BodyStatusPresenter.Build(new FakeBodyStatusView()), BodyStatusPresenter.BuildSurvival(new FakeBodyStatusView()));
+            CollectionAssert.AreEqual(new[] { "전신" }, UnityEngine.UIElements.UQueryExtensions.Query<UnityEngine.UIElements.Label>(survival).ToList().Select(l => l.text));
+            // 전신 줄 없이 그리면(이전 호출 방식) 비운다
+            screenView.Render(BodyStatusPresenter.Build(new FakeBodyStatusView()));
+            Assert.AreEqual(0, survival.childCount);
+        }
+    }
 }

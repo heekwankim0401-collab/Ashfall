@@ -762,5 +762,169 @@ namespace Ashfall.Tests.EditMode
             Assert.IsFalse(next.IsLeaving);
             Assert.IsFalse(storage.LastWritten().raidInProgress);
         }
+
+        // ── M7 제작대 (M7 설계 §1.5, §6 7C-2b, Q44~Q47) ──────────
+
+        // 탄창 레시피(파이프 2 + 전선 1 → 5.56 탄창) + 붕대 레시피 + 무효·중복 레시피
+        private CraftingConfigSO Crafting()
+        {
+            var crafting = ScriptableObject.CreateInstance<CraftingConfigSO>();
+            crafting.recipes = new[]
+            {
+                CraftRecipe("RCP-AMMO-556", "5.56 탄창", "MAG-556-30", 1, ("JNK-01", 2), ("JNK-03", 1)),
+                CraftRecipe("RCP-BAD", "재료 없음", "MED-BND-01", 1),
+                CraftRecipe("RCP-MED-BND", "붕대 × 2", "MED-BND-01", 2, ("JNK-03", 1)),
+                CraftRecipe("RCP-AMMO-556", "중복 id", "MED-BND-01", 1, ("JNK-03", 1)),
+            };
+            return crafting;
+        }
+
+        private CraftingRecipe CraftRecipe(string id, string name, string output, int count, params (string id, int count)[] inputs) =>
+            new CraftingRecipe
+            {
+                id = id,
+                displayName = name,
+                output = catalog.Get(output),
+                outputCount = count,
+                inputs = inputs.Select(i => new CraftingIngredient { item = catalog.Get(i.id), count = i.count }).ToArray(),
+            };
+
+        private HideoutService CreateService(CraftingConfigSO crafting) =>
+            new HideoutService(profiles, flow, config, trader,
+                () => inventoryPresent ? inventory : null, clock.Now, () => changedCount++, crafting);
+
+        private HideoutService InHideoutWithCrafting()
+        {
+            ToHideoutScene();
+            Enter();
+            return CreateService(Crafting());
+        }
+
+        private void GiveStash(string id, int count)
+        {
+            for (int i = 0; i < count; i++)
+                Assert.IsTrue(StashRules.TryPlaceNew(profiles.Profile.Stash, ItemFactory.Create(catalog.Get(id))), id);
+        }
+
+        [Test]
+        public void Crafting_NoConfig_NoRecipes_UnknownRecipe()
+        {
+            HideoutService service = InHideout();
+            Assert.AreEqual(0, service.Recipes.Count, "CraftingConfigSO 없음 → 레시피 없음");
+            Assert.AreEqual(CraftResult.UnknownRecipe, service.TryCraft("RCP-AMMO-556"));
+            Assert.AreEqual(0, changedCount);
+        }
+
+        [Test]
+        public void Recipes_ValidOnly_FirstOfDuplicateId_OwnedFromStash()
+        {
+            HideoutService service = InHideoutWithCrafting();
+            GiveStash("JNK-01", 1);
+            GiveStash("JNK-03", 3);
+
+            IReadOnlyList<CraftingRecipeView> recipes = service.Recipes;
+            CollectionAssert.AreEqual(new[] { "RCP-AMMO-556", "RCP-MED-BND" }, recipes.Select(r => r.Id), "무효·중복 id는 뺀다");
+            Assert.AreEqual("5.56 탄창", recipes[0].DisplayName);
+            Assert.AreSame(catalog.Get("MAG-556-30"), recipes[0].Output);
+            CollectionAssert.AreEqual(new[] { 1, 3 }, recipes[0].Inputs.Select(i => i.Owned), "가진 수 = 보관함 수");
+            CollectionAssert.AreEqual(new[] { 2, 1 }, recipes[0].Inputs.Select(i => i.Required));
+            Assert.AreEqual(2, recipes[1].OutputCount);
+        }
+
+        // 재료 = 보관함만 (Q44): 장비(은신처 인벤토리)의 붕대·전선은 세지 않는다
+        [Test]
+        public void TryCraft_EquipmentDoesNotCount()
+        {
+            HideoutService service = InHideoutWithCrafting();
+            Equip();   // 주머니에 붕대
+            GiveStash("JNK-01", 2);
+            Assert.AreEqual(CraftResult.MissingMaterials, service.TryCraft("RCP-AMMO-556"));
+            Assert.AreEqual(0, changedCount, "실패 → 발행 없음");
+            Assert.AreEqual(2, service.Stash.Items.Count);
+        }
+
+        // 성공 → HideoutChanged, 메모리에서만 (Q7) → W2에서 저장 → 다음 실행에서 다시 읽으면 가득 찬 탄창
+        [Test]
+        public void TryCraft_Ok_PublishesChanged_MemoryOnly_SavedOnMainMenu_ReloadsFull()
+        {
+            HideoutService service = InHideoutWithCrafting();
+            GiveStash("JNK-01", 2);
+            GiveStash("JNK-03", 1);
+            int writes = storage.WriteCount;
+
+            Assert.AreEqual(CraftResult.Ok, service.TryCraft("RCP-AMMO-556"));
+            Assert.AreEqual(1, changedCount, "HideoutChanged");
+            Assert.AreEqual(writes, storage.WriteCount, "제작마다 저장하지 않는다 (상인과 같음)");
+            Magazine made = service.Stash.Items.Select(p => p.Item).OfType<Magazine>().Single();
+            Assert.AreEqual(30, made.Rounds, "가득 (Q46)");
+            Assert.AreEqual(1, service.Stash.Items.Count, "재료는 빠졌다");
+            Assert.AreEqual(CraftResult.MissingMaterials, service.TryCraft("RCP-AMMO-556"));
+            Assert.AreEqual(1, changedCount);
+
+            Assert.IsTrue(service.ReturnToMainMenu());
+            SaveData saved = storage.LastWritten();
+            Assert.AreEqual(1, saved.stash.Count);
+            Assert.AreEqual("MAG-556-30", saved.stash[0].id);
+            Assert.AreEqual(30, saved.stash[0].rounds);
+
+            var nextRun = new ProfileService(new MemorySaveStorage { Text = storage.Text }, clock.Now);
+            nextRun.EnsureLoaded(catalog, M5TestData.Defaults());
+            Magazine reloaded = nextRun.Profile.Stash.Items.Select(p => p.Item).OfType<Magazine>().Single();
+            Assert.AreEqual(30, reloaded.Rounds, "다시 읽어도 가득");
+        }
+
+        [Test]
+        public void TryCraft_NoSpace_ResultAndNoPublish()
+        {
+            // 보관함 10×30을 전선 300개로 채우고 하나를 붕대 2개(1×1씩)로 → 자리 1칸뿐 → NoSpace, 재료 그대로
+            HideoutService service = InHideoutWithCrafting();
+            GiveStash("JNK-03", 300);
+            Assert.AreEqual(CraftResult.NoSpace, service.TryCraft("RCP-MED-BND"));
+            Assert.AreEqual(300, CraftingModel.CountOwned(service.Stash, catalog.Get("JNK-03")), "재료 원위치");
+            Assert.AreEqual(0, changedCount);
+        }
+
+        [Test]
+        public void TryCraft_UnknownId_UnknownRecipe()
+        {
+            HideoutService service = InHideoutWithCrafting();
+            Assert.AreEqual(CraftResult.UnknownRecipe, service.TryCraft("RCP-NONE"));
+            Assert.AreEqual(CraftResult.UnknownRecipe, service.TryCraft(null));
+            Assert.AreEqual(CraftResult.UnknownRecipe, service.TryCraft("RCP-BAD"), "무효 레시피 = 없는 것");
+        }
+
+        // 떠나는 중 → Unavailable (반입 Capture 뒤 보관함이 바뀌지 않게)
+        [Test]
+        public void TryCraft_WhileLeaving_Unavailable()
+        {
+            HideoutService service = InHideoutWithCrafting();
+            GiveStash("JNK-01", 2);
+            GiveStash("JNK-03", 1);
+            Assert.IsTrue(service.StartRaid());
+            int changed = changedCount;
+            Assert.AreEqual(CraftResult.Unavailable, service.TryCraft("RCP-AMMO-556"));
+            Assert.AreEqual(changed, changedCount);
+            Assert.AreEqual(3, service.Stash.Items.Count, "보관함 그대로");
+        }
+
+        // 읽기 전용(세이브를 못 읽음) → Unavailable (저장되지 않으니 만들지 않는다)
+        [Test]
+        public void TryCraft_ReadOnly_Unavailable()
+        {
+            storage.Text = "{\"version\": 1, \"casings\": 77}";
+            storage.ReadFails = true;
+            profiles = new ProfileService(storage, clock.Now, _ => { });
+            flow = rec.Create(profiles);
+            ToHideoutScene();
+            LogAssert.Expect(LogType.Error, new Regex("세이브를 읽지 못했다"));
+            Enter();
+            HideoutService service = CreateService(Crafting());
+            Assert.IsTrue(service.IsReadOnly);
+            GiveStash("JNK-01", 2);
+            GiveStash("JNK-03", 1);
+            Assert.AreEqual(CraftResult.Unavailable, service.TryCraft("RCP-AMMO-556"));
+            Assert.AreEqual(3, service.Stash.Items.Count);
+            Assert.AreEqual(0, changedCount);
+        }
     }
 }

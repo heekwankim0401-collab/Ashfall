@@ -14,13 +14,14 @@ namespace Ashfall.UI
     {
         Loadout,  // [장비] 기존 인벤토리 화면 + 보관함 (Q29)
         Trader,   // [상인] 판매 목록 · 보관함 매도
+        Crafting, // M7 [제작] 레시피 목록 · 보관함 재료 (§9, Q44~Q47)
     }
 
     // 은신처 화면 상태 (M5 설계 §3.4, §4.5). 순수 C#. HideoutRoot가 버튼·뷰를 여기로 잇는다.
     // - 패널 순서: 알림 → 결과 → 허브. 알림·결과가 떠 있으면 허브 명령은 무시한다.
     // - [레이드 시작]은 확인 창 없이 바로(Q30), 빈 장비도 허용(Q26). 떠나는 중(IsLeaving)이면 모든 명령 무시·버튼 비활성.
-    // - 한 줄 메시지: 거래·키트 결과, 저장 실패. 다음 명령이 덮어쓴다.
-    // - 탄 수·HP·무게 숫자는 만들지 않는다. 탄피·가격·키트 남은 분만.
+    // - 한 줄 메시지: 거래·키트·제작 결과, 저장 실패. 다음 명령이 덮어쓴다.
+    // - 탄 수·HP·무게 숫자는 만들지 않는다. 탄피·가격·키트 남은 분·제작 재료 개수만.
     public sealed class HideoutPresenter
     {
         private readonly IHideoutService hideout;
@@ -38,6 +39,7 @@ namespace Ashfall.UI
         }
 
         private TraderViewModel trader;
+        private CraftingViewModel crafting;
 
         public HideoutPanel Panel { get; private set; }
         public HideoutTab Tab { get; private set; } = HideoutTab.Loadout;
@@ -49,6 +51,8 @@ namespace Ashfall.UI
         // 항상 값이 있다 (탭이 Trader일 때 뷰가 그린다). 처음 읽을 때 만들고 Refresh가 버린다 —
         // 숨은 [상인] 탭 때문에 이벤트마다 매도 목록을 다시 만들지 않게 (M5 리뷰 10).
         public TraderViewModel Trader => trader ??= TraderViewModel.Build(hideout);
+        // [제작] 탭 데이터. 상인과 같이 처음 읽을 때 만들고 Refresh가 버린다 (숨은 탭 때문에 이벤트마다 다시 세지 않게).
+        public CraftingViewModel Crafting => crafting ??= CraftingViewModel.Build(hideout);
 
         public string CasingsText { get; private set; }
         public string KitStatusText { get; private set; }
@@ -87,6 +91,7 @@ namespace Ashfall.UI
 
             CasingsText = UiText.Casings(hideout.Casings);
             trader = null;   // 다음에 읽을 때 다시 만든다
+            crafting = null;
             UpdateKitStatus();
             Changed?.Invoke();
         }
@@ -159,6 +164,18 @@ namespace Ashfall.UI
             Message = result == TradeResult.Ok ? UiText.Sold(name) : UiText.Trade(result);
             Refresh();
             return result == TradeResult.Ok;
+        }
+
+        // [제작] (M7, Q44~Q47). 결과 문구: 성공 = "만들었다: 레시피 이름", 실패 = 재료 부족·보관함 자리 없음 등.
+        public bool Craft(string recipeId)
+        {
+            if (!HubEnabled || string.IsNullOrEmpty(recipeId))
+                return false;
+            string name = Crafting.TryGetRecipe(recipeId, out CraftingRecipeRow row) ? row.Name : recipeId;
+            CraftResult result = hideout.TryCraft(recipeId);
+            Message = result == CraftResult.Ok ? UiText.Crafted(name) : UiText.Craft(result);
+            Refresh();
+            return result == CraftResult.Ok;
         }
 
         // [부랑자 키트 받기]

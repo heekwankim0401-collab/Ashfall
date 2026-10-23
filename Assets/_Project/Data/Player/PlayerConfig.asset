@@ -71,3 +71,14 @@ MonoBehaviour:
   strideSprintM: 2.2
   strideCrouchM: 0.8
   strideProneM: 0.6
+  hydrationMax: 100
+  hydrationDecayPerSec: 0.1
+  dehydratedHpPerSec: 0.5
+  stomachDestroyedHydrationMultiplier: 2
+  energyMax: 100
+  energyDecayPerSec: 0.07
+  starvingStaminaRegenMultiplier: 0.5
+  radiationSicknessDose: 100
+  radiationSicknessMaxHpMultiplier: 0.8
+  radiationWarnDose: 50
+  survivalLowRatio: 0.25

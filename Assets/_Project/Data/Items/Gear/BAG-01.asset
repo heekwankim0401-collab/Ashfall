@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "\uBC30\uB0AD"
   size: {x: 3, y: 3}
   weightKg: 1.5
-  rarity: 0
+  rarity: 2
   basePrice: 800
   icon: {fileID: 0}
   kind: 1

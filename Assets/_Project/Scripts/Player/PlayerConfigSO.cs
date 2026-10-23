@@ -131,6 +131,38 @@ namespace Ashfall.Player
         public float strideCrouchM = 0.8f;
         public float strideProneM = 0.6f;
 
+        // ── M7: §4.3 생존 STAT-DEHY·HUNG·RAD (M7 설계 §3.6, 7C) ─────
+        // 7C-1은 필드만 — 동작은 7C-2a(SurvivalModel·PlayerHealth·PlayerMotor). 레이드마다 최대/0에서 시작(이월 없음, Q32).
+        [Header("M7 §4.3 수분 (STAT-DEHY)")]
+        [Tooltip("수분 최대 = 레이드 시작 값 (GDD §4.3 100)")]
+        [Min(0f)] public float hydrationMax = 100f;
+        [Tooltip("초당 수분 감소 (GDD §4.3 0.1/s → 1000초에 0)")]
+        [Min(0f)] public float hydrationDecayPerSec = 0.1f;
+        [Tooltip("수분 0일 때 머리를 뺀 파괴되지 않은 부위마다 초당 HP 감소 (GDD §4.3 0.5 — 흉부 80 → 160초, 부위마다·머리 제외 해석 TODO(GDD-?) Q33)")]
+        [Min(0f)] public float dehydratedHpPerSec = 0.5f;
+        [Tooltip("복부 파괴 중 수분 감소 배율 (§4.2 '탈수 가속', TODO(GDD-?) Q34)")]
+        [Min(0f)] public float stomachDestroyedHydrationMultiplier = 2f;
+
+        [Header("M7 §4.3 에너지 (STAT-HUNG)")]
+        [Tooltip("에너지 최대 = 레이드 시작 값 (GDD §4.3 100)")]
+        [Min(0f)] public float energyMax = 100f;
+        [Tooltip("초당 에너지 감소 (GDD §4.3 0.07/s → 약 1429초에 0)")]
+        [Min(0f)] public float energyDecayPerSec = 0.07f;
+        [Tooltip("에너지 0일 때 스태미나 재생 배율 (GDD §4.3 −50% = 0.5)")]
+        [Range(0f, 1f)] public float starvingStaminaRegenMultiplier = 0.5f;
+
+        [Header("M7 §4.3 방사능 (STAT-RAD)")]
+        [Tooltip("이 선량 이상이면 방사선 피폭 — 모든 부위 최대 HP 배율 적용 (GDD §4.3 누적 100)")]
+        [Min(0f)] public float radiationSicknessDose = 100f;
+        [Tooltip("피폭 중 모든 부위 최대 HP 배율 (GDD §4.3 −20% = 0.8). 현재 HP는 새 최대로 자른다 (Q35)")]
+        [Range(0f, 1f)] public float radiationSicknessMaxHpMultiplier = 0.8f;
+        [Tooltip("이 선량 이상이면 '방사능 오염' 등급 Low (TODO(GDD-?) Q43)")]
+        [Min(0f)] public float radiationWarnDose = 50f;
+
+        [Header("M7 생존 등급 경계 (RULE-05, TODO(GDD-?) Q43)")]
+        [Tooltip("수분·에너지가 최대 × 이 비율 이하면 Low(목마름·배고픔), 0이면 Critical(탈수·허기)")]
+        [Range(0f, 1f)] public float survivalLowRatio = 0.25f;
+
         // 부위 최대 HP (§4.2)
         public float MaxHp(BodyPart part)
         {

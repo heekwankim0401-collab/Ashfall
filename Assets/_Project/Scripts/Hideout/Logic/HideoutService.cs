@@ -6,8 +6,8 @@ using UnityEngine;
 namespace Ashfall.Hideout
 {
     // SYS-HUB 은신처 서비스 (M5 설계 §1.4·§3·§4.2). 순수 C# — HideoutController가 만들고 IHideoutService로 등록한다.
-    // 진입 절차(W1, Enter) · 저장(W2 메뉴 복귀 / W3 앱 종료 = SaveNow) · 레이드 시작(W4, GameFlow.StartRaid) + 상인·키트 조합.
-    // 거래·키트는 메모리에서만 바뀌고 W2/W3/W4에서 함께 저장된다 (Q7) — 프로필 전체를 한 번에 써서 크래시에도 복제·소실이 없다.
+    // 진입 절차(W1, Enter) · 저장(W2 메뉴 복귀 / W3 앱 종료 = SaveNow) · 레이드 시작(W4, GameFlow.StartRaid) + 상인·키트·제작대(M7, CraftingModel) 조합.
+    // 거래·키트·제작은 메모리에서만 바뀌고 W2/W3/W4에서 함께 저장된다 (Q7) — 프로필 전체를 한 번에 써서 크래시에도 복제·소실이 없다.
     public sealed class HideoutService : IHideoutService
     {
         private readonly ProfileService profiles;
@@ -17,6 +17,7 @@ namespace Ashfall.Hideout
         private readonly Func<IInventoryService> loadoutSource;
         private readonly Func<DateTime> utcNow;
         private readonly Action publishChanged;
+        private readonly CraftingConfigSO crafting;   // null = 레시피 없음 (M7 제작대)
 
         // 모델이 감싼 프로필 (UseStorage 등으로 프로필이 바뀌면 다시 만든다)
         private PlayerProfile modelProfile;
@@ -101,10 +102,12 @@ namespace Ashfall.Hideout
         }
 
         // profiles는 Enter 뒤(로드됨)여야 한다. loadoutSource는 은신처 인벤토리(IInventoryService)를 그때그때 찾는다(없으면 null).
-        // publishChanged = HideoutChanged 발행 (거래·키트·떠남 상태가 바뀔 때).
+        // publishChanged = HideoutChanged 발행 (거래·키트·제작·떠남 상태가 바뀔 때).
+        // crafting = M7 제작대 레시피 (Q44~Q47). null이면 레시피 없음(제작 탭이 "제작법 없음") — 씬 연결 누락도 은신처를 막지 않는다.
         public HideoutService(ProfileService profiles, GameFlow flow, HideoutConfigSO config, TraderConfigSO trader,
-            Func<IInventoryService> loadoutSource, Func<DateTime> utcNow, Action publishChanged)
+            Func<IInventoryService> loadoutSource, Func<DateTime> utcNow, Action publishChanged, CraftingConfigSO crafting = null)
         {
+            this.crafting = crafting;
             this.profiles = profiles ?? throw new ArgumentNullException(nameof(profiles));
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
             this.config = config != null ? config : throw new ArgumentNullException(nameof(config));
@@ -166,6 +169,49 @@ namespace Ashfall.Hideout
             if (result == KitClaimResult.Ok)
                 publishChanged();
             return result;
+        }
+
+        // M7 제작대 (§9, M7 설계 §1.5, Q44~Q47). 읽을 때의 보관함 기준(Owned). 무효 레시피(CraftingModel.IsValid)·중복 id(뒤의 것)는 뺀다.
+        public IReadOnlyList<CraftingRecipeView> Recipes
+        {
+            get
+            {
+                if (Profile == null || crafting == null || crafting.recipes == null)
+                    return Array.Empty<CraftingRecipeView>();
+                var views = new List<CraftingRecipeView>(crafting.recipes.Length);
+                foreach (CraftingRecipe recipe in crafting.recipes)
+                {
+                    if (CraftingModel.IsValid(recipe) && ReferenceEquals(FindRecipe(recipe.id), recipe))
+                        views.Add(CraftingModel.ToView(recipe, Profile.Stash));
+                }
+                return views;
+            }
+        }
+
+        // 재료 = 보관함만, 즉시 완료. 떠나는 중·읽기 전용(저장되지 않으니 만들어도 남지 않는다)·프로필 없음 → Unavailable.
+        // 성공하면 메모리에서만 바뀌고 W2/W3/W4에서 저장(상인과 같음, Q7) + HideoutChanged.
+        public CraftResult TryCraft(string recipeId)
+        {
+            if (IsLeaving || IsReadOnly || Profile == null)
+                return CraftResult.Unavailable;
+            CraftingRecipe recipe = FindRecipe(recipeId);
+            if (recipe == null)
+                return CraftResult.UnknownRecipe;
+            CraftResult result = CraftingModel.TryCraft(Profile.Stash, recipe);
+            if (result == CraftResult.Ok)
+                publishChanged();
+            return result;
+        }
+
+        // id가 같은 유효한 레시피 중 첫 번째
+        private CraftingRecipe FindRecipe(string recipeId)
+        {
+            if (string.IsNullOrEmpty(recipeId) || crafting == null || crafting.recipes == null)
+                return null;
+            foreach (CraftingRecipe recipe in crafting.recipes)
+                if (CraftingModel.IsValid(recipe) && recipe.id == recipeId)
+                    return recipe;
+            return null;
         }
 
         public void AcknowledgeNotice() => profiles.AcknowledgeNotice();

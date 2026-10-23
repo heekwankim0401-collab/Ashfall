@@ -16,10 +16,11 @@ MonoBehaviour:
   displayName: "\uD5EC\uBA67"
   size: {x: 2, y: 2}
   weightKg: 1.4
-  rarity: 0
+  rarity: 2
   basePrice: 1200
   icon: {fileID: 0}
   armorClass: 3
   maxDurability: 40
   covers: 00000000
   kind: 0
+  blocksStormRadiation: 0

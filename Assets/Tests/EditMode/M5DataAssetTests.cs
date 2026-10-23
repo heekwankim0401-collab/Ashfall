@@ -142,12 +142,12 @@ namespace Ashfall.Tests.EditMode
         }
 
         // 가격 표가 프로젝트의 탄약 외 아이템 정의를 전부 덮는다 (새 아이템을 추가하면 가격도 정할 것).
-        // M7 7A 아이템 가격은 M7WeaponDataAssetTests.PriceTable(설계 §3.1·§3.2), 7B 유물은 M7AiDataAssetTests.PriceTable(§3.7)이 갖는다.
+        // M7 7A 아이템 가격은 M7WeaponDataAssetTests.PriceTable(설계 §3.1·§3.2), 7B 유물은 M7AiDataAssetTests.PriceTable(§3.7), 7C 생존 아이템은 M7SurvivalDataAssetTests.PriceTable(§3.7)이 갖는다.
         [Test]
         public void Prices_CoverEveryNonAmmoItemDefinition()
         {
             var tableIds = new HashSet<string>(PriceTable.Select(p => p.id).Concat(M7WeaponDataAssetTests.PriceTable.Select(p => p.id))
-                .Concat(M7AiDataAssetTests.PriceTable.Select(p => p.id)));
+                .Concat(M7AiDataAssetTests.PriceTable.Select(p => p.id)).Concat(M7SurvivalDataAssetTests.PriceTable.Select(p => p.id)));
             var missing = AllItemDefinitionsInProject()
                 .Where(i => !(i is AmmoDefinitionSO) && !tableIds.Contains(i.id))
                 .Select(i => i.id).ToArray();
@@ -237,8 +237,8 @@ namespace Ashfall.Tests.EditMode
             var t = Load<TraderConfigSO>(TraderConfigPath);
             Assert.IsNotNull(t.catalog);
             Assert.IsTrue(t.catalog.All(i => i != null), "빈 항목");
-            // M5 목록 뒤에 M7 Q20 추가분(SHT·DMR·MAG-762-5·BOX-12GA-8 — 값은 M7WeaponDataAssetTests가 확인)
-            CollectionAssert.AreEqual(TraderCatalogIds.Concat(M7WeaponDataAssetTests.TraderAdditionIds).ToArray(),
+            // M5 목록 뒤에 M7 Q20 추가분(SHT·DMR·MAG-762-5·BOX-12GA-8 — 값은 M7WeaponDataAssetTests가 확인), 그 뒤 7C 추가분(M7SurvivalDataAssetTests)
+            CollectionAssert.AreEqual(TraderCatalogIds.Concat(M7WeaponDataAssetTests.TraderAdditionIds).Concat(M7SurvivalDataAssetTests.TraderAdditionIds).ToArray(),
                 t.catalog.Select(i => i.id).ToArray());
             CollectionAssert.AllItemsAreUnique(t.catalog);
             foreach (ItemDefinitionSO item in t.catalog.Take(TraderCatalogIds.Length))

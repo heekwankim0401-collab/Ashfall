@@ -73,3 +73,9 @@ MonoBehaviour:
     y: -500
     width: 1000
     height: 1000
+  radiationZones:
+  - id: RAD-REF
+    centerXZ: {x: 300, y: -60}
+    radiusM: 70
+    ratePerSec: 0.5
+    edgeFalloffM: 15

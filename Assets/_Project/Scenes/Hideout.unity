@@ -309,6 +309,7 @@ MonoBehaviour:
   config: {fileID: 11400000, guid: 176d3cbb9467d3645827dd546d479a48, type: 2}
   trader: {fileID: 11400000, guid: c19444107b2503b4caba6c5ec624ad4b, type: 2}
   itemDatabase: {fileID: 11400000, guid: 130b17526446b70458a2503ee92cb2c1, type: 2}
+  crafting: {fileID: 11400000, guid: f0dc07f461ded3343b5168f6d1ae347c, type: 2}
 --- !u!4 &1026605083
 Transform:
   m_ObjectHideFlags: 0

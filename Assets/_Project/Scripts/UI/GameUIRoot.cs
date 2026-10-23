@@ -274,7 +274,7 @@ namespace Ashfall.UI
         {
             if (!viewsBuilt || presenter.Screens.Current != ScreenKind.BodyStatus || presenter.BodyView == null)
                 return;
-            bodyView.Render(BodyStatusPresenter.Build(presenter.BodyView));
+            bodyView.Render(BodyStatusPresenter.Build(presenter.BodyView), BodyStatusPresenter.BuildSurvival(presenter.BodyView));
         }
 
         private void RenderPause()

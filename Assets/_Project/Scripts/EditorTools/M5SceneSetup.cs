@@ -99,6 +99,7 @@ namespace Ashfall.EditorTools
                 SetupUtil.SetFields(root, ("hudConfig", hudConfig));
 
             M6SceneSetup.ApplyHideoutIfAssetsExist(scene); // M6 §1.6 Q1: 배경 Ash_Black·은신처 음악 유지
+            M7SceneSetup.ApplyHideoutIfAssetsExist(scene); // M7 §1.7: 다시 만들어도 제작대 연결 유지 (7C SYS-HUB)
             if (!EditorSceneManager.SaveScene(scene, HideoutScenePath))
                 throw new InvalidOperationException($"{Tag} 씬 저장 실패: {HideoutScenePath}");
             Debug.Log($"{Tag} 씬 생성(덮어씀): {HideoutScenePath}");

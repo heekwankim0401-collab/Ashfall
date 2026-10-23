@@ -337,3 +337,41 @@
   9. `M7EnemySceneApply`가 모든 NavMesh 스냅을 씬 변경 전에 계산(중간 실패로 씬이 반쯤 바뀌지 않음). 10. 경계 울음 = 분대에서 먼저 경계에 든 한 명만(`Squad.TryClaimAlertVocal`, 같은 쿨다운). 공격 울음은 대원마다.
   11. 커밋 에셋 재실행 테스트 — 커밋 전 git status·md5 확인 절차로 처리(코드 변경 없음). 12. 테스트 이름 34명 반영. 13. `AiDirector` 등록 목록·스케줄러 초기 용량 32 → 64.
   14. 이 소절. 15. 변이체가 표적과 0m까지 겹침 — 안 보일 때도 LKP로 곧장 가지 않고 LKP 둘레 자리로 가며 LKP와 사거리 × 0.75 안쪽이면 멈춘다. EnemyAgent는 근접 유형이 표적과 수평 사거리 × 0.75 안이면 매 프레임 멈추고 멈추는 순간 NavMeshAgent 속도를 0으로(감속 미끄러짐 방지).
+
+### 7C 생존·제작 데이터 (2026-10-23, §4.3, §6, §8.1, §8.3, §9, §14 — Q32~Q48, 7C-1b)
+문서 본문은 바꾸지 않았다. 아래는 데이터 메뉴 `Ashfall/Setup/Create M7 Survival Data`(`M7SurvivalDataSetup`)가 쓰는 값이며, 결정 지점에는 `TODO(GDD-?) Qn` 주석이 있다.
+- **GDD 값 (§4.3):** `PlayerConfig.asset`에 수분 100·−0.1/s, 수분 0 → −0.5 HP/s(부위마다, Q33), 에너지 100·−0.07/s, 에너지 0 → 스태미나 재생 × 0.5, 방사능 누적 100 → 최대 HP × 0.8을 명시 기록(파일에 없는 필드만).
+  임시값: 복부 파괴 수분 감소 × 2(Q34), 방사능 오염 경고 50·Low 경계 25%(Q43).
+- **새 아이템 (설계 §3.7, 전부 TODO(GDD-?)):** ITM-WTR-01 물병(1×2·0.6kg·수분 +50·3초·2회·150), ITM-FOD-01 통조림(1×1·0.4kg·에너지 +60·4초·1회·200),
+  MED-ANT-01 해독제(1×1·0.1kg·방사능 해제·3초·1회·600) — 셋 다 `MedicalDefinitionSO`(Q42). GEAR-GSM-01 방독면(2×2·0.8kg·1500) = `ArmorDefinitionSO { Helmet, armorClass 0, covers 빈, blocksStormRadiation }`(Q37·Q38).
+- **정유소 구역 (§8.1, Q39):** `RaidConfig.radiationZones` RAD-REF = 중심 POI-REF (300, −60), 반경 70m, 0.5/s, 가장자리 감쇠 15m.
+- **제작 레시피 (§9, Q47):** `Data/Hideout/CraftingConfig.asset` 8개(설계 §3.8). **설계와 다른 점:** RCP-AMMO-12GA(BOX-12GA-8)·RCP-MED-SPL(부목)의 재료를 JNK-01 × 1 → **× 2**로 올렸다.
+  사유: 설계의 가치 확인 규칙 "산출 매도 합 ≤ 재료 매수 합"(매도 0.4·매수 1.0)에서 × 1이면 산출 매도 80·48 > 재료 매수 40이라 제작으로 탄피가 늘어난다. × 2면 80 ≤ 80, 48 ≤ 80.
+- **희귀도 (§6, Q48):** 설계 §3.11 표를 데이터로 기록 — 기존 에셋은 희귀도가 Scrap(0 = M2 메뉴 기본값, 미설정)일 때만 쓴다.
+  **설계와 다른 점:** WPN-PST-01·WPN-SMG-01·ITM-FLR-01은 M3·M4 메뉴가 이미 Common으로 만들어 "미설정"이 아니므로 Common으로 남는다(§3.11은 우수). 바꾸려면 에셋을 직접 고칠 것.
+- **상인·루트 (TODO(GDD-?)):** 상인 목록 끝에 물·음식·해독제·방독면(12ga 탄 상자는 7A가 이미 넣음).
+  LT-CRATE += 물 2·음식 2·해독제 0.5·방독면 **0.5**·JNK-02 0.5, LT-SCV += 물 1·음식 1·BOX-12GA-8 0.5, LT-RDR += 물 1·음식 1, LT-SNP += 해독제 1·물 1, LT-MUT += 해독제 0.3, LT-BOS += 방독면 1·해독제 1.
+  **설계와 다른 점:** LT-CRATE 방독면 가중치 0.3 → 0.5. 사유: M4 Q7-A "신호탄(0.5)이 상자 테이블의 최저 가중치"(EXT-03 희소성) 규칙을 유지한다.
+- **7C 구현 결정 (7C-2a·2b·2c·3, Q32~Q48):**
+  - Q33 수분 0 → **머리를 뺀** 파괴되지 않은 부위마다 −0.5 HP/s(복부 배율·상태이상 굴림·파괴 부위 분산 없음, 사망하면 그 호출에서 멈춤). 머리를 빼서 흉부 80이 **160초**에 먼저 0 → 사망(사인 흉부) — Q33 A 문구에 맞춤.
+    7C-2a는 모든 부위를 깎아 머리 35가 70초(피폭 중 56초)에 먼저 0이 됐다(리뷰 7C 1, 오케스트레이터 결정 (b)). 전신 사인 문구("탈수")는 MVP 남은 목록(TODO(GDD-?) Q33).
+  - 수분·에너지 수치는 `SurvivalModel`에서 **public 읽기**(설계 "internal"과 다름 — 테스트 어셈블리가 읽고 InternalsVisibleTo를 늘리지 않음). UI는 Player를 참조하지 않고 `IBodyStatusView`는 등급만이라 RULE-05 구조는 그대로.
+  - 물·음식·해독제(부위 대상 없음) = 전신 대상 `MedicalUseModel.SystemicTarget = Thorax`. 부위 대상이 있는 아이템은 부위가 우선이고 완료 때 전신 효과도 함께. 해독제는 선량 > 0일 때만 시작. 현재 UI는 이 Target을 표시하지 않는다.
+  - 생존 감소는 레이드가 아닌 씬(M1~M3 테스트 씬)에서도 돈다(1000초에 0이라 기존 테스트 무관). 은신처에는 PlayerHealth가 없다.
+  - 제작: 무효 레시피(재료 없음·정의 없음·개수 < 1 등)·중복 id는 목록에서 빼고 `UnknownRecipe`(데이터 오류 취급, TODO(GDD-?) Q47). 재료는 보관함 배치 순(위→아래·왼→오른쪽, 상인 매도와 같음)으로 고른다.
+    같은 정의가 여러 줄이면 합계로 판정하고, 재료 칸 충족 표시도 버튼과 같은 합계 기준(리뷰 7C 4). 결과 문구는 허브 메시지 줄.
+  - 읽기 전용 프로필(M5)에서 상인 거래는 되고 **제작만 `Unavailable`**(버튼 비활성) — 의도한 차이(리뷰 7C 3, 유지). 사유: 제작은 보관함 재료를 소비하고 새 아이템을 만들어 저장 실패 시 무엇을 잃었는지 혼동이 크다.
+  - 가이거 입력 = 폭풍 방사능률 + 구역 률(방독면 무관, Q41). 플레이어 선량 = 폭풍(방독면이면 0) + 구역(발 위치), 가이거 조회 위치 = 청취자 눈. 지도에 구역 표시 없음(Q40).
+  - 희귀도: WPN-PST-01·WPN-SMG-01·ITM-FLR-01은 **Common 유지**(설계 §3.11은 우수 — M3·M4 결정·테스트 보존, 오케스트레이터 결정, 리뷰 7C 9). 바꾸려면 에셋을 직접 고친다.
+  - 생존 설정 필드에 인스펙터 범위 가드: 최대·감소율·피해·배율(복부)·선량 경계 `[Min(0)]`, 스태미나 재생 배율·피폭 최대 HP 배율·Low 경계 비율 `[Range(0,1)]`(직렬화 값 영향 없음, 리뷰 7C 6).
+- **§13.3 경계 (7C):** Core 추가 — `SurvivalStat`·`SurvivalTier`, `IBodyStatusView.GetSurvivalTier`(등급만), `IRadiationField`(Raid `RadiationField` 등록), `IHideoutService.Recipes`·`TryCraft`(`CraftResult`·`CraftingRecipeView`·`CraftingInputView`),
+  `MedicalDefinitionSO`(hydrationRestore·energyRestore·curesRadiation), `ArmorDefinitionSO.blocksStormRadiation`. 기능 → Core만, 새 asmdef 없음, 정적 인스턴스 없음.
+- **자리표시 에셋 (사용자 지시 — 외부 에셋 없음):** 새 머티리얼 **1개** `Art/Materials/Palette/M_Toxic.mat`(URP Lit, Toxic #7A8A2A, 매끄러움 0.3, 발광 ×0.25, `PaletteMaterialMap.Key.Toxic`),
+  레이드 씬 최상위 `RadiationField`·`M7_ToxicMarkers`(자식 **54개** — 둘레 기둥·판·드럼통 각 12, 구역 안 무더기 3 × 6, 콜라이더 없음, NavMesh 굽기 제외), 은신처 씬 `HideoutController.crafting` = CraftingConfig.
+  WAV 변경 없음. 메뉴 `Ashfall/Setup/Apply M7 Content`(데이터 → 레이드 → 은신처, 재실행 바이트 동일), 단독 `Ashfall/Setup/M7/Apply Radiation Zone (Raid Scene)`.
+- **GDD에 수치가 없어 임시값을 넣은 항목 (TODO(GDD-?), 7C):** 수분 0 해석(머리 제외 부위마다, Q33), 복부 파괴 수분 감소 × 2(Q34), 등급 경계(Low = 최대 × 0.25, 방사능 오염 50, Q43),
+  물병·통조림·해독제·방독면 값(크기·무게·회복량·사용 시간·횟수·가격·희귀도), RAD-REF 위치·반경 70m·0.5/s·감쇠 15m, 레시피 8개 재료·이름(Q47), 상인 추가분·루트 가중치,
+  Toxic 표시물 배치(둘레 = 반경 − 0.5m, 기둥 각도 19° + 30k, 드럼통 각도 표, 무더기 오프셋), M_Toxic 매끄러움·발광, 제작 탭 이름 칸 너비 220px, 제작 결과 문구.
+- **리뷰 수정 (M7_review.md "7C 생존·제작" 1~9):** 1. 탈수에서 머리 제외(위). 2. 이 소절. 3. 읽기 전용 제작 Unavailable 유지·사유 기록(위). 4. 재료 칸 충족 = 정의 합계 기준.
+  5. 탈수 피해는 사망하면 남은 부위를 깎지 않는다. 6. 생존 필드 `[Min]`/`[Range]`. 7. `GeigerClickModel` 주석(폭풍 + 구역). 8. 커밋 에셋 재실행 테스트 — 커밋 전 git status·md5 확인 절차로 처리(코드 변경 없음).
+  9. 희귀도 Common 유지(위). CLAUDE.md "구조"의 7C 타입은 마일스톤 끝에 갱신한다.

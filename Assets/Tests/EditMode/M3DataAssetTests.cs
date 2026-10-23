@@ -350,7 +350,9 @@ namespace Ashfall.Tests.EditMode
             var t = Load<LootTableSO>(LootScvPath);
             Assert.AreEqual("LT-SCV", t.id);
             Assert.AreEqual(new Vector2Int(1, 2), t.rollCount);
-            AssertEntries(t, ("MED-BND-01", 3f), ("JNK-03", 3f), ("JNK-01", 2f), ("MED-TRQ-01", 1f), ("MAG-9MM-12", 1f));
+            // M3 항목 뒤에 M7 7C 추가분(설계 §3.9 — M7SurvivalDataAssetTests.LootAdditions)
+            AssertEntries(t, new[] { ("MED-BND-01", 3f), ("JNK-03", 3f), ("JNK-01", 2f), ("MED-TRQ-01", 1f), ("MAG-9MM-12", 1f) }
+                .Concat(M7SurvivalDataAssetTests.LootAdditions["LT-SCV"]).ToArray());
         }
 
         [Test]
@@ -359,7 +361,8 @@ namespace Ashfall.Tests.EditMode
             var t = Load<LootTableSO>(LootRdrPath);
             Assert.AreEqual("LT-RDR", t.id);
             Assert.AreEqual(new Vector2Int(1, 3), t.rollCount);
-            AssertEntries(t, ("MED-BND-01", 2f), ("MED-TRQ-01", 2f), ("MED-SPL-01", 1f), ("MAG-556-30", 2f), ("JNK-03", 1f));
+            AssertEntries(t, new[] { ("MED-BND-01", 2f), ("MED-TRQ-01", 2f), ("MED-SPL-01", 1f), ("MAG-556-30", 2f), ("JNK-03", 1f) }
+                .Concat(M7SurvivalDataAssetTests.LootAdditions["LT-RDR"]).ToArray());
         }
 
         // 루트 테이블 항목이 실제 에셋을 가리키고 LootRoller로 굴릴 수 있다

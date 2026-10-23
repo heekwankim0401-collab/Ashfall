@@ -16,10 +16,13 @@ MonoBehaviour:
   displayName: "\uBD80\uBAA9"
   size: {x: 1, y: 2}
   weightKg: 0.2
-  rarity: 0
+  rarity: 2
   basePrice: 120
   icon: {fileID: 0}
   cures: 02000000
   healAmount: 0
   useTime: 5
   uses: 1
+  hydrationRestore: 0
+  energyRestore: 0
+  curesRadiation: 0

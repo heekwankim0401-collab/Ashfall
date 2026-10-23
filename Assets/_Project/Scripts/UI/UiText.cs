@@ -110,6 +110,51 @@ namespace Ashfall.UI
             }
         }
 
+        // ── M7 제작대 (§9, M7 설계 §1.5, Q44~Q47) ──
+        public const string HideoutTabCrafting = "제작";
+        public const string CraftingTitle = "제작대";
+        public const string CraftingHint = "재료는 보관함에서만 쓴다.";   // Q44
+        public const string CraftingButton = "제작";
+        public const string CraftingEmpty = "제작법이 없다";               // 레시피 없음 (CraftingConfigSO 미연결 포함)
+        public const string MessageCraftMissingMaterials = "재료가 모자란다.";
+        public const string MessageCraftNoSpace = "보관함에 자리가 없어 만들 수 없다.";
+        public const string MessageCraftUnknownRecipe = "알 수 없는 제작법이다.";
+
+        public static string Crafted(string itemName) => "만들었다: " + itemName;
+
+        // 재료 "가진 수/필요 수" — 재료 아이템 개수뿐 (탄 수·체력 수치 아님, RULE-04·05 대상 밖)
+        public static string CraftingInputCount(int owned, int required) => owned + "/" + required;
+
+        // 성공 문구는 Crafted(이름)
+        public static string Craft(CraftResult result)
+        {
+            switch (result)
+            {
+                case CraftResult.MissingMaterials: return MessageCraftMissingMaterials;
+                case CraftResult.NoSpace: return MessageCraftNoSpace;
+                case CraftResult.UnknownRecipe: return MessageCraftUnknownRecipe;
+                case CraftResult.Unavailable: return MessageUnavailable;
+                default: return string.Empty;
+            }
+        }
+
+        // ── M7 부위 상태 화면 "전신" 줄 (Q43, RULE-05: 등급 문구만, 숫자·막대 없음) ──
+        public const string SurvivalRowLabel = "전신";
+
+        // Normal → 빈 문자열 (표시 안 함)
+        public static string SurvivalStatus(SurvivalStat stat, SurvivalTier tier)
+        {
+            if (tier == SurvivalTier.Normal)
+                return string.Empty;
+            bool critical = tier == SurvivalTier.Critical;
+            switch (stat)
+            {
+                case SurvivalStat.Hydration: return critical ? "탈수" : "목마름";
+                case SurvivalStat.Energy: return critical ? "허기" : "배고픔";
+                default: return critical ? "방사선 피폭" : "방사능 오염";
+            }
+        }
+
         public static string Kit(KitClaimResult result)
         {
             switch (result)

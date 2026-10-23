@@ -53,6 +53,7 @@ namespace Ashfall.Audio
     // - FootstepTaken: 들리는 거리 밖이면 버림 → SurfaceProbe로 재질 → 재질 세트 클립(직전과 다르게) → 3D voice.
     // - ShotFired: 거리 → 근/중/원 레이어 하나(Q15) → 무기 분류 세트 → 3D voice. 지연·차폐 없음(Q16·Q17).
     // - AshStormChanged + IAshStormInfo: 바람·폭풍 루프·가이거(Q22). 금속 붕괴는 무작위 간격.
+    // - 가이거 입력(M7 Q41) = 폭풍 률 + IRadiationField.ZoneRatePerSec(청취자 위치) — 환경 방사능률, 방독면 무관. 레이드 밖·구역 밖 = 0.
     // - WeaponClicked(M7): 헛격발·고장 = dryFireClip, 해제 = jamClearClip → 이벤트 위치 3D voice(우선순위 = 내 발소리보다 높음).
     // - EnemyVocalized(M7): 변이체 울음·공격 → 들리는 거리 밖이면 버림 → 종류별 클립(직전과 다르게) → 적 위치 3D voice(우선순위 = 적 발소리보다 높음).
     // - 일시정지(Q19): GameFlow.IsWorldPaused를 AudioListener.pause에 반영(timeScale은 건드리지 않는다). 파괴 시 false로 되돌린다.
@@ -79,6 +80,7 @@ namespace Ashfall.Audio
 
         private IPlayerTarget target;
         private IAshStormInfo storm;
+        private IRadiationField radiationField;   // M7 정유소 구역 (레이드 씬에만, 서비스 재조회로 잡는다)
         private AudioListener fallbackListener;
         private float nextResolveTime = float.NegativeInfinity;
         private float nextListenerSearchTime = float.NegativeInfinity;
@@ -103,6 +105,10 @@ namespace Ashfall.Audio
         public int PlayedCount { get; private set; }
         public int CulledCount { get; private set; }
         public bool IsInitialized => initialized;
+        // 마지막 Update에서 가이거에 넣은 두 몫 (M7 Q41, 테스트용). 합 = Ambient.GeigerInputPerSec
+        public float StormRadiationPerSec { get; private set; }
+        public float ZoneRadiationPerSec { get; private set; }
+        public bool HasRadiationField => radiationField != null;
         // 지금 쓰는 청취자 위치
         public Vector3 ListenerPosition => ResolveListenerPosition();
 
@@ -239,7 +245,11 @@ namespace Ashfall.Audio
                 intensity = Sanitize(storm.Intensity);
                 radiation = Sanitize(storm.RadiationPerSec);
             }
-            if (ambient.Tick(Time.deltaTime, intensity, radiation))
+            // M7 Q41: 청취자 위치의 구역 률을 더한다(합은 AmbientSoundscape). 할당 없음.
+            float zone = radiationField != null ? Sanitize(radiationField.ZoneRatePerSec(ResolveListenerPosition())) : 0f;
+            StormRadiationPerSec = radiation;
+            ZoneRadiationPerSec = zone;
+            if (ambient.Tick(Time.deltaTime, intensity, radiation, zone))
                 PlayCollapse();
         }
 
@@ -253,10 +263,12 @@ namespace Ashfall.Audio
             {
                 target = null;
                 storm = null;
+                radiationField = null;
                 return;
             }
             gm.Services.TryGet(out target);
             gm.Services.TryGet(out storm);
+            gm.Services.TryGet(out radiationField);
             // 표적이 없을 때만 씬의 AudioListener를 찾는다. 씬 전체 탐색이라 실패하면 listenerSearchRetrySec 동안 다시 찾지 않는다(리뷰 낮음 8).
             if (target == null && fallbackListener == null && now >= nextListenerSearchTime)
             {
@@ -273,6 +285,8 @@ namespace Ashfall.Audio
                 target = null;
             if (storm is UnityEngine.Object s && s == null)
                 storm = null;
+            if (radiationField is UnityEngine.Object r && r == null)
+                radiationField = null;
         }
 
         private Vector3 ResolveListenerPosition()

@@ -16,10 +16,13 @@ MonoBehaviour:
   displayName: "\uBD95\uB300"
   size: {x: 1, y: 1}
   weightKg: 0.05
-  rarity: 0
+  rarity: 1
   basePrice: 60
   icon: {fileID: 0}
   cures: 00000000
   healAmount: 0
   useTime: 3
   uses: 1
+  hydrationRestore: 0
+  energyRestore: 0
+  curesRadiation: 0

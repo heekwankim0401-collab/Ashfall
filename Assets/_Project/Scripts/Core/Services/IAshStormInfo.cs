@@ -7,6 +7,6 @@ namespace Ashfall.Core
         AshStormPhase Phase { get; }
         float Intensity { get; }          // 0~1 (전환 중 선형)
         float VisibilityM { get; }        // 폭풍 아님(Intensity 0) = float.PositiveInfinity, Peak = 30
-        float RadiationPerSec { get; }    // §8.3 +1/s × Intensity. 방독면은 M7(소비자가 처리) — TODO(GDD-?) Q27
+        float RadiationPerSec { get; }    // §8.3 +1/s × Intensity. 방독면은 M7(소비자가 처리) — TODO(GDD-?) Q27. M7: ArmorDefinitionSO.blocksStormRadiation(Q38), 구역 방사능은 IRadiationField
     }
 }

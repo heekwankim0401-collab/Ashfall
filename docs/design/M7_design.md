@@ -1349,3 +1349,262 @@ EnemyBrain·EnemyAgent·Core·M7Names·테스트 도우미·데이터 메뉴는 
   성능(1회째): M6 Peak AI 0.148ms·99% 0.272ms·ShotFired 512·GC 0 / Raid A 0.118·0.223ms / B 0.148·0.296ms, 교전 평균 21.0, ShotFired 518, 엄폐 질의 30.9~35.7µs.
 - Mono `BuildWindows64` 성공(오류 0·경고 0, 110,170,118 bytes, 31초). 테스트·빌드 뒤 .cs 제외 파일 md5 = ApplyAll 2회째와 동일.
 - 사람 확인: 변이체가 플레이어에게 붙을 때 1.35m 근처에서 멈추고 미끄러지지 않는지, 웅크림·엎드림에서 HUD 부위 상태가 흉부·복부·팔만 바뀌는지, 무리 경계 울음이 한 번만 들리는지(7.1 E3).
+
+## 7C-1 구현 메모 (gameplay-programmer, 2026-10-23)
+
+계약만(원본). 새 asmdef·기능 간 참조 없음. 새 `.meta`는 Unity가 만든 것만(손으로 안 만듦). 에셋·씬 변경 없음(배치모드 뒤 git status = .cs/.meta만).
+EditMode 1610/1610(기존 1596 + 새 `RadiationZoneMathTests` 14), 기존 테스트 단언 변경 없음. PlayMode는 돌리지 않음. 커밋하지 않음.
+
+**Core 공개 API**
+- `Combat/BodyEnums.cs`: `enum SurvivalStat { Hydration, Energy, Radiation }`, `enum SurvivalTier { Normal, Low, Critical }`. `StatusEffect`는 그대로(주석만).
+- `Services/IBodyStatusView.cs`: `SurvivalTier GetSurvivalTier(SurvivalStat stat)`(등급만 — RULE-05 테스트 2개가 그대로 통과).
+- `Services/IRadiationField.cs`(새): `float ZoneRatePerSec(Vector3 position)` 하나. 폭풍 률은 포함하지 않는다(합은 소비자, 방독면은 폭풍 몫만).
+- `Services/IHideoutService.cs`: `IReadOnlyList<CraftingRecipeView> Recipes { get; }`, `CraftResult TryCraft(string recipeId)`.
+  `enum CraftResult { Ok, MissingMaterials, NoSpace, UnknownRecipe, Unavailable }`,
+  `readonly struct CraftingRecipeView(string Id, string DisplayName, ItemDefinitionSO Output, int OutputCount, IReadOnlyList<CraftingInputView> Inputs)`,
+  `readonly struct CraftingInputView(ItemDefinitionSO Item, int Required, int Owned)` + `bool IsSatisfied`(Owned ≥ Required).
+- `Data/MedicalDefinitionSO.cs`: `float hydrationRestore`, `float energyRestore`(둘 다 `[Min(0)]`, 기본 0), `bool curesRadiation`(기본 false) — 기존 의약품 동작 불변.
+- `Data/ArmorDefinitionSO.cs`: `bool blocksStormRadiation`(기본 false). `ServiceRegistry`·`IAshStormInfo` 주석 갱신.
+
+**기능 쪽 껍데기**
+- Player `PlayerConfigSO`(§3.6, 초기값 = 표 값): `hydrationMax 100`, `hydrationDecayPerSec 0.1`, `dehydratedHpPerSec 0.5`, `stomachDestroyedHydrationMultiplier 2`,
+  `energyMax 100`, `energyDecayPerSec 0.07`, `starvingStaminaRegenMultiplier 0.5`, `radiationSicknessDose 100`, `radiationSicknessMaxHpMultiplier 0.8`, `radiationWarnDose 50`, `survivalLowRatio 0.25`.
+  기존 `PlayerConfig.asset`에는 아직 직렬화되지 않았다(로드 시 초기값) — 7C-1b 데이터 메뉴가 명시 기록.
+- Player `BodyHealthModel.GetSurvivalTier` → 항상 `Normal`(2a가 `AttachSurvival` 위임으로 바꾼다).
+- Raid `Data/RadiationZoneConfig.cs`(새, `[Serializable] struct`): `id`, `Vector2 centerXZ`(y = 월드 Z), `radiusM`, `ratePerSec`, `edgeFalloffM`.
+  `RaidConfigSO.radiationZones = new List<RadiationZoneConfig>()`(기본 빈 목록).
+- Raid `Logic/RadiationZoneMath.cs`(새, **구현 포함**): `static float RateAt(IReadOnlyList<RadiationZoneConfig> zones, Vector3 position)`(null·빈 = 0, 합),
+  `static float RateAt(in RadiationZoneConfig zone, Vector3 position)`. 수평 거리 d: d ≤ 반경 − 감쇠 = 최대, 반경까지 선형 0, d > 반경 = 0.
+  반경·률 ≤ 0/NaN/무한 = 0, 감쇠 ≤ 0/NaN = 경계에서 끊김(d = 반경도 최대), 감쇠 ≥ 반경 = 중심부터 선형, NaN 위치 = 0. 할당 없음.
+- Hideout `Data/CraftingConfigSO.cs`(새, 메뉴 `Ashfall/Crafting Config`): `CraftingRecipe[] recipes`; `class CraftingRecipe { id, displayName, CraftingIngredient[] inputs, ItemDefinitionSO output, int outputCount = 1 }`,
+  `struct CraftingIngredient { ItemDefinitionSO item; int count; }`.
+- Hideout `HideoutService.Recipes` → 빈 배열, `TryCraft` → `Unavailable`. 생성자·`HideoutController`는 안 바꿨다(CraftingConfigSO 주입은 2b).
+- UI `HideoutTab.Crafting`(끝에 추가). 탭 버튼·뷰 없음 — `SelectTab(Crafting)`은 되지만 지금은 장비·상인 뷰가 모두 숨는다(2b가 채움).
+- 테스트 가짜: `UiTestFakes.FakeBodyStatusView.SurvivalTiers`(사전, 없으면 Normal). `FakeHideoutService`는 `HideoutUiModelTests.cs` 안에 있다(UiTestFakes 아님) —
+  `RecipeList`(List), `CraftResultToReturn`(기본 Ok), `TryCraft`가 `Calls`에 `"Craft:" + id` 기록.
+- EditorTools `M7Names` 7C 구역: `WaterId/FoodId/AntiRadId`(Medical 폴더 경로), `GasMaskId`(Armor 폴더 `GEAR-GSM-01.asset`), `PipePath/EnginePartPath/WiresPath`(JNK-01~03),
+  `CraftingConfigPath`(`Data/Hideout/CraftingConfig.asset`), 레시피 id 8개 `Recipe*Id`, `RefineryZoneId = "RAD-REF"`, `RaidConfigPath`,
+  씬 `RadiationFieldObject = "RadiationField"`, `ToxicMarkersObject = "M7_ToxicMarkers"`, `ToxicMarkerPrefix = "M7_Toxic_"`, `ToxicMaterialPath`(`Art/Materials/Palette/M_Toxic.mat`).
+
+**설계와 다른 점·구체화**
+- 레시피 산출은 §4.7·`CraftingRecipeView`대로 **하나(output × outputCount)**다. 산출 여러 종류 배열은 만들지 않았다(§3.8 레시피가 모두 1종).
+- `RadiationZoneConfig`는 struct(기존 `ExtractionPointConfig`와 같음), `RateAt` 단일 구역 오버로드 추가. 목록 인자는 `IReadOnlyList`라 List·배열 모두 받는다.
+- `CraftingInputView.IsSatisfied` 편의 멤버 추가. `PaletteMaterialMap` Toxic 키는 2c 몫이라 안 넣었고 경로 이름만 M7Names에 있다.
+
+**7C-1b·2a·2b·2c가 알아야 할 것**
+- 1b: PlayerConfig 생존 필드·`RaidConfig.radiationZones`(RAD-REF (300, −60) 70m 0.5/s 15m)·`CraftingConfig.asset`을 M7Names 경로로. 방독면 = `ArmorDefinitionSO { kind = Helmet, armorClass 0, covers 빈, blocksStormRadiation }`.
+  물·음식·해독제의 `cures`는 빈 배열, `healAmount 0`.
+- 2a: `BodyHealthModel.GetSurvivalTier` 껍데기를 위임으로 바꾼다. 등급 경계는 `survivalLowRatio`·`radiationWarnDose`·`radiationSicknessDose`. 방독면 판정은 `GetEquipped(Helmet)` 정의가 `ArmorDefinitionSO`이고 `blocksStormRadiation`.
+- 2b: `HideoutService`에 `CraftingConfigSO`를 넣고(생성자 인자 추가 시 HideoutController·테스트 호출 갱신) `Recipes`(Owned = 보관함 같은 정의 수)·`TryCraft`(성공 시 `publishChanged`, 떠나는 중 `Unavailable`, 모르는 id `UnknownRecipe`)를 채운다. `FakeHideoutService`는 이미 새 멤버가 있다.
+- 2c: `RadiationField`는 `RadiationZoneMath.RateAt(config.radiationZones, position)`을 그대로 쓰고 `IRadiationField`로 OnEnable/OnDisable 등록. 가이거 입력 = 폭풍 률 + 청취자 위치 구역 률.
+
+## 7C-1b 구현 메모 (data-designer, 2026-10-23)
+
+메뉴 `Ashfall/Setup/Create M7 Survival Data`(배치 `Ashfall.EditorTools.M7SurvivalDataSetup.CreateData`, 7C 몫만은 `WriteM7SurvivalData()`). `CreateData`는 `M7AiDataSetup.CreateData()`(→ 7A → M6 → … M1)를 먼저 부른다.
+원본에서 2회 실행 → 두 번째 실행 후 `Data/`·`Audio/`·`Scenes/`·`Settings/`·`Prefabs/`·`Art/`·`ProjectSettings/` 365개 파일 md5 동일(GUID·.meta 포함). `M7SceneSetup`의 7C 줄은 7C-3 몫이라 넣지 않았다.
+
+**만든 에셋 (없을 때만)**: `Data/Items/Medical/ITM-WTR-01`(물병 1×2·0.6kg·수분 +50·3초·2회·150·Common), `ITM-FOD-01`(통조림 1×1·0.4kg·에너지 +60·4초·1회·200·Common),
+`MED-ANT-01`(해독제 1×1·0.1kg·curesRadiation·3초·1회·600·Uncommon) — 셋 다 `cures` 빈 배열·`healAmount 0`. `Data/Items/Armor/GEAR-GSM-01`(방독면 Helmet·armorClass 0·covers 빈·blocksStormRadiation·maxDurability 0·2×2·0.8kg·1500·Uncommon),
+`Data/Hideout/CraftingConfig.asset`(레시피 8개, 이미 있으면 빠진 id만 끝에 추가).
+**기존 에셋 (빈 필드만)**: `PlayerConfig` §3.6 필드 11개(파일에 없는 필드만, 값 = 상수 `M7SurvivalDataSetup.HydrationMax` 등), `RaidConfig.radiationZones` RAD-REF(같은 id 없을 때만 끝에 추가, 중심 = `CrimsonBasinLayout.Refinery.CenterXZ` (300, −60)·70m·0.5/s·15m),
+희귀도(현재 Scrap일 때만 — `ShouldWriteRarity`), 상인 끝에 물·음식·해독제·방독면, 루트 테이블 6개 끝에 추가(아래), ItemDatabase 재수집(30 → 34).
+이번 실행에서 희귀도가 바뀐 기존 에셋: MAG-9MM-12·MAG-9MM-30·MED-BND-01·RIG-01 → Common, MAG-556-30·MED-TRQ-01·MED-SPL-01·BAG-01·ARM-HLM-01 → Uncommon, WPN-RIF-01·ARM-BDY-01 → Rare.
+(SetDirty로 다시 쓰인 의약품·방어구에는 7C-1 새 필드 `hydrationRestore 0`·`blocksStormRadiation 0` 등이 함께 직렬화됐다 — 값은 기본값 그대로.)
+
+**설계와 다른 점·정한 것 (CHANGELOG "7C 생존·제작 데이터")**
+- 레시피 RCP-AMMO-12GA·RCP-MED-SPL 재료 JNK-01 × 1 → **× 2**(설계 가치 확인 "산출 매도 ≤ 재료 매수"를 × 1이 어김: 80 > 40, 48 > 40). 나머지 6개는 표 그대로. 산출은 1종(output × outputCount), 붕대만 × 2.
+  레시피 이름(TODO(GDD-?) Q47): "권총 탄창 (12발)"·"5.56 탄창 (30발)"·"7.62 탄창 (5발)"·"12ga 탄 상자 (8발)"·"붕대 × 2"·"지혈대"·"부목"·"해독제".
+- LT-CRATE 방독면 가중치 0.3 → **0.5**(M4 Q7-A "신호탄 0.5가 상자 최저 가중치" 테스트·규칙 유지).
+- 희귀도: WPN-PST-01·WPN-SMG-01·ITM-FLR-01은 M3·M4가 Common으로 만들어 "Scrap = 미설정" 규칙상 **Common으로 남는다**(§3.11은 우수). 기존 M3·M4 테스트도 Common을 단언한다. §3.11대로 하려면 오케스트레이터 결정 필요.
+- 루트 추가(표마다 끝, 이미 있으면 가중치 보존): LT-CRATE 물 2·음식 2·해독제 0.5·방독면 0.5·JNK-02 0.5 / LT-SCV 물 1·음식 1·BOX-12GA-8 0.5 / LT-RDR 물 1·음식 1 / LT-SNP 해독제 1·물 1 / LT-MUT 해독제 0.3 / LT-BOS 방독면 1·해독제 1(유물은 계속 guaranteedFirstRoll만).
+- 상인: 12ga 탄 상자는 7A(Q20)가 이미 넣어 다시 넣지 않는다 — 7C 추가분 4개(물·음식·해독제·방독면)만 끝에.
+
+**테스트**: 새 `EditMode/M7SurvivalDataAssetTests`(GDD 생존 값·파일 기록, 새 아이템 값, 방독면 Helmet·0등급·blocksStormRadiation(다른 방어구는 false), 희귀도 표 = 프로젝트 전 아이템, Scrap 판매 아이템 = JNK만, 희귀도 기록 규칙,
+RAD-REF 값·중심/밖/가장자리 률·스폰 3곳 0, 레시피 표·재료 고철·산출 탄창/의약품·산출 매도 ≤ 재료 매수, 상인·루트 추가분, 재실행 바이트·GUID 동일(`WriteM7SurvivalData()`만, 머리 주석에 위험)).
+기존 정확 목록 단언에 이어 붙임(값 단언 변경 없음): `M3DataAssetTests` LT-SCV·LT-RDR, `M4DataAssetTests.LootCrate_MatchesDesign`, `M5DataAssetTests` 상인 목록·가격 표 범위, `M7AiDataAssetTests` LT-SNP·MUT·BOS,
+`M7WeaponDataAssetTests.Trader_EndsWithM7Additions_AllPriced`(7A 추가분 = 7C 추가분 바로 앞).
+
+**7C-2가 알아야 할 것**
+- 2a: 물·음식·해독제는 `cures` 빈 배열·`healAmount 0`이다 — 현재 `MedicalUseModel.FindTarget`은 이 경우 null(→ `NotNeeded`)이라 전신 효과 판정(Q42)을 넣어야 레이드에서 쓸 수 있다. 물병은 2회(회당 +50).
+  방독면은 `ArmorDefinitionSO`이고 kind Helmet이라 헬멧 슬롯에만 들어가며 ARM-HLM-01과 동시 착용 불가. armorClass 0·covers 빈 — 방어 판정 코드가 생기면 0등급 = 방어 없음으로 볼 것.
+- 2b: `CraftingConfig.asset` 경로 = `M7Names.CraftingConfigPath`. HideoutController 직렬화 참조 연결은 2b/7C-3 씬 메뉴 몫(이 메뉴는 씬을 건드리지 않는다). 산출 탄창은 가득 찬 상태로 만들 것(Q46), 탄 상자도 가득(8발).
+- 2c: `RaidConfig.radiationZones`에 RAD-REF 하나. 스폰 3곳은 구역 밖(테스트). POI-REF 상자·RDR 분대가 구역 안에 있다(상자 (300, −40) 등 — 의도된 위험).
+- 7C-3: `M7SceneSetup`에 `M7SurvivalDataSetup.WriteM7SurvivalData()`(또는 CreateData) 한 줄. 이 메뉴는 PlayerConfig·RaidConfig·상인·루트 6개·DB를 SetDirty할 수 있으니 통합 메뉴 2회 md5 확인에 포함할 것.
+
+## 7C-2a 구현 메모 (gameplay-programmer, 2026-10-23)
+
+생존(Player)만. 원본에는 `Scripts/Player/*`와 새 테스트 4개만 썼다(Core·M7Names·테스트 공용 도우미·데이터 메뉴·Inventory 무변경, 새 `.meta` 없음). 사본(`copy_7C2a`, 다른 단계 진행 파일 섞이지 않음 확인)에서
+EditMode 1679/1679, PlayMode 필터(Survival·PlayerDamage·AshStormFlow·InventoryFlow·M6RaidFlow·PlayerSoundEvent) 28/28, PlayMode 전체 169/169. 기존 `RadiationDoseTests`·`AshStormFlowTests` 단언 무변경. 커밋하지 않음.
+
+**Player 공개 API**
+- `SurvivalModel`(새, 순수): `Hydration`·`Energy`·`HydrationMax`·`EnergyMax`(public 읽기 — 아래 "다른 점"), `IsDehydrated`·`IsStarving`, `Tick(dt, stomachDestroyed)`(0에서 멈춤, dt ≤ 0/NaN/무한 무시),
+  `Restore(hydration, energy)`(최대에서 자름, 음수·NaN 무시), `GetTier(stat)`(수분·에너지, Radiation = Normal), `TierOf(value, max)`(0 = Critical, ≤ 최대 × `survivalLowRatio` = Low), `static RadiationTier(dose, config)`(≥ 100 Critical, ≥ 50 Low), `event TierChanged`.
+- `RadiationDoseModel.IsSick(threshold)` 추가(기존 Tick·Reset 그대로).
+- `BodyHealthModel`: `AttachSurvival(SurvivalModel, RadiationDoseModel)`, `Survival`·`Radiation` 읽기, `GetSurvivalTier`(위임, 붙이기 전 Normal), `ApplySystemicDamage(perPart)`,
+  `MaxHpMultiplier { get; set; }`(0 이하·NaN·무한 무시, 낮추면 현재 HP를 새 최대로 자름, 올려도 HP 회복 없음), `GetMaxHp` = 설정 × 배율, `SyncRadiation()`(선량 → 배율 1 또는 0.8 + 방사능 등급 변화 알림).
+  전신 등급(3종) 변화도 `StatusChanged`(→ `PlayerBodyStatusChanged`)에 합쳐 바뀔 때만 낸다.
+- `MedicalUseModel`: `const SystemicTarget = Thorax`, `static NeedsSystemic(body, def)`. `FindTarget` = 기존 부위 판정 → 없으면 전신 필요 시 Thorax. 완료 = 기존 cures·heal + `Restore` + 해독제(`Reset` + `SyncRadiation`). 생성자 그대로(`body.Survival`을 쓴다).
+- `StaminaModel.Tick(dt, sprinting, moving, regenMultiplier = 1f)`(재생에만, 0 미만·NaN = 0). `PlayerMotor.StaminaRegenMultiplier`(에너지 0 → `starvingStaminaRegenMultiplier`).
+- `PlayerHealth`: `Survival`, `LastRadiationRatePerSec`·`GasMaskWorn`(테스트·디버그 읽기), `static RadiationRate(storm, gasMask, zone)`. Update 순서 = 출혈 → 의약품 → 생존(수분 0이면 `dehydratedHpPerSec × dt` 부위마다) → 방사능(률 합 → Tick → `SyncRadiation`).
+  방독면 = `IInventoryService.GetEquipped(Helmet).Definition is ArmorDefinitionSO { blocksStormRadiation }`, 구역 률은 발 위치(`transform.position`). 사망·`RaidEnded` 뒤 생존·방사능 모두 멈춤. GC 0(PlayMode 확인).
+
+**설계와 다른 점·정한 것**
+- 수분 0 사망 시점: 부위마다 0.5/s(Q33)면 **머리 35가 70초에 먼저 0 → 사망(사인 Head)**. 설계 문구 "흉부 80 → 160초"와 다르다. 규칙(머리·흉부 0 = 사망)을 바꾸지 않고 TODO(GDD-?) Q33로 남김 — 테스트 `SystemicDamage_FullHealth_HeadReachesZeroFirst`가 이 동작을 고정한다. 160초가 의도면 머리 제외 등 기획 결정 필요.
+- 수분·에너지 수치 읽기는 설계의 "internal"이 아니라 **public**(테스트 어셈블리가 읽어야 하고 InternalsVisibleTo를 늘리지 않음). UI는 Player를 참조할 수 없고 `IBodyStatusView`는 등급만이라 RULE-05 구조는 그대로.
+- 설계 §6의 "`StaminaModelTests` 확장"은 그 파일이 없어(스태미나 테스트는 `PlayerMovementTests`) `SurvivalModelTests.cs` 안의 `StaminaRegenMultiplierTests` 클래스로 넣었다.
+- 수분 0 피해는 복부 배율·상태이상 굴림·파괴 부위 분산이 없다(파괴 부위는 건너뜀). 해독제는 선량 > 0일 때만 시작, 부위 대상이 있는 아이템(예: 붕대 + 수분)은 부위가 우선이고 완료 시 전신 효과도 함께.
+- 생존 감소는 레이드가 아닌 씬(M1~M3 테스트 씬)에서도 돈다(1000초에 0이라 기존 테스트 무관). 은신처에는 PlayerHealth가 없다.
+
+**테스트**: EditMode `SurvivalModelTests`(14 케이스 + `StaminaRegenMultiplierTests` 5)·`BodyHealthSystemicTests`(16)·`MedicalSurvivalTests`(11), PlayMode `SurvivalFlowTests`(M2 씬 + 가짜 `IAshStormInfo`·`IRadiationField`, 실제 인벤토리 장착·사용 경로):
+방독면 = 률 1.5 → 0.5(구역 그대로), 일반 헬멧은 안 막음, 선량 100 → 최대 HP 0.8·Critical·`PlayerBodyStatusChanged` → 해독제(인벤토리 TryUse) 선량 0·배율 1·HP 그대로, 수분 0 → 부위마다 ≈0.5/s → 물 → 멈춤, 에너지 0 → 재생 20 → 10/s, `PlayerHealth.Update` GC.Alloc 0.
+
+**통합(7C-3·7C-4)이 알 것**
+- 2c `RadiationField`가 등록되면 PlayerHealth가 자동으로 구역 률을 더한다(코드 연결 없음). M6 `AshStormFlowTests` Peak 선량 10 ± 0.5는 구역 밖·방독면 없음이면 그대로.
+- 2b 전신 줄은 `IBodyStatusView.GetSurvivalTier`만 읽으면 된다 — 등급 변화마다 `PlayerBodyStatusChanged`가 온다.
+- 물·음식·해독제는 `MedicalUseStarted/Completed`의 Target = Thorax(전신). HUD 의약품 진행 표시가 부위 이름을 쓰면 "흉부"로 보일 수 있다(UI 문구는 2b/7D 판단).
+- 7C-4 "다음 레이드 초기화"는 플레이어가 씬과 함께 새로 생겨 자동(세이브 변경 없음, Q32).
+
+## 7C-2c 구현 메모 (gameplay-programmer, 2026-10-23)
+
+사본(`scratchpad/copy_7C2c`)에서만 메뉴 실행·테스트. 원본에는 아래 코드·테스트 파일만 썼고 머티리얼·씬은 만들지 않았다(7C-3 통합이 원본에서 메뉴 실행).
+사본 격리: 복사 시점의 2a·2b 새 테스트(`BodyHealthSystemicTests`·`CraftingModelTests`·`MedicalSurvivalTests`·`SurvivalModelTests`·`SurvivalFlowTests`)는 사본에서 뺐다.
+2a·2b 진행 중 코드(Player·Hideout·UI)는 7C-1 상태의 HEAD 판이 없어(7C-1·1b가 미커밋) 그대로 두었다 — 함께 컴파일·통과했다.
+
+**새 자리표시 에셋 (사본에서 생성, 원본은 통합이 만든다 — 전부 TODO(GDD-?))**
+- 머티리얼 1개: `Art/Materials/Palette/M_Toxic.mat`(URP Lit, `_BaseColor` = Toxic #7A8A2A, 매끄러움 0.3, 발광 ×0.25) — `PaletteMaterialMap.Key.Toxic`(경로 = `M7Names.ToxicMaterialPath`).
+  Materials 표에 들어가 M6 아트 메뉴·`PaletteConsistencyTests`·`AtmosphereAssetTests`가 자동으로 본다(같은 생성 방식이라 M6 메뉴를 나중에 돌려도 바이트 동일).
+- `Scenes/Raid_CrimsonBasin.unity`: 최상위 2개 추가 — `RadiationField`(RadiationField: config = RaidConfig, raid = 씬 RaidController, 위치 = 구역 중심 지면)·
+  `M7_ToxicMarkers`(자식 54개 `M7_Toxic_*`: 둘레 `Pole_01~12`(Cylinder 2.5m)·`Sign_01~12`(Cube 판, 바깥을 봄)·`Drum_01~12`, 구역 안 `PileA~C_1~6`(서 있는 4 + 위 1 + 쓰러진 1)). 콜라이더 없음, 전부 M_Toxic.
+- WAV·데이터 에셋 변경 없음.
+
+**구현**
+- Raid `Runtime/RadiationField.cs`(새): `IRadiationField` OnEnable 등록/OnDisable 해제(정적 인스턴스 없음), `ZoneRatePerSec` = `RadiationZoneMath.RateAt(config.radiationZones, p)`(할당 0). 직렬화 `config`(비면 `raid.Config`). 테스트용 `Config`·`Zones`·`IsRegistered`.
+- Audio `AmbientSoundscape.Tick(dt, intensity, stormRad, zoneRad = 0)`: 가이거 입력 = `EnvironmentRadiationPerSec(storm, zone)`(둘 다 음수·NaN·무한 = 0, 합), `GeigerInputPerSec` 공개. `GeigerClickModel`은 그대로.
+  `AudioDirector`: `IRadiationField`를 기존 서비스 재조회(`ResolveServices`·`DropDestroyedServices`)로 잡고 매 Update 청취자 위치(`ResolveListenerPosition` = IPlayerTarget 눈)로 구역 률 조회 → Ambient에 전달. 방독면 무관(Q41).
+  테스트용 `StormRadiationPerSec`·`ZoneRadiationPerSec`·`HasRadiationField`.
+- EditorTools `M7HazardLayout.cs`(새, 데이터·순수 검사): 위치는 RAD-REF 설정(중심·반경·감쇠)에서 계산 — 둘레 반경 = 반경 − 0.5m, 기둥 각도 19°+30k, 드럼통 각도 표(정유소 탱크 (245, −100)·(350, −95) 근처 207~227°·322~328° 회피),
+  무더기 중심 오프셋 (−18, 20)·(22, 2)·(−10, −35). `Check`: 수 54·이름 중복·접두어, 둘레 = 감쇠 띠(55~70m) 안, 무더기 = 최대 률 영역(≤ 55m) 안, 맵 안, 스폰 패드 밖.
+- EditorTools `M7HazardSceneApply.cs`(새): `ApplyRaid(Scene)`(true 또는 예외), 단독 메뉴 `Ashfall/Setup/M7/Apply Radiation Zone (Raid Scene)`(배치 `Ashfall.EditorTools.M7HazardSceneApply.ApplyRaidSceneMenu`), `EnsureToxicMaterial()`, `Validate(...)`.
+  검사 먼저(씬 변경 전): RaidConfig에 RAD-REF(없으면 "Create M7 Survival Data 먼저" 예외)·씬 RaidController가 같은 설정·Terrain·Layout.Check·**씬 고체 콜라이더(트리거·지형·적·CharacterController 제외) AABB와 겹침 없음(틈 ≥ 0.1m, 바닥 0.15m 제외)** → 머티리얼 → RadiationField(씬에 하나만) → 표시물(이름으로 찾아 값이 다를 때만 다시 맞춤, 표에 없는 자식 지움, 메시가 바뀌었으면 다시 만듦) → Validate. 바뀐 것이 있을 때만 `MarkSceneDirty`.
+  NavMesh: 레이드 NavMeshSurface는 `PhysicsColliders`·`Children` 수집이라 콜라이더 없는 최상위 표시물은 굽기에 들어가지 않는다(NavMeshModifier 불필요).
+- `PaletteMaterialMap`: `Key.Toxic`(끝에 추가).
+
+**테스트**
+- PlayMode 새 `RadiationFieldFlowTests` 4(레이드 씬, 적 제거 후): 등록·최상위·RaidController와 같은 설정·RAD-REF 값, 중심 0.5·높이 무관·감쇠 시작 0.5·가운데 0.25·가장자리 3m 0.1·경계/밖 0·단조 감소·스폰 3곳 0, 조회 1000회 GC 0 /
+  OnDisable 해제·재등록 / Toxic 표시 54(둘레 36·무더기 18)·최상위·콜라이더·NavMeshObstacle·Rigidbody 없음·M_Toxic = 팔레트 Toxic·둘레 = 감쇠 띠·무더기 = 0.5/s·무더기 자리 NavMesh 그대로 /
+  가이거: 스폰 = 0, 정유소 중심(PlaceAt) → `ZoneRadiationPerSec` = 서비스 률(청취자 위치) = 0.5·입력 0.5·3초 클릭 > 0, 폭풍 Peak → 1 + 0.5, 구역 밖 → 1.
+- PlayMode `AudioFlowTests` +3(기존 케이스 무변경): 가짜 구역 안 청취자 → 폭풍 없이 클릭·조회 위치 = 청취자 눈·밖 → 클릭 멈춤 / 폭풍 + 구역 합·NaN·음수 구역 = 0·서비스 해제 → 폭풍만·순수 합 규칙 / 구역 조회 + Ambient.Tick 300회 GC 0.
+  각 케이스는 기존 IRadiationField 등록을 저장했다가 되돌린다(TearDown 무변경). M6 가이거·폭풍 단언(`Ambient_Wind_StormLoop_Geiger_FollowStorm`·`AshStormFlowTests` 등) 그대로 통과.
+
+**사본 결과**
+- 메뉴 `M7HazardSceneApply.ApplyRaidSceneMenu` 1회째: "Toxic 표시 54개 (새로 54)", M_Toxic 생성, 장애물 223개와 겹침 검사 — 가장 가까운 틈 3.37m(`Sign_11` ↔ Tank), 씬 저장.
+  2회째: "새로 0, 다시 맞춤 0, 지움 0 — 변경 없음"(씬 저장 안 함) → `Assets`·`ProjectSettings`(Tests 제외) md5 동일.
+- EditMode 1633/1633. PlayMode 170/170(857초, 새 7개 포함).
+
+**7C-3 통합이 할 일 (원본)**
+- `M7SceneSetup.ApplyRaid`의 주석 줄 `if (!M7HazardSceneApply.ApplyRaid(scene)) return false;` 살리기(실패는 예외). 머티리얼 단계는 따로 필요 없다(`ApplyRaid`가 `EnsureToxicMaterial`을 부른다).
+  `RaidAssetsExist`에 7C 조건을 더한다면 RAD-REF가 있어야 하므로 `M7SurvivalDataSetup` 줄(CreateAssets)이 먼저 돌게 할 것 — 구역이 없으면 이 적용은 예외를 낸다.
+- 원본에서 `Ashfall/Setup/Apply M7 Content` 2회 → 새 파일 `M_Toxic.mat`(+ .meta), `Raid_CrimsonBasin.unity` 변경, 2회째 바이트 동일 확인.
+- 메뉴 실행 전 원본에서는 `RadiationFieldFlowTests`(RadiationField 없음)·`PaletteConsistencyTests.PaletteMaterials_*`(M_Toxic 없음)·`AtmosphereAssetTests`(M_Toxic 경로)가 실패하는 것이 정상이다.
+- 2a 접점: Player 선량 = 폭풍(방독면이면 0) + 같은 `IRadiationField.ZoneRatePerSec`(조회 위치는 2a 구현). 2a `SurvivalFlowTests`의 가짜 IRadiationField는 레이드 씬의 실제 RadiationField와 같은 키로 등록된다 — 레이드 씬에서 쓸 때는 덮어쓰기 경고가 나므로 기존 등록을 저장·복원할 것.
+- 사람 확인(에디터): §7.1 — 정유소 둘레 경고 기둥·판·드럼통이 보이고 Toxic 색이 다른 구조물과 구분되는지, 판이 바깥을 보는지, 무더기가 땅에 붙어 있는지(경사), 구역 안에서 가이거가 폭풍 없이 울리는지, 지도에 구역 표시가 없는지(Q40).
+
+## 7C-2b 구현 메모 (ui-programmer, 2026-10-23)
+
+사본에서만 배치모드(원본 Unity 실행 없음). 사본 EditMode 1677/1677, PlayMode 필터(은신처·HUD) 9/9, PlayMode 전체 164/164. 커밋하지 않음. 새 `.meta`는 원본에 만들지 않았다.
+사본 Hideout 씬의 `HideoutController.crafting`은 사본 전용 임시 메뉴로만 연결했다(원본 씬 변경 없음 → 7C-3 몫).
+
+**Hideout**
+- `Logic/CraftingModel.cs`(새, 순수 정적): `IsValid(recipe)`(id·산출·산출 수 ≥ 1·재료 1줄 이상·각 줄 정의 + 개수 ≥ 1 — 재료 없는 레시피는 무효), `CountOwned(IGridView, def)`, `RequiredTotals`(같은 정의 줄 합산),
+  `ToView(recipe, stash)`, `HasMaterials`, `TryCraft(ItemGrid stash, CraftingRecipe recipe)`: 무효·stash null → `UnknownRecipe`, 재료 부족 → `MissingMaterials`, 재료 제거(보관함 배치 순 = 위→아래·왼→오른쪽) → `ItemFactory.Create(output)` × outputCount(탄창·탄 상자 가득)
+  → `StashRules.TryPlaceAll` → 실패면 보관함을 제작 전 배치(같은 인스턴스·칸·회전·**목록 순서**)로 통째로 되돌리고 `NoSpace`. 재료를 먼저 빼므로 재료 자리를 산출물이 쓸 수 있다.
+- `HideoutService`: 생성자 끝에 선택 인자 `CraftingConfigSO crafting = null`(기존 호출 무변경). `Recipes` = 유효 레시피만·중복 id는 첫 번째만, Owned = 보관함 수. `TryCraft`: 떠나는 중·**읽기 전용**·프로필 없음 → `Unavailable`, 모르는 id → `UnknownRecipe`, 성공만 `HideoutChanged`. 메모리에서만 바뀌고 W2/W3/W4 저장.
+- `HideoutController`: `[SerializeField] CraftingConfigSO crafting` + `Crafting` 읽기. 비어 있으면 경고 한 줄 후 은신처는 그대로 시작([제작] 탭 = "제작법이 없다"). 에디터 경로 찾기(M7Names) 없음.
+
+**UI**
+- `HideoutTab.Crafting` 탭 버튼 `hideout-tab-crafting`("제작"). `CraftingViewModel`(새, 순수: 줄 = 이름(없으면 산출 이름 ×n)·재료 칸(이름·"가진 수/필요 수")·`HasMaterials`(같은 정의 합산)·`CanCraft` = 재료 + 떠나는 중·읽기 전용 아님),
+  `CraftingView`(새, `crafting-panel`·`crafting-title`·`crafting-hint`·`crafting-recipes`, 줄 클래스 `crafting-row`·`crafting-row-name`·`crafting-input`(+`--missing`)·`crafting-input-name`·`crafting-input-count`·`crafting-row-button`).
+  `HideoutPresenter.Crafting`(상인처럼 지연 생성·Refresh가 버림), `Craft(recipeId)` → 결과 문구는 허브 메시지 줄: 성공 "만들었다: 레시피 이름", 재료 부족 "재료가 모자란다.", 공간 없음 "보관함에 자리가 없어 만들 수 없다.", 모르는 id "알 수 없는 제작법이다.", Unavailable "지금은 할 수 없다.".
+- 부위 상태 화면(H): `BodyStatusPresenter.BuildSurvival(view)` → `SurvivalRow`("전신" + 칩: 수분 목마름/탈수, 에너지 배고픔/허기, 방사능 방사능 오염/방사선 피폭, 순서 수분 → 에너지 → 방사능, Normal은 칩 없음).
+  `GameUI.uxml` 7부위 목록 아래 새 자리 `body-status-survival`(목록 `body-status-list`는 7줄 그대로). `BodyStatusScreenView.Render(rows, survival)` 추가(기존 `Render(rows)` 유지 = 전신 줄 비움). `GameUIRoot`가 둘 다 그린다.
+- USS: 제작 탭 스타일(부족 재료 = Dried_Blood 배경·Rust_Red 테두리, 텍스트 Bone), 변수 `--crafting-name-width: 220px`(TODO(GDD-?) 그레이박스), 전신 칩 `bs-survival--low`(Dried_Blood)·`--critical`(Rust_Red 굵게)·`--radiation`(Toxic 테두리). 팔레트 토큰만.
+
+**테스트**: 새 `EditMode/CraftingModelTests`(11), `HideoutServiceTests` +8(설정 없음·Recipes·장비 불산입·성공 → HideoutChanged·메모리만·W2 저장·다시 읽기 가득·NoSpace·모르는 id·떠나는 중·읽기 전용),
+`HideoutUiModelTests` + `CraftingViewModelTests`(5)·`HideoutCraftingPresenterTests`(7)·`HideoutCraftingUxmlTests`(2), `UiModelTests` + `SurvivalRowTests`(11: 문구 6종·순서·RULE-05 정규식 `[0-9%０-９█▓▒░■□|/]` 27조합·GameUI.uxml 위치·렌더),
+새 `PlayMode/HideoutCraftingFlowTests`(Boot → [은신처] → 보관함에 JNK-01×2·JNK-03 지급 → [제작] 탭 → RCP-MED-ANT 비활성·RCP-AMMO-556 [제작] 클릭 → 보관함 = 가득 찬 MAG-556-30·탄피 불변·파일 미변경 → [메인 메뉴] save.json → 새 ProfileService로 다시 읽기 → 재진입).
+
+**설계와 다른 점·정한 것**
+- 읽기 전용이면 제작 `Unavailable`·버튼 비활성(오케스트레이터 지시. 상인 거래는 M5대로 읽기 전용에서도 된다 — 불일치는 TODO 없이 의도).
+- 무효 레시피(재료 없음 등)·중복 id는 목록에서 빼고 `UnknownRecipe`(TODO(GDD-?) Q47 데이터 오류 취급). 재료 고르기 = 보관함 배치 순(설계 "보관함 배치 순"을 상인 매도 목록과 같은 위→아래·왼→오른쪽으로).
+- 결과 문구는 별도 칸이 아니라 허브 메시지 줄(상인·키트와 같음). 레시피 이름에 "(30발)"처럼 용량이 들어간 것은 7C-1b 데이터 이름 그대로(현재 탄 수가 아니라 RULE-04 대상 아님).
+- `PlayMode/HideoutCraftingFlowTests`는 `HideoutController.Crafting`이 씬에 연결돼 있어야 통과한다(연결 전에는 "7C-3 씬 메뉴" 메시지로 실패) — 7C-3 이후 원본에서 통과.
+
+**7C-3이 할 일**
+- Hideout 씬 `HideoutController.crafting` ← `M7Names.CraftingConfigPath`(직렬화 이름 `crafting`). 주의: `EditorSceneManager.OpenScene(Single)` **뒤에** `AssetDatabase.LoadAssetAtPath`로 읽을 것 — 먼저 읽으면 씬 열기의 언로드로 참조가 끊겨 `{fileID: 0}`으로 저장된다(사본에서 실제로 겪음).
+- 연결 후 원본 PlayMode에서 `HideoutCraftingFlowTests` 통과 확인. 에디터 확인: 은신처 [제작] 탭 줄 배치·스크롤, H 화면 전신 줄(물 0 근처·폭풍 피폭) 문구.
+
+## 7C-3 구현 메모 (gameplay-programmer, 2026-10-23)
+
+원본에서 7C-1·1b·2a·2b·2c를 처음 함께 컴파일 — **충돌·컴파일 오류 없음**(코드 수정 없이 통과). 통합 전 EditMode 1720/1723: 실패 3개는 2c 메모대로 M_Toxic 없음(`PaletteConsistencyTests.PaletteMaterials_*` 2·`AtmosphereAssetTests.CreateAssets_Rerun_KeepsGuidsAndBytes`) — 메뉴 실행 뒤 해소. 커밋하지 않음.
+
+**코드**
+- `EditorTools/M7SceneSetup.cs`: `CreateAssets`에 `M7SurvivalDataSetup.WriteM7SurvivalData()`(M7AiDataSetup 다음. `CreateData`는 M1~M7B 연쇄를 한 번 더 돌릴 뿐이라 7C 몫만 — 결과 같음),
+  `ApplyRaid`에 `M7HazardSceneApply.ApplyRaid(scene)`(주석 줄 살림), 새 `ApplyHideout(scene)`(씬에서 HideoutController 정확히 1개 → `crafting` ← `M7Names.CraftingConfigPath`, 같으면 변경 없음·다르면 `MarkSceneDirty`. 에셋은 `ApplyToSceneFile`의 `OpenScene(Single)` 뒤 함수 안에서 읽는다 — 2b 메모의 참조 끊김 회피),
+  `ApplyHideoutIfAssetsExist`·`HideoutAssetsExist`(CraftingConfig 있음), `ApplyAll`이 은신처 씬도 적용(바뀐 경우만 저장).
+  `RaidAssetsExist`에 7C 조건: MED-ANT-01·GEAR-GSM-01·CraftingConfig 있음 + RaidConfig에 RAD-REF(`M7HazardSceneApply.TryFindZone`).
+- `EditorTools/M5SceneSetup.cs`: 은신처 씬 저장 직전 `M7SceneSetup.ApplyHideoutIfAssetsExist(scene)` 한 줄(M6 호출 다음).
+- 4번(물·음식·해독제 "흉부" 문구): 확인 결과 HUD·부위 화면·인벤토리 어디도 `MedicalUseStarted/Completed.Target`을 표시하지 않는다(UI는 이 이벤트를 구독하지 않음, 부위 이름은 부위 줄·사망 원인에만) — **UI 수정 불필요**. 진행 표시가 생기면(7D 등) `MedicalUseModel.NeedsSystemic`과 같은 판정(cures 빈·healAmount 0 + 수분/에너지/curesRadiation)으로 "전신"을 쓸 것.
+
+**원본 메뉴 `M7SceneSetup.ApplyAll` 2회**
+- 1회째: `M_Toxic.mat`(+ .meta) 생성, `Raid_CrimsonBasin.unity`(RadiationField + M7_ToxicMarkers 54개), `Hideout.unity`(`crafting` = CraftingConfig GUID) 저장. 데이터 에셋(PlayerConfig·RaidConfig·상인·루트 6개·DB·생존 아이템)은 7C-1b가 원본에서 이미 써 두어 이번에 바뀌지 않음.
+- 2회째: 적 "변경 없음", 방사능 "새로 0, 다시 맞춤 0, 지움 0 — 변경 없음", 은신처 "연결 그대로", 두 씬 저장 안 함 → `Assets`·`ProjectSettings` 1271개 파일 md5 동일.
+
+**결과**: EditMode 1723/1723, PlayMode 177/177(715초) — `AshStormFlowTests.PlayerDose_PeakTenSeconds_AndPauseFreezes`(Peak 선량 10 ± 0.5) 무변경 통과, `HideoutCraftingFlowTests`·`RadiationFieldFlowTests` 4·`SurvivalFlowTests` 6 통과. 테스트 전후 git status·md5 동일(테스트가 커밋 에셋을 바꾸지 않음).
+새 `.meta`(Unity 생성): 7C-2 새 스크립트·테스트 11개 + M_Toxic.mat.meta.
+
+## 7C-4 구현 메모 (test-engineer, 2026-10-23)
+
+원본에서 검증만(제품 코드·데이터·씬·공용 테스트 도우미 무변경). 새 파일은 `PlayMode/M7SurvivalRaidFlowTests.cs` 하나(+ Unity가 만든 .meta). 커밋하지 않음.
+
+**새 테스트 `M7SurvivalRaidFlowTests` (2, SaveSandbox 새 폴더, 적 제거, M5Hideout·M4Raid 도우미 그대로 사용)**
+- `GasMaskPeak_RefineryZone_Antidote_Extract_NextRaidSurvivalReset`: MainMenu [은신처] → 키트 → [상인] UI로 방독면(GEAR-GSM-01)·해독제(MED-ANT-01) 구매 → 방독면 헬멧 슬롯·권총·해독제 반입 → [레이드 시작]
+  → `GasMaskWorn`·선량 0 → 폭풍 `ForceStartNow` + `AdvanceTime` Peak, 2초 → 률 0·선량 0, 가이거 입력 = 1(방독면 무관, Q41)
+  → RAD-REF 중심 `PlaceAt` 2초 → 률 = 구역 0.5(폭풍 0)·선량 ≈ 0.5 × 2 증가, `AudioDirector.ZoneRadiationPerSec` > 0, 가이거 입력 = 1.5
+  → 스폰으로 돌아가 선량 고정 → 해독제(실제 `TryUse` 경로, Rejected 없음) → 선량 0·최대 HP 배율 1·해독제 소모, Peak에서도 0 유지
+  → `Survival.Tick(300)`으로 수분·에너지 감소, 구역에 1초 다시 들어가 선량 > 0 → EXT-01 탈출 → 은신처 결과 [확인]: 방독면 반출(헬멧), save.json에 hydration/energy/radiation/dose 문자열 없음(Q32)
+  → 다음 [레이드 시작]: 새 PlayerHealth, 수분·에너지 = 최대(±0.5), 선량 0, 생존 등급 3종 Normal, 폭풍 Pending, 반출 방독면 다시 착용.
+- `CraftedMagazine_Loadout_ReloadAndFireInRaid`: 은신처 → 키트 → RCP-AMMO-9MM12 재료(레시피 뷰의 JNK 줄 그대로)를 보관함에 지급 → [제작] 탭·[제작] 버튼(UiPointer) → 재료 0·새 MAG-9MM-12 1개(가득, Q46)
+  → 키트 탄창은 보관함에 두고 제작 인스턴스만 `TryQuickMove` → 반입 = 권총 + 그 인스턴스 → 레이드: 반입 탄창 12발 → R → `LoadedMagazine`가 반입 인스턴스와 같음·12발 → LMB 1발(ShotFired 권총·투사체 1) → 11발.
+
+**결과**: 필터 실행 2/2(32초). EditMode 1723/1723(종료 0). PlayMode 전체 179/179 × 2회 연속(752초·753초, 종료 0) — 기존 177 + 새 2, `AshStormFlowTests`·`M6RaidFlowTests`·`SurvivalFlowTests`·`RadiationFieldFlowTests`·`HideoutCraftingFlowTests` 포함.
+Mono `BuildWindows64` 종료 0: "Succeeded, 오류 0, 경고 0", 110,232,870 bytes. 테스트·빌드 전후 git status 같음(새 .meta만; 테스트·빌드가 재저장한 머티리얼·설정은 바이트 동일). 결함 없음.
+
+**AC2 판정**
+| 항목 | 자동 근거 | 판정 |
+|---|---|---|
+| 제작대 | EditMode `CraftingModelTests` 11·`HideoutServiceTests`(제작 +8)·`CraftingViewModelTests` 5·`HideoutCraftingPresenterTests` 7·`HideoutCraftingUxmlTests` 2·`M7SurvivalDataAssetTests`(레시피 표·산출 매도 ≤ 재료 매수), PlayMode `HideoutCraftingFlowTests`(제작 → 저장 → 다시 읽기)·`M7SurvivalRaidFlowTests` ②(제작 탄창으로 레이드 재장전·사격) | 자동 통과. 에디터 확인 C6(탭 배치·문구)·C7(경제 체감) 필요 |
+| 방사능 | EditMode `RadiationZoneMathTests` 14·`RadiationDoseTests` 12·`BodyHealthSystemicTests` 16(최대 HP ×0.8)·`MedicalSurvivalTests` 11(해독제)·`SurvivalRowTests` 11, PlayMode `SurvivalFlowTests`(방독면·선량 100·해독제)·`RadiationFieldFlowTests` 4(구역 률·Toxic 표시·가이거)·`AshStormFlowTests`(Peak 10 ± 0.5 무변경)·`M7SurvivalRaidFlowTests` ① | 자동 통과. 에디터 확인 C2(방독면 체감)·C3(Toxic 표시·가이거 체감)·C4(등급 체감) 필요 |
+| 탈수 | EditMode `SurvivalModelTests` 14(감소율·복부 ×2·등급)·`BodyHealthSystemicTests`(부위마다 0.5/s)·`MedicalSurvivalTests`(물), PlayMode `SurvivalFlowTests`(수분 0 → 부위 피해 → 물로 멈춤)·`M7SurvivalRaidFlowTests` ①(다음 레이드 초기화) | 자동 통과. 에디터 확인 C1(전신 줄 문구)·C5(16.7분 체감) 필요. 머리가 70초에 먼저 0 → 사망(7C-2a 메모, Q33 기획 확인 대기) |
+| 허기 | EditMode `SurvivalModelTests`·`StaminaRegenMultiplierTests` 5·`MedicalSurvivalTests`(음식), PlayMode `SurvivalFlowTests`(에너지 0 → 재생 ×0.5)·`M7SurvivalRaidFlowTests` ① | 자동 통과. 에디터 확인 C1·C5(23.8분 체감) 필요 |
+| RULE-05 | `SurvivalRowTests`(숫자·막대 정규식 27조합), 기존 `UiModelTests` | 자동 통과. C1 사람 확인 |
+
+## 7C 리뷰 수정 메모 (gameplay-programmer, 2026-10-23)
+
+원본에서 수정(M7_review.md "7C 생존·제작" 1~9, 오케스트레이터 결정대로). 새 파일·새 `.meta`·에셋·씬 변경 없음. CLAUDE.md는 고치지 않음(마일스톤 끝). 커밋하지 않음.
+
+- **1 (중간) 탈수에서 머리 제외:** `BodyHealthModel.ApplySystemicDamage`가 머리를 건너뛴다 → 흉부 80이 160초에 0 → 사망(사인 흉부, Q33 A 문구). 주석 `TODO(GDD-?) Q33`: 전신 사인 문구("탈수")는 MVP 남은 목록.
+  테스트: `SystemicDamage_FullHealth_HeadReachesZeroFirst` → `SystemicDamage_FullHealth_ThoraxReachesZeroFirst_At160Seconds`(159초 생존·머리 그대로·160초 흉부 사망, 이유 주석), `SystemicDamage_HeadNeverDamaged` 새로,
+  `SystemicDamage_EveryIntactPart_PerPartRate`는 머리 = 그대로로 단언. PlayMode `SurvivalFlowTests.Dehydrated_DamagesEveryPart_TierEvent` → `Dehydrated_DamagesPartsExceptHead_TierEvent`(머리 손실 0, 나머지 0.4~0.65).
+  주석·툴팁 갱신: `PlayerHealth`, `PlayerConfigSO.dehydratedHpPerSec`, `M7SurvivalDataSetup.DehydratedHpPerSec`(값 그대로 — 에셋 무변경).
+- **2·3·9 CHANGELOG:** "M7 설계 결정" 7C 소절에 7C 구현 결정(머리 제외, public 읽기, 전신 = Thorax, 테스트 씬에서도 감소, 무효·중복 레시피, 재료 배치 순·합계 판정, 읽기 전용 제작만 Unavailable 사유, 가이거 = 폭풍 + 구역, 희귀도 3개 Common 유지),
+  §13.3 경계, 자리표시 에셋(M_Toxic·Toxic 표시물 54개·은신처 연결), 7C 임시값 TODO 목록, 리뷰 수정 1~9 요약을 추가했다.
+- **4 재료 칸 충족 = 정의 합계:** `CraftingViewModel.Build`가 정의별 필요 합계를 먼저 구하고 칸마다 `Owned ≥ 합계`로 표시(버튼 판정과 같음, 문구 "가진 수/줄 필요 수"는 그대로). Core `CraftingInputView.IsSatisfied`는 줄 단위라는 주석만 추가(API 불변).
+  테스트: `SameDefinitionTwoLines_SummedForCanCraft`(두 칸 모두 부족 표시로 바뀜) 갱신, `SameDefinitionTwoLines_EnoughForTotal_AllSatisfied` 새로.
+- **5 사망 시 break:** 같은 호출에서 흉부가 0이 되면 남은 부위(복부·팔·다리)를 깎지 않는다. 테스트 `SystemicDamage_DeathStopsRemainingParts`.
+- **6 생존 필드 범위:** `PlayerConfigSO` 생존 11개에 `[Min(0)]`(최대·감소율·탈수 피해·복부 배율·선량 경계 8개)·`[Range(0,1)]`(굶주림 재생 배율·피폭 최대 HP 배율·Low 비율 3개). 인스펙터 가드만이라 `PlayerConfig.asset` 값(전부 범위 안) 영향 없음.
+  테스트 `SurvivalModelTests.cs`에 `SurvivalConfigRangeTests`(11 케이스, 속성 반영 검사).
+- **7 주석:** `GeigerClickModel` 머리 주석 = 입력은 환경 방사능률(폭풍 + 구역, `AmbientSoundscape.EnvironmentRadiationPerSec`, 방독면 무관).
+- **8:** 코드 변경 없음. 배치모드 전후 git status·md5(`Assets`·`ProjectSettings`, Tests 제외) 비교 — 동일.
+
+**결과**: EditMode 1737/1737(기존 1723 + 14). PlayMode 전체 179/179 × 2회 연속(750초·748초, 종료 0). Mono `BuildWindows64` 종료 0: "Succeeded, 오류 0, 경고 0", 110,233,382 bytes.
+테스트·빌드 전후 git status·md5 동일(커밋 에셋 무변경). Unity 프로세스 남지 않음(Hub 보조 `unity.exe serve`만).

@@ -14,5 +14,17 @@ namespace Ashfall.Core
         public float useTime;
         [Tooltip("사용 가능 횟수")]
         public int uses = 1;
+
+        // M7 전신 효과 (§4.3 STAT-DEHY·HUNG·RAD, M7 설계 §1.5, Q42). 물·음식·해독제도 의약품 흐름(퀵슬롯·횟수·세이브)을 그대로 쓴다.
+        // 부위 대상이 없고 전신 효과가 필요하면 사용된다(대상 표시 = 흉부). 0/false = 효과 없음(기존 의약품).
+        [Header("M7 전신 효과 (TODO(GDD-?) Q42)")]
+        [Tooltip("사용 완료 시 수분 회복량 (최대에서 자름). 0 = 없음")]
+        [Min(0f)]
+        public float hydrationRestore;
+        [Tooltip("사용 완료 시 에너지 회복량 (최대에서 자름). 0 = 없음")]
+        [Min(0f)]
+        public float energyRestore;
+        [Tooltip("사용 완료 시 방사능 선량 0 + 최대 HP 원래대로 (HP 회복 없음). 선량 > 0일 때만 사용된다 (Q36)")]
+        public bool curesRadiation;
     }
 }

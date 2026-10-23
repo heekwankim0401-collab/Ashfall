@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Ashfall.Raid
@@ -29,5 +30,8 @@ namespace Ashfall.Raid
 
         [Tooltip("지도 화면에 그릴 월드 XZ 범위 (§8.1 1km×1km, 원점 = 맵 중앙). TODO(GDD-?) Q11")]
         public Rect mapAreaXZ = new Rect(-500f, -500f, 1000f, 1000f);
+
+        [Tooltip("M7 §4.3 방사능 구역 (정유소 RAD-REF 등, 겹치면 합). 비면 구역 방사능 없음. RadiationField가 읽는다. TODO(GDD-?) Q39")]
+        public List<RadiationZoneConfig> radiationZones = new List<RadiationZoneConfig>();
     }
 }

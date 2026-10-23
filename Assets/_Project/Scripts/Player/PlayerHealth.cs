@@ -9,7 +9,11 @@ namespace Ashfall.Player
     // - MedicalUseRequested → 사용 시간 → MedicalUseCompleted
     // - M4: RaidEnded → 진행 중 의약품 사용 취소, 이후 사용 요청 거부
     // - M6: 재 폭풍 방사능 누적(RadiationDoseModel, §8.3 +1/s × 강도). 매 프레임 IAshStormInfo를 조회(레이드 밖에는 없음 = 0).
-    //       누적만 — 효과·표시·방독면은 M7 (TODO(GDD-?) Q27). 사망·레이드 종료 뒤 멈춘다.
+    //       사망·레이드 종료 뒤 멈춘다.
+    // - M7(7C-2a, 설계 §1.5): 수분·에너지(SurvivalModel) 감소, 수분 0 → 머리를 뺀 파괴되지 않은 부위마다 −0.5 HP/s(Q33, 흉부 160초).
+    //       방사능률 = 폭풍 률 × (방독면 ? 0 : 1) + 구역 률(IRadiationField, 발 위치)(Q38). 방독면 = 헬멧 슬롯 정의의 blocksStormRadiation,
+    //       매 프레임 IInventoryService 조회(할당 없음, 레이드 밖·인벤토리 없음 = 미착용). 선량 ≥ 100 → 최대 HP × 0.8(BodyHealthModel.SyncRadiation, Q35).
+    //       등급 변화는 BodyHealthModel.StatusChanged → PlayerBodyStatusChanged. 수치는 이 어셈블리 밖으로 내지 않는다(RULE-05).
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerHealth : MonoBehaviour, IDamageable
     {
@@ -28,9 +32,14 @@ namespace Ashfall.Player
 
         public BodyHealthModel Body { get; private set; }
         public MedicalUseModel Medical => medical;
-        // M6: 이번 레이드의 방사능 누적량 (STAT-RAD, 효과는 M7)
+        // M6: 이번 레이드의 방사능 누적량 (STAT-RAD). M7: 피폭 효과·해독제
         public RadiationDoseModel Radiation => radiation;
         public float RadiationDose => radiation.Dose;
+        // M7: 이번 레이드의 수분·에너지 (STAT-DEHY·HUNG, 이월 없음 Q32)
+        public SurvivalModel Survival { get; private set; }
+        // M7: 지난 프레임에 적용한 방사능률·방독면 착용 여부 (테스트·디버그 확인용, UI에 내지 않는다)
+        public float LastRadiationRatePerSec { get; private set; }
+        public bool GasMaskWorn { get; private set; }
         public bool IsDead => Body != null && Body.IsDead;
 
         private void Awake()
@@ -43,6 +52,8 @@ namespace Ashfall.Player
                 return;
             }
             Body = new BodyHealthModel(config, new System.Random());
+            Survival = new SurvivalModel(config);
+            Body.AttachSurvival(Survival, radiation);
             medical = new MedicalUseModel(Body);
             Body.StatusChanged += OnStatusChanged;
             Body.ModifiersChanged += OnModifiersChanged;
@@ -107,16 +118,51 @@ namespace Ashfall.Player
             if (medical.Tick(dt))
                 Publish(new MedicalUseCompleted(item, target));
 
+            TickSurvival(dt);
             TickRadiation(dt);
         }
 
-        // M6 재 폭풍 방사능 (§8.3, Q27). 서비스는 매 프레임 조회한다(사전 조회 1회, 할당 없음) — 폭풍이 늦게 등록·해제돼도 맞다.
+        // M7 수분·에너지 (§4.3). 수분 0이면 머리를 뺀 파괴되지 않은 부위마다 dehydratedHpPerSec (Q33). 사망·레이드 종료 뒤 멈춘다.
+        private void TickSurvival(float dt)
+        {
+            if (IsDead || raidOver || !(dt > 0f))
+                return;
+            Survival.Tick(dt, Body.IsDestroyed(BodyPart.Stomach));
+            if (Survival.IsDehydrated)
+                Body.ApplySystemicDamage(config.dehydratedHpPerSec * dt);
+        }
+
+        // M6 재 폭풍 방사능 (§8.3, Q27) + M7 방독면·구역 (Q38). 서비스는 매 프레임 조회한다(사전 조회, 할당 없음) — 늦게 등록·해제돼도 맞다.
         private void TickRadiation(float dt)
         {
             if (IsDead || raidOver || GameManager.Instance == null)
                 return;
-            if (GameManager.Instance.Services.TryGet(out IAshStormInfo storm))
-                radiation.Tick(dt, storm.RadiationPerSec);   // TODO(GDD-?) Q27: 방독면(M7)이면 0
+            ServiceRegistry services = GameManager.Instance.Services;
+            GasMaskWorn = IsGasMaskEquipped(services);
+            float rate = RadiationRate(
+                services.TryGet(out IAshStormInfo storm) ? storm.RadiationPerSec : 0f,
+                GasMaskWorn,
+                services.TryGet(out IRadiationField field) ? field.ZoneRatePerSec(transform.position) : 0f);
+            LastRadiationRatePerSec = rate;
+            radiation.Tick(dt, rate);
+            Body.SyncRadiation();   // 피폭 → 최대 HP 배율, 방사능 등급
+        }
+
+        // 순수 규칙 (Q38): 방독면은 폭풍 몫만 막는다. 음수·NaN 률은 0으로 본다.
+        public static float RadiationRate(float stormRatePerSec, bool gasMask, float zoneRatePerSec)
+        {
+            float storm = !gasMask && stormRatePerSec > 0f ? stormRatePerSec : 0f;
+            float zone = zoneRatePerSec > 0f ? zoneRatePerSec : 0f;
+            return storm + zone;
+        }
+
+        // 방독면 = 헬멧 슬롯 정의가 ArmorDefinitionSO이고 blocksStormRadiation (Q37). 인벤토리 없음 = 미착용.
+        private static bool IsGasMaskEquipped(ServiceRegistry services)
+        {
+            if (!services.TryGet(out IInventoryService inventory))
+                return false;
+            ItemInstance helmet = inventory.GetEquipped(EquipSlot.Helmet);
+            return helmet != null && helmet.Definition is ArmorDefinitionSO armor && armor.blocksStormRadiation;
         }
 
         private void OnMedicalUseRequested(MedicalUseRequested evt)

@@ -66,6 +66,17 @@ namespace Ashfall.Tests.EditMode
             return KitResult;
         }
 
+        // M7 7C-1: 제작대. 정해 둔 레시피·결과를 돌려주고 호출을 기록한다.
+        public readonly List<CraftingRecipeView> RecipeList = new List<CraftingRecipeView>();
+        public CraftResult CraftResultToReturn = CraftResult.Ok;
+        public IReadOnlyList<CraftingRecipeView> Recipes => RecipeList;
+
+        public CraftResult TryCraft(string recipeId)
+        {
+            Calls.Add("Craft:" + recipeId);
+            return CraftResultToReturn;
+        }
+
         public void AcknowledgeNotice()
         {
             Calls.Add("AckNotice");
@@ -744,6 +755,249 @@ namespace Ashfall.Tests.EditMode
                     continue;
                 Assert.IsFalse(Regex.IsMatch(t, "#[0-9A-Fa-f]{3,8}\\b|rgba?\\("), "변수 밖 색 리터럴: " + t);
             }
+        }
+    }
+
+    // ── M7 제작대 UI (M7 설계 §1.5, §4.8, §6 7C-2b): [제작] 탭·버튼 활성·결과 문구 ──
+
+    internal static class CraftingUiData
+    {
+        public static CraftingRecipeView Recipe(string id, string name, ItemDefinitionSO output, int outputCount,
+            params (ItemDefinitionSO item, int required, int owned)[] inputs) =>
+            new CraftingRecipeView(id, name, output, outputCount,
+                inputs.Select(i => new CraftingInputView(i.item, i.required, i.owned)).ToList());
+    }
+
+    public class CraftingViewModelTests
+    {
+        [Test]
+        public void Build_Null_Throws() =>
+            Assert.Throws<ArgumentNullException>(() => CraftingViewModel.Build(null));
+
+        [Test]
+        public void Build_NoRecipes_Empty()
+        {
+            Assert.IsTrue(CraftingViewModel.Build(new FakeHideoutService()).IsEmpty);
+        }
+
+        // 재료 "가진 수/필요 수", 모두 있으면 [제작] 활성, 하나라도 모자라면 비활성
+        [Test]
+        public void Rows_InputCounts_CanCraftOnlyWithAllMaterials()
+        {
+            var h = new FakeHideoutService();
+            ItemDefinitionSO pipe = TestData.Pipe();
+            ItemDefinitionSO wires = TestData.Wires();
+            h.RecipeList.Add(CraftingUiData.Recipe("RCP-A", "5.56 탄창", TestData.Magazine30(), 1, (pipe, 2, 3), (wires, 1, 1)));
+            h.RecipeList.Add(CraftingUiData.Recipe("RCP-B", "", TestData.Bandage(), 2, (wires, 2, 1)));
+            h.RecipeList.Add(CraftingUiData.Recipe(null, "id 없음", TestData.Bandage(), 1, (wires, 1, 9)));
+
+            CraftingViewModel vm = CraftingViewModel.Build(h);
+
+            Assert.AreEqual(2, vm.Recipes.Count, "id 없는 줄은 건너뛴다");
+            CraftingRecipeRow a = vm.Recipes[0];
+            Assert.AreEqual("RCP-A", a.Id);
+            Assert.AreEqual("5.56 탄창", a.Name);
+            CollectionAssert.AreEqual(new[] { "녹슨 파이프", "전선 뭉치" }, a.Inputs.Select(i => i.Name));
+            CollectionAssert.AreEqual(new[] { "3/2", "1/1" }, a.Inputs.Select(i => i.CountText));
+            Assert.IsTrue(a.Inputs.All(i => i.Satisfied));
+            Assert.IsTrue(a.HasMaterials);
+            Assert.IsTrue(a.CanCraft);
+
+            CraftingRecipeRow b = vm.Recipes[1];
+            Assert.AreEqual("붕대 ×2", b.Name, "이름이 없으면 산출 이름 ×n");
+            Assert.AreEqual("1/2", b.Inputs[0].CountText);
+            Assert.IsFalse(b.Inputs[0].Satisfied);
+            Assert.IsFalse(b.HasMaterials);
+            Assert.IsFalse(b.CanCraft, "재료 부족 → [제작] 비활성");
+        }
+
+        // 같은 정의가 두 줄이면 합계로 판정 (Owned는 줄마다 보관함 전체 수). 칸 표시도 버튼과 같은 합계 기준 (리뷰 7C 4)
+        [Test]
+        public void SameDefinitionTwoLines_SummedForCanCraft()
+        {
+            var h = new FakeHideoutService();
+            ItemDefinitionSO pipe = TestData.Pipe();
+            h.RecipeList.Add(CraftingUiData.Recipe("RCP-A", "x", TestData.Wires(), 1, (pipe, 1, 1), (pipe, 1, 1)));
+            CraftingRecipeRow row = CraftingViewModel.Build(h).Recipes[0];
+            CollectionAssert.AreEqual(new[] { "1/1", "1/1" }, row.Inputs.Select(i => i.CountText), "문구는 줄마다 가진 수/필요 수");
+            Assert.IsTrue(row.Inputs.All(i => !i.Satisfied), "합계 2 > 가진 1 → 두 칸 모두 부족 표시");
+            Assert.IsFalse(row.HasMaterials);
+            Assert.IsFalse(row.CanCraft, "합계 2 > 가진 1");
+        }
+
+        [Test]
+        public void SameDefinitionTwoLines_EnoughForTotal_AllSatisfied()
+        {
+            var h = new FakeHideoutService();
+            ItemDefinitionSO pipe = TestData.Pipe();
+            h.RecipeList.Add(CraftingUiData.Recipe("RCP-A", "x", TestData.Wires(), 1, (pipe, 1, 2), (pipe, 1, 2)));
+            CraftingRecipeRow row = CraftingViewModel.Build(h).Recipes[0];
+            Assert.IsTrue(row.Inputs.All(i => i.Satisfied), "합계 2 ≤ 가진 2");
+            Assert.IsTrue(row.CanCraft);
+        }
+
+        [Test]
+        public void LeavingOrReadOnly_CannotCraft()
+        {
+            var h = new FakeHideoutService();
+            h.RecipeList.Add(CraftingUiData.Recipe("RCP-A", "x", TestData.Wires(), 1, (TestData.Pipe(), 1, 1)));
+            Assert.IsTrue(CraftingViewModel.Build(h).Recipes[0].CanCraft);
+            h.IsLeaving = true;
+            Assert.IsFalse(CraftingViewModel.Build(h).Recipes[0].CanCraft);
+            Assert.IsTrue(CraftingViewModel.Build(h).Recipes[0].HasMaterials);
+            h.IsLeaving = false;
+            h.IsReadOnly = true;
+            Assert.IsFalse(CraftingViewModel.Build(h).Recipes[0].CanCraft, "읽기 전용 → 서비스가 Unavailable");
+        }
+    }
+
+    public class HideoutCraftingPresenterTests
+    {
+        private FakeHideoutService hideout;
+        private GameFlow flow;
+
+        [SetUp]
+        public void SetUp()
+        {
+            var rec = new FlowRecorder();
+            flow = rec.Create();
+            flow.OnSceneLoaded(SceneNames.Hideout);
+            hideout = new FakeHideoutService();
+            hideout.RecipeList.Add(CraftingUiData.Recipe("RCP-AMMO-556", "5.56 탄창 (30발)", TestData.Magazine30(), 1,
+                (TestData.Pipe(), 2, 2), (TestData.Wires(), 1, 1)));
+        }
+
+        [Test]
+        public void SelectTab_Crafting()
+        {
+            var p = new HideoutPresenter(hideout, flow);
+            int changed = 0;
+            p.Changed += () => changed++;
+            Assert.IsTrue(p.SelectTab(HideoutTab.Crafting));
+            Assert.AreEqual(HideoutTab.Crafting, p.Tab);
+            Assert.AreEqual(1, changed);
+            Assert.AreEqual(1, p.Crafting.Recipes.Count);
+        }
+
+        [Test]
+        public void Craft_Ok_MessageWithRecipeName_Refreshes()
+        {
+            var p = new HideoutPresenter(hideout, flow);
+            CraftingViewModel before = p.Crafting;
+            Assert.IsTrue(p.Craft("RCP-AMMO-556"));
+            CollectionAssert.AreEqual(new[] { "Craft:RCP-AMMO-556" }, hideout.Calls);
+            Assert.AreEqual("만들었다: 5.56 탄창 (30발)", p.Message);
+            Assert.AreNotSame(before, p.Crafting, "명령 뒤 다시 읽는다");
+        }
+
+        [TestCase(CraftResult.MissingMaterials, "재료가 모자란다.")]
+        [TestCase(CraftResult.NoSpace, "보관함에 자리가 없어 만들 수 없다.")]
+        [TestCase(CraftResult.UnknownRecipe, "알 수 없는 제작법이다.")]
+        [TestCase(CraftResult.Unavailable, "지금은 할 수 없다.")]
+        public void Craft_Failure_ResultMessage(CraftResult result, string message)
+        {
+            var p = new HideoutPresenter(hideout, flow);
+            hideout.CraftResultToReturn = result;
+            Assert.IsFalse(p.Craft("RCP-AMMO-556"));
+            Assert.AreEqual(message, p.Message);
+            Assert.AreEqual(message, UiText.Craft(result));
+        }
+
+        [Test]
+        public void Craft_IgnoredWhenLeavingOrNotHubOrEmptyId()
+        {
+            var p = new HideoutPresenter(hideout, flow);
+            Assert.IsFalse(p.Craft(null));
+            Assert.IsFalse(p.Craft(""));
+            hideout.IsLeaving = true;
+            Assert.IsFalse(p.Craft("RCP-AMMO-556"));
+            CollectionAssert.IsEmpty(hideout.Calls);
+
+            hideout.IsLeaving = false;
+            hideout.PendingNotice = new SaveLoadReport { CrashPenaltyApplied = true };
+            p.Refresh();
+            Assert.AreEqual(HideoutPanel.Notice, p.Panel);
+            Assert.IsFalse(p.Craft("RCP-AMMO-556"), "알림이 떠 있으면 허브 명령 무시");
+            CollectionAssert.IsEmpty(hideout.Calls);
+        }
+    }
+
+    public class HideoutCraftingUxmlTests
+    {
+        private static VisualElement Clone()
+        {
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(HideoutUxmlTests.HideoutUxml);
+            Assert.IsNotNull(asset);
+            return asset.CloneTree();
+        }
+
+        [Test]
+        public void HasCraftingNames()
+        {
+            VisualElement root = Clone();
+            foreach (string name in new[]
+                     {
+                         HideoutHubView.TabCraftingName, CraftingView.PanelName, CraftingView.TitleName,
+                         CraftingView.HintName, CraftingView.RecipesName,
+                     })
+                Assert.IsNotNull(root.Q(name), name);
+            Assert.AreEqual(UiText.HideoutTabCrafting, root.Q<Button>(HideoutHubView.TabCraftingName).text, "미리보기 문구도 UiText와 같게");
+        }
+
+        // 탭 버튼·레시피 줄·[제작] 활성·클릭 콜백·빈 목록 문구
+        [Test]
+        public void HubTabAndCraftingView_Render()
+        {
+            VisualElement root = Clone();
+            var hideout = new FakeHideoutService();
+            hideout.RecipeList.Add(CraftingUiData.Recipe("RCP-OK", "권총 탄창 (12발)", TestData.PistolMagazine(), 1,
+                (TestData.Pipe(), 1, 1), (TestData.Wires(), 1, 2)));
+            hideout.RecipeList.Add(CraftingUiData.Recipe("RCP-NO", "해독제", TestData.Bandage(), 1,
+                (TestData.EnginePart(), 1, 0)));
+            var flow = new FlowRecorder().Create();
+            flow.OnSceneLoaded(SceneNames.Hideout);
+            var presenter = new HideoutPresenter(hideout, flow);
+
+            HideoutTab? tab = null;
+            var crafted = new List<string>();
+            var hub = new HideoutHubView(root, t => tab = t, null, null, null);
+            var view = new CraftingView(root, crafted.Add);
+            Assert.AreEqual(DisplayStyle.None, root.Q(CraftingView.PanelName).style.display.value, "처음엔 숨김");
+            Assert.AreEqual(UiText.CraftingTitle, root.Q<Label>(CraftingView.TitleName).text);
+
+            presenter.SelectTab(HideoutTab.Crafting);
+            hub.Render(presenter);
+            Assert.IsTrue(root.Q(HideoutHubView.TabCraftingName).ClassListContains(HideoutHubView.TabSelectedClass));
+            Assert.IsFalse(root.Q(HideoutHubView.TabLoadoutName).ClassListContains(HideoutHubView.TabSelectedClass));
+            Assert.IsTrue(root.Q<Button>(HideoutHubView.TabCraftingName).enabledSelf);
+
+            view.SetVisible(true);
+            view.Render(presenter.Crafting, presenter.HubEnabled);
+            List<VisualElement> rows = root.Q(CraftingView.RecipesName).Query(className: CraftingView.RowClass).ToList();
+            Assert.AreEqual(2, rows.Count);
+            Assert.AreEqual("권총 탄창 (12발)", rows[0].Q<Label>(className: CraftingView.RowNameClass).text);
+            CollectionAssert.AreEqual(new[] { "1/1", "2/1" },
+                rows[0].Query<Label>(className: CraftingView.InputCountClass).ToList().Select(l => l.text));
+            CollectionAssert.AreEqual(new[] { "녹슨 파이프", "전선 뭉치" },
+                rows[0].Query<Label>(className: CraftingView.InputNameClass).ToList().Select(l => l.text));
+            Assert.IsTrue(rows[0].Q<Button>(className: CraftingView.RowButtonClass).enabledSelf);
+            Assert.AreEqual(UiText.CraftingButton, rows[0].Q<Button>().text);
+            Assert.IsFalse(rows[1].Q<Button>(className: CraftingView.RowButtonClass).enabledSelf, "재료 부족 → 비활성");
+            Assert.IsTrue(rows[1].Q(className: CraftingView.InputClass).ClassListContains(CraftingView.InputMissingClass));
+            Assert.IsFalse(rows[0].Q(className: CraftingView.InputClass).ClassListContains(CraftingView.InputMissingClass));
+
+            // 떠나는 중 → 모든 [제작] 비활성
+            hideout.IsLeaving = true;
+            presenter.Refresh();
+            view.Render(presenter.Crafting, presenter.HubEnabled);
+            Assert.IsTrue(root.Q(CraftingView.RecipesName).Query<Button>().ToList().All(b => !b.enabledSelf));
+
+            // 레시피 없음 → 빈 문구 한 줄
+            view.Render(CraftingViewModel.Build(new FakeHideoutService()), true);
+            CollectionAssert.AreEqual(new[] { UiText.CraftingEmpty },
+                root.Q(CraftingView.RecipesName).Query<Label>().ToList().Select(l => l.text));
+            hub.Dispose();
+            Assert.IsNull(tab);
         }
     }
 }

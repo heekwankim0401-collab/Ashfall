@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: "\uAD70\uC6A9 \uC18C\uCD1D"
   size: {x: 4, y: 2}
   weightKg: 0
-  rarity: 0
+  rarity: 3
   basePrice: 4000
   icon: {fileID: 0}
   cls: 2

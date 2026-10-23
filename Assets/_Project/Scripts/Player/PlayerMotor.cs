@@ -12,6 +12,7 @@ namespace Ashfall.Player
     // M4: 레이드 시작 스폰 배치(IPlayerPlacement)를 받는다 (M4 설계 §1.1). Raid는 Transform을 직접 건드리지 않는다.
     // M6: 오디오 발소리(§11). Move 뒤 실제 수평 이동 거리(접지 중만)를 보폭(StrideCadence)으로 나눠 걸음마다 FootstepTaken(발 위치, 걸음, Player).
     //     걸음 = 자세(엎드림 > 웅크림) > 질주 > 걷기 (SelectGait). AI 청각용 NoiseEmitted(Footstep) 0.5초 펄스는 그대로.
+    // M7: 에너지 0이면 스태미나 재생 × 0.5 (StaminaRegenMultiplier, §4.3 STAT-HUNG).
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerMotor : MonoBehaviour, IRecoilReceiver, IPlayerTarget, IPlayerPlacement
     {
@@ -40,6 +41,10 @@ namespace Ashfall.Player
         // 체력 상태 패널티 (PlayerHealth가 없으면 정상)
         public ConditionModifiers Condition =>
             health != null && health.Body != null ? health.Body.Modifiers : ConditionModifiers.Healthy;
+
+        // M7 §4.3 STAT-HUNG: 에너지 0(허기)이면 스태미나 재생 배율 (PlayerHealth의 SurvivalModel을 같은 어셈블리에서 직접 읽는다). 없으면 1.
+        public float StaminaRegenMultiplier =>
+            health != null && health.Survival != null && health.Survival.IsStarving ? config.starvingStaminaRegenMultiplier : 1f;
 
         // 화면 열림·사망으로 게임플레이 입력을 받지 않는 중
         public bool InputBlocked => screenOpen || (health != null && health.IsDead);
@@ -197,7 +202,7 @@ namespace Ashfall.Player
 
             IsSprinting = !blocked && sprint.IsPressed()
                           && Locomotion.CanSprint(moving, carriedWeightKg, Stamina, condition);
-            Stamina.Tick(dt, IsSprinting, moving);
+            Stamina.Tick(dt, IsSprinting, moving, StaminaRegenMultiplier);
             CurrentNoiseRadius = Locomotion.NoiseRadius(moving, IsSprinting);
             // 발소리: 이동 중 noisePulseIntervalSec마다 (SYS-PLR-01 §4.1 소음 반경 → §7 청각)
             if (footsteps.Tick(dt, CurrentNoiseRadius))

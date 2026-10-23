@@ -293,7 +293,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual("LT-SNP", t.id);
             Assert.AreEqual(new Vector2Int(1, 2), t.rollCount);
             Assert.IsNull(t.guaranteedFirstRoll);
-            AssertEntries(t, ("MAG-762-5", 3f));
+            AssertEntries(t, new[] { ("MAG-762-5", 3f) }.Concat(M7SurvivalDataAssetTests.LootAdditions["LT-SNP"]).ToArray());   // 뒤 = 7C 추가분
         }
 
         [Test]
@@ -303,7 +303,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual("LT-MUT", t.id);
             Assert.AreEqual(new Vector2Int(0, 2), t.rollCount);
             Assert.IsNull(t.guaranteedFirstRoll);
-            AssertEntries(t, ("JNK-01", 2f), ("JNK-03", 2f));
+            AssertEntries(t, new[] { ("JNK-01", 2f), ("JNK-03", 2f) }.Concat(M7SurvivalDataAssetTests.LootAdditions["LT-MUT"]).ToArray());   // 뒤 = 7C 추가분
         }
 
         [Test]
@@ -313,7 +313,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual("LT-BOS", t.id);
             Assert.AreEqual(new Vector2Int(3, 4), t.rollCount);
             Assert.AreSame(Load<ItemDefinitionSO>(RelicPath), t.guaranteedFirstRoll, "Q31 첫 굴림 고정");
-            AssertEntries(t, ("MAG-762-5", 2f));
+            AssertEntries(t, new[] { ("MAG-762-5", 2f) }.Concat(M7SurvivalDataAssetTests.LootAdditions["LT-BOS"]).ToArray());   // 뒤 = 7C 추가분
             Assert.IsFalse(t.entries.Any(e => e.item != null && e.item.id == "ITM-REL-01"), "유물은 가중치 목록에 없다(정확히 1개)");
         }
 

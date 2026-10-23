@@ -191,5 +191,10 @@ namespace Ashfall.Tests.EditMode
         public bool IsDead { get; set; }
         public HealthTier GetTier(BodyPart part) => Tiers.TryGetValue(part, out var tier) ? tier : HealthTier.Healthy;
         public bool HasStatus(BodyPart part, StatusEffect effect) => Statuses.Contains((part, effect));
+
+        // M7 7C-1: 전신 생존 등급 (없으면 Normal)
+        public readonly Dictionary<SurvivalStat, SurvivalTier> SurvivalTiers = new Dictionary<SurvivalStat, SurvivalTier>();
+        public SurvivalTier GetSurvivalTier(SurvivalStat stat) =>
+            SurvivalTiers.TryGetValue(stat, out var tier) ? tier : SurvivalTier.Normal;
     }
 }

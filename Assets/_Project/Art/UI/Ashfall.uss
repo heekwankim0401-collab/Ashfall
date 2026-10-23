@@ -23,6 +23,8 @@
     /* M5 은신처 보관함 스크롤 폭 = 10칸 × --ash-cell-size(48px) + 세로 스크롤바 여유. 칸 크기를 바꾸면 같이 바꾼다. */
     --hideout-stash-width: 500px;
     --hideout-trader-column-width: 360px;
+    /* M7 제작 탭 레시피 이름 칸 폭 (TODO(GDD-?): 그레이박스 값) */
+    --crafting-name-width: 220px;
 }
 
 .ash-root {
@@ -345,6 +347,27 @@
     padding: 1px 6px;
     background-color: var(--rust-red);
     font-size: 12px;
+}
+
+/* M7 "전신" 줄 (Q43): 7부위 아래 한 줄, 등급 문구만(숫자·막대 없음). Normal이면 칩 없음. */
+.bs-survival-row {
+    margin-top: 6px;
+    border-top-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.bs-status.bs-survival--low {
+    background-color: var(--dried-blood);
+}
+
+.bs-status.bs-survival--critical {
+    background-color: var(--rust-red);
+    -unity-font-style: bold;
+}
+
+.bs-status.bs-survival--radiation {
+    border-width: 1px;
+    border-color: var(--toxic);
 }
 
 /* ── M4: 탈출 카운트다운 (§12 허용 HUD, 구역 안에서만) ── */
@@ -716,6 +739,76 @@
     min-width: 72px;
     height: 28px;
     margin: 0;
+}
+
+/* M7 [제작] 탭 (CraftingView). 텍스트는 Bone, 부족한 재료는 배경색(Dried_Blood)으로만 구분한다. */
+.crafting-panel {
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0;
+}
+
+.crafting-hint {
+    margin: 0 0 8px 0;
+    opacity: 0.7;
+}
+
+.crafting-list {
+    flex-direction: column;
+}
+
+.crafting-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 40px;
+    padding: 4px 0;
+    border-bottom-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.crafting-row-name {
+    width: var(--crafting-name-width);
+    margin: 0 8px 0 0;
+    padding: 0;
+    -unity-font-style: bold;
+}
+
+.crafting-inputs {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.crafting-input {
+    flex-direction: row;
+    align-items: center;
+    margin: 2px 6px 2px 0;
+    padding: 1px 6px;
+    border-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.crafting-input--missing {
+    background-color: var(--dried-blood);
+    border-color: var(--rust-red);
+}
+
+.crafting-input-name {
+    margin: 0 6px 0 0;
+    padding: 0;
+}
+
+.crafting-input-count {
+    margin: 0;
+    padding: 0;
+    -unity-font-style: bold;
+}
+
+.ash-button.crafting-row-button {
+    min-width: 72px;
+    height: 28px;
+    margin: 0 0 0 8px;
 }
 
 /* 알림 패널 */

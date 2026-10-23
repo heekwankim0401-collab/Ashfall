@@ -16,8 +16,9 @@ MonoBehaviour:
   displayName: "SMG \uD0C4\uCC3D (30\uBC1C)"
   size: {x: 1, y: 2}
   weightKg: 0.35
-  rarity: 0
+  rarity: 1
   basePrice: 300
   icon: {fileID: 0}
   ammo: 0
   capacity: 30
+  isAmmoBox: 0

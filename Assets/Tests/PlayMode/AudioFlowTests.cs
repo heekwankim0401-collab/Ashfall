@@ -800,7 +800,145 @@ namespace Ashfall.Tests.PlayMode
             yield return null;
         }
 
+        // ---------- M7 7C-2c: 가이거 = 폭풍 + 구역 (Q41) ----------
+
+        // 청취자가 구역 안이면 폭풍 없이도 가이거가 울린다. 입력 = 청취자 위치의 구역 률. 구역 밖이면 0.
+        [UnityTest]
+        public IEnumerator Geiger_ListenerInsideZone_Clicks_WithoutStorm()
+        {
+            var zone = new FakeRadiationField { Center = Origin, Radius = 10f, Rate = 3f };
+            Gm.Services.TryGet(out IRadiationField previous);
+            Gm.Services.Register<IRadiationField>(zone);
+            try
+            {
+                director.ResolveServices();
+                AmbientSoundscape amb = director.Ambient;
+                yield return null;
+                Assert.IsTrue(director.HasRadiationField);
+                Assert.AreEqual(3f, director.ZoneRadiationPerSec, 1e-5f, "청취자 = 구역 중심");
+                Assert.AreEqual(0f, director.StormRadiationPerSec, "폭풍 서비스 없음");
+                Assert.AreEqual(3f, amb.GeigerInputPerSec, 1e-5f);
+                Assert.AreEqual(target.Eye, zone.LastQuery, "구역 률은 청취자(IPlayerTarget.EyePosition) 위치로 조회");
+
+                int clicks0 = amb.GeigerClicks;
+                float until = Time.realtimeSinceStartup + 1.5f;
+                while (Time.realtimeSinceStartup < until)
+                    yield return null;
+                Assert.Greater(amb.GeigerClicks, clicks0, "구역 안 → 가이거 클릭 (방사능 3/s → 18클릭/s)");
+
+                // 구역 밖 → 클릭 멈춤
+                MoveListener(Origin + Vector3.right * 50f);
+                yield return null;
+                Assert.AreEqual(0f, director.ZoneRadiationPerSec);
+                Assert.AreEqual(0f, amb.GeigerInputPerSec);
+                int clicks1 = amb.GeigerClicks;
+                yield return null;
+                yield return null;
+                Assert.AreEqual(clicks1, amb.GeigerClicks, "구역 밖·폭풍 없음 → 클릭 없음");
+            }
+            finally
+            {
+                Gm.Services.Unregister<IRadiationField>(zone);
+                if (previous != null && !(previous is Object o && o == null))
+                    Gm.Services.Register(previous);
+            }
+        }
+
+        // 폭풍과 구역이 겹치면 합 (방독면과 무관한 환경 률). 구역 서비스가 사라지면 폭풍 몫만.
+        [UnityTest]
+        public IEnumerator Geiger_Input_IsStormPlusZone_ZoneServiceRemoved_StormOnly()
+        {
+            storm = new FakeStorm { Phase = AshStormPhase.Peak, Intensity = 1f, RadiationPerSec = 1f };
+            Gm.Services.Register<IAshStormInfo>(storm);
+            var zone = new FakeRadiationField { Center = Origin, Radius = 10f, Rate = 0.5f };
+            Gm.Services.TryGet(out IRadiationField previous);
+            Gm.Services.Register<IRadiationField>(zone);
+            try
+            {
+                director.ResolveServices();
+                yield return null;
+                Assert.AreEqual(1f, director.StormRadiationPerSec, 1e-5f);
+                Assert.AreEqual(0.5f, director.ZoneRadiationPerSec, 1e-5f);
+                Assert.AreEqual(1.5f, director.Ambient.GeigerInputPerSec, 1e-5f, "폭풍 1 + 구역 0.5");
+
+                // 이상값은 0으로 (NaN·음수 구역 률이 가이거를 망치지 않는다)
+                zone.Rate = float.NaN;
+                yield return null;
+                Assert.AreEqual(1f, director.Ambient.GeigerInputPerSec, 1e-5f, "NaN 구역 = 0");
+                zone.Rate = -2f;
+                yield return null;
+                Assert.AreEqual(1f, director.Ambient.GeigerInputPerSec, 1e-5f, "음수 구역 = 0");
+
+                zone.Rate = 0.5f;
+                Gm.Services.Unregister<IRadiationField>(zone);
+                director.ResolveServices();
+                yield return null;
+                Assert.IsFalse(director.HasRadiationField);
+                Assert.AreEqual(0f, director.ZoneRadiationPerSec);
+                Assert.AreEqual(1f, director.Ambient.GeigerInputPerSec, 1e-5f, "구역 서비스 없음(레이드 밖) = 폭풍만");
+
+                // 순수 합 규칙
+                Assert.AreEqual(1.5f, AmbientSoundscape.EnvironmentRadiationPerSec(1f, 0.5f), 1e-6f);
+                Assert.AreEqual(0.5f, AmbientSoundscape.EnvironmentRadiationPerSec(float.NaN, 0.5f), 1e-6f);
+                Assert.AreEqual(1f, AmbientSoundscape.EnvironmentRadiationPerSec(1f, float.PositiveInfinity), 1e-6f);
+                Assert.AreEqual(0f, AmbientSoundscape.EnvironmentRadiationPerSec(-1f, -1f));
+            }
+            finally
+            {
+                Gm.Services.Unregister<IRadiationField>(zone);
+                if (previous != null && !(previous is Object o && o == null))
+                    Gm.Services.Register(previous);
+            }
+        }
+
+        // 구역 조회가 들어간 Update 경로도 할당 없음 (구역 서비스 + 폭풍, 여러 프레임)
+        [UnityTest]
+        public IEnumerator Geiger_ZoneLookup_NoGcInUpdate()
+        {
+            storm = new FakeStorm { Phase = AshStormPhase.Peak, Intensity = 1f, RadiationPerSec = 1f };
+            Gm.Services.Register<IAshStormInfo>(storm);
+            var zone = new FakeRadiationField { Center = Origin, Radius = 10f, Rate = 0.5f };
+            Gm.Services.TryGet(out IRadiationField previous);
+            Gm.Services.Register<IRadiationField>(zone);
+            try
+            {
+                director.ResolveServices();
+                yield return null;
+                yield return null;
+                // 프레임 전체 할당은 다른 시스템도 포함하므로 디렉터 Update와 같은 입력 경로(청취자 위치 → 구역 조회 → Ambient.Tick)를 직접 감싼다.
+                IRadiationField service = zone;
+                AssertNoAlloc(() =>
+                {
+                    for (int i = 0; i < 300; i++)
+                        director.Ambient.Tick(0.016f, 1f, storm.RadiationPerSec, service.ZoneRatePerSec(director.ListenerPosition));
+                });
+                Assert.Greater(director.Ambient.GeigerClicks, 0, "폭풍 1 + 구역 0.5 → 클릭");
+                Assert.AreEqual(1.5f, director.Ambient.GeigerInputPerSec, 1e-5f);
+            }
+            finally
+            {
+                Gm.Services.Unregister<IRadiationField>(zone);
+                if (previous != null && !(previous is Object o && o == null))
+                    Gm.Services.Register(previous);
+            }
+        }
+
         // ---------- 가짜 서비스 ----------
+
+        private sealed class FakeRadiationField : IRadiationField
+        {
+            public Vector3 Center;
+            public float Radius;
+            public float Rate;
+            public Vector3 LastQuery;
+
+            public float ZoneRatePerSec(Vector3 position)
+            {
+                LastQuery = position;
+                float dx = position.x - Center.x, dz = position.z - Center.z;
+                return dx * dx + dz * dz <= Radius * Radius ? Rate : 0f;
+            }
+        }
 
         private sealed class FakeTarget : IPlayerTarget
         {

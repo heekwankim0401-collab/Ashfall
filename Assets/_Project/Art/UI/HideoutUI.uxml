@@ -5,7 +5,7 @@
     <Style src="Ashfall.uss" />
     <ui:VisualElement name="hideout-root" class="ash-root hideout-root">
 
-        <!-- 허브: 탄피, [장비]/[상인], 부랑자 키트, [레이드 시작](확인 없음, Q30), [메인 메뉴] -->
+        <!-- 허브: 탄피, [장비]/[상인]/[제작](M7), 부랑자 키트, [레이드 시작](확인 없음, Q30), [메인 메뉴] -->
         <ui:VisualElement name="hideout-hub" class="hideout-hub">
             <ui:VisualElement class="hideout-header" picking-mode="Ignore">
                 <ui:Label text="은신처" class="hideout-title" picking-mode="Ignore" />
@@ -13,6 +13,7 @@
                 <ui:VisualElement class="hideout-tabs" picking-mode="Ignore">
                     <ui:Button name="hideout-tab-loadout" text="장비" class="ash-button hideout-tab" />
                     <ui:Button name="hideout-tab-trader" text="상인" class="ash-button hideout-tab" />
+                    <ui:Button name="hideout-tab-crafting" text="제작" class="ash-button hideout-tab" />
                 </ui:VisualElement>
                 <ui:VisualElement class="hideout-kit" picking-mode="Ignore">
                     <ui:Button name="hideout-kit-button" text="부랑자 키트 받기" class="ash-button" />
@@ -70,6 +71,16 @@
                             </ui:ScrollView>
                         </ui:VisualElement>
                     </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- [제작] 탭 (M7 설계 §1.5, Q44~Q47): 레시피 줄 = 이름 · 재료("이름 가진 수/필요 수") · [제작]. 재료는 보관함만.
+                     줄은 CraftingView가 만든다. 결과 문구는 hideout-message. -->
+                <ui:VisualElement name="crafting-panel" class="panel crafting-panel">
+                    <ui:Label name="crafting-title" text="제작대" class="panel-title" picking-mode="Ignore" />
+                    <ui:Label name="crafting-hint" text="재료는 보관함에서만 쓴다." class="crafting-hint" picking-mode="Ignore" />
+                    <ui:ScrollView name="crafting-recipes-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" class="hideout-scroll">
+                        <ui:VisualElement name="crafting-recipes" class="crafting-list" />
+                    </ui:ScrollView>
                 </ui:VisualElement>
 
             </ui:VisualElement>

@@ -86,3 +86,31 @@
 
 ### 7B 처리 결과
 지적 15개 모두 수정(11은 커밋 전 git status 확인으로 처리) — 처리 내용은 M7_design.md "7B 리뷰 수정 메모". 수정 후 원본 EditMode 1596/1596, PlayMode 163/163 × 2, Mono 빌드 성공(경고 0), ApplyAll 2회 멱등.
+
+## 7C 생존·제작 — 높음 0, 중간 1, 낮음 8
+
+범위: 7eccabb 대비 작업 트리(7C-1·1b·2a·2b·2c·3 메모의 파일).
+
+### 중간
+1. 수분 0 사망 시점이 Q33 A 문구("흉부 80 → 160초")와 다르다 — Player/BodyHealthModel.cs:126-140, UI/RaidResultViewModel.cs:64. [확인] 부위마다 0.5/s라 머리 35가 70초(피폭 중 56초)에 먼저 0 → 사인 "머리". CHANGELOG에 차이 없음.
+   오케스트레이터 결정: (b) 탈수 피해에서 머리를 뺀다(흉부 80 → 160초, 사인 흉부). 전신 사인 문구("탈수")는 MVP 남은 목록.
+
+### 낮음
+2. CHANGELOG에 7C-2a·2b·2c·3 결정 없음(1번, 수분·에너지 public 읽기, 전신 대상 Thorax, 탈수 피해 분산·배율·굴림 없음, 테스트 씬에서도 감소, 읽기 전용 제작 Unavailable, 무효·중복 레시피 제외, 재료 배치 순, 가이거 = 폭풍 + 구역).
+3. 읽기 전용에서 상인은 되고 제작만 Unavailable — HideoutService.cs:195 대 :144-162. 결정: 유지하고 사유를 CHANGELOG에 기록.
+4. 재료 칸 충족 표시(줄 단위)와 버튼 판정(정의 합계)이 어긋날 수 있음 — UI/CraftingViewModel.cs:77-78, Core/Services/IHideoutService.cs:62. 합계 기준으로.
+5. 탈수 루프가 사망 뒤에도 남은 부위를 깎음 — BodyHealthModel.cs:131-138. 사망하면 break.
+6. 생존 설정 범위 가드 없음 — PlayerConfigSO.cs:136-164. [Min]/[Range] 또는 자르기.
+7. 낡은 주석 — Audio/Logic/GeigerClickModel.cs:5("폭풍에만 반응").
+8. 커밋 에셋 재실행 테스트 위험 지속(M7SurvivalDataAssetTests.cs:403-422, M6 AtmosphereAssetTests가 M_Toxic까지 만듦) — 커밋 전 git status·md5 확인 유지.
+9. CLAUDE.md "구조"에 7C 타입 없음(마일스톤 끝에 갱신). 희귀도 WPN-PST-01·WPN-SMG-01·ITM-FLR-01 = Common 유지(오케스트레이터 결정, M3·M4 결정·테스트 보존).
+
+### 확인한 것 (문제 없음)
+- §13.3: 기능 → Core만, 공용 타입은 Core, 정적 인스턴스 없음, 옛 Input 없음.
+- RULE-05: IBodyStatusView는 등급만, 수치는 Player 안, "전신" 줄 문구·숫자 없음(정규식 테스트), 제작 탭 숫자는 재료 개수뿐.
+- 감소율·복부 ×2·0 멈춤·dt 가드·사망/종료 후 정지, 에너지 0 → 스태미나 재생 ×0.5, 피폭 ×0.8 자르기, 해독제(Q36), 의약품 흐름(Q42), 방독면 = 폭풍만(Q37·Q38), 구역 수학·등록 짝(Q39), 가이거 입력(Q41), 이월 없음(Q32), 세이브 v2 스키마 불변.
+- 제작: 보관함만·배치 순·가득 찬 산출·NoSpace 시 통째 원위치·Unavailable/UnknownRecipe·성공 때만 HideoutChanged·W2~W4 저장.
+- 할당 0(PlayerHealth.Update·구역·가이거), 수치는 SO + TODO, M5·M6 회귀 없음, 7D 선행 없음.
+
+### 7C 처리 결과
+지적 9개 모두 처리(1은 탈수에서 머리 제외, 3·9는 기록, 8은 커밋 전 확인) — M7_design.md "7C 리뷰 수정 메모". 수정 후 원본 EditMode 1737/1737, PlayMode 179/179 × 2, Mono 빌드 성공(경고 0).

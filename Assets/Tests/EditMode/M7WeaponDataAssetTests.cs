@@ -362,7 +362,9 @@ namespace Ashfall.Tests.EditMode
             var t = Load<TraderConfigSO>(TraderConfigPath);
             Assert.IsTrue(t.catalog.All(i => i != null), "빈 항목");
             string[] ids = t.catalog.Select(i => i.id).ToArray();
-            CollectionAssert.AreEqual(TraderAdditionIds, ids.Skip(ids.Length - TraderAdditionIds.Length).ToArray(), "Q20 추가분이 끝에 이 순서로");
+            // 7A 추가분 뒤에 7C 추가분(M7SurvivalDataAssetTests.TraderAdditionIds)이 붙는다
+            int tail = TraderAdditionIds.Length + M7SurvivalDataAssetTests.TraderAdditionIds.Length;
+            CollectionAssert.AreEqual(TraderAdditionIds, ids.Skip(ids.Length - tail).Take(TraderAdditionIds.Length).ToArray(), "Q20 추가분이 7C 추가분 앞에 이 순서로");
             CollectionAssert.AllItemsAreUnique(t.catalog);
             foreach (string id in TraderAdditionIds)
             {

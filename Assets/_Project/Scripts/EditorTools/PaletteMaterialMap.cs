@@ -20,6 +20,7 @@ namespace Ashfall.EditorTools
             Puddle,
             Mutant,   // M7 7B-2c: AI-MUT 몸
             Boss,     // M7 7B-2c: AI-BOS 몸
+            Toxic,    // M7 7C-2c: 정유소 방사능 구역 표시(드럼통·경고 기둥)
         }
 
         // 머티리얼 한 개의 사양. 색은 토큰(+ 알파), 셰이더 속성은 URP Lit/Unlit 이름 그대로.
@@ -80,6 +81,8 @@ namespace Ashfall.EditorTools
             // M7 설계 §2.2 (7B-2c): 변이체 = Ash_Grey 거친 면, 보스 = Ember 강조(약한 발광). TODO(GDD-?) 자리표시
             { Key.Mutant, new Spec("M_Mutant", PalettePath("M_Mutant"), PaletteToken.AshGrey, smoothness: 0.02f) },
             { Key.Boss, new Spec("M_Boss", PalettePath("M_Boss"), PaletteToken.Ember, smoothness: 0.35f, emission: 0.3f) },
+            // M7 설계 §2.2 (7C-2c, Q40): Toxic(#7A8A2A) 단색 + 약한 발광 — 정유소 드럼통·경고 기둥. 경로 = M7Names.ToxicMaterialPath. TODO(GDD-?) 자리표시
+            { Key.Toxic, new Spec("M_Toxic", M7Names.ToxicMaterialPath, PaletteToken.Toxic, smoothness: 0.3f, emission: 0.25f) },
         };
 
         // M7 저격 섬광 (설계 §1.4·§2.2, Q23): URP Unlit, _BaseColor = Bone × Emission(HDR — Bloom이 받는다), 그림자 없음.

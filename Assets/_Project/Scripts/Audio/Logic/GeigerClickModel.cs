@@ -2,7 +2,8 @@ using System;
 
 namespace Ashfall.Audio
 {
-    // 가이거 계수기 클릭 (§11 "방사능 구역에서 가이거", M6 Q22: 재 폭풍 방사능률에만 반응). 순수.
+    // 가이거 계수기 클릭 (§11 "방사능 구역에서 가이거"). 순수. 입력 = 환경 방사능률(M6 Q22 재 폭풍 + M7 Q41 방사능 구역 합,
+    // AmbientSoundscape.EnvironmentRadiationPerSec가 만든다 — 방독면 무관). 이 모델은 받은 률만 본다.
     // 초당 클릭 = 방사능률 × clicksPerRad (상한 maxClicksPerSec). 간격은 지수 분포(푸아송 과정).
     // 비율이 바뀌어도 맞도록 "기대 클릭 수" 단위의 남은 양을 쓴다(지수(1) 표본에서 rate·dt씩 뺀다).
     public sealed class GeigerClickModel

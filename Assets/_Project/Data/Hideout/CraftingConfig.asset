@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4321732652ff8334cbbb5269f6aadc2e, type: 3}
+  m_Name: CraftingConfig
+  m_EditorClassIdentifier: Ashfall.Hideout::Ashfall.Hideout.CraftingConfigSO
+  recipes:
+  - id: RCP-AMMO-9MM12
+    displayName: "\uAD8C\uCD1D \uD0C4\uCC3D (12\uBC1C)"
+    inputs:
+    - item: {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+      count: 1
+    output: {fileID: 11400000, guid: 4c7f104ea4721df46b6c549f1e6a891f, type: 2}
+    outputCount: 1
+  - id: RCP-AMMO-556
+    displayName: "5.56 \uD0C4\uCC3D (30\uBC1C)"
+    inputs:
+    - item: {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+      count: 2
+    - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+      count: 1
+    output: {fileID: 11400000, guid: 8bf876d69e7c41343a655c0a81d68e95, type: 2}
+    outputCount: 1
+  - id: RCP-AMMO-762
+    displayName: "7.62 \uD0C4\uCC3D (5\uBC1C)"
+    inputs:
+    - item: {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 6a8e204bfd179ce4c84971f82214d0f1, type: 2}
+      count: 1
+    output: {fileID: 11400000, guid: ffa37bc5de17ce842a0c15b4d7b2afeb, type: 2}
+    outputCount: 1
+  - id: RCP-AMMO-12GA
+    displayName: "12ga \uD0C4 \uC0C1\uC790 (8\uBC1C)"
+    inputs:
+    - item: {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+      count: 2
+    output: {fileID: 11400000, guid: ff0b5f8e7799c9544b9f9616d6fce58a, type: 2}
+    outputCount: 1
+  - id: RCP-MED-BND
+    displayName: "\uBD95\uB300 \xD7 2"
+    inputs:
+    - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+      count: 1
+    output: {fileID: 11400000, guid: a4a6060da2d9d2a4c9f31adccbbcc97a, type: 2}
+    outputCount: 2
+  - id: RCP-MED-TRQ
+    displayName: "\uC9C0\uD608\uB300"
+    inputs:
+    - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+      count: 2
+    output: {fileID: 11400000, guid: 958861534f1f9384a948671cb3b40cec, type: 2}
+    outputCount: 1
+  - id: RCP-MED-SPL
+    displayName: "\uBD80\uBAA9"
+    inputs:
+    - item: {fileID: 11400000, guid: 81eea2068c626514da0738e00455682f, type: 2}
+      count: 2
+    output: {fileID: 11400000, guid: 5e7b923bea34ff54a944ee4b66ec5598, type: 2}
+    outputCount: 1
+  - id: RCP-MED-ANT
+    displayName: "\uD574\uB3C5\uC81C"
+    inputs:
+    - item: {fileID: 11400000, guid: 6a8e204bfd179ce4c84971f82214d0f1, type: 2}
+      count: 1
+    - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
+      count: 1
+    output: {fileID: 11400000, guid: e3785fd381c013d4f876b827f82447c8, type: 2}
+    outputCount: 1

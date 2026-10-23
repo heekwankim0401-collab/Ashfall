@@ -24,4 +24,9 @@ MonoBehaviour:
     weight: 2
   - item: {fileID: 11400000, guid: 21e386f90b4470f45bacb32a4623e200, type: 2}
     weight: 1
+  - item: {fileID: 11400000, guid: b3e3fb2e356fa9e45a823ea7670ffe52, type: 2}
+    weight: 1
+  - item: {fileID: 11400000, guid: 3bafa9a06f0f07e49bdf5e05337610b2, type: 2}
+    weight: 1
   rollCount: {x: 1, y: 3}
+  guaranteedFirstRoll: {fileID: 0}

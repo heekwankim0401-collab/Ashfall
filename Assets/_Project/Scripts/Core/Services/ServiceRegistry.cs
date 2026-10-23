@@ -8,7 +8,9 @@ namespace Ashfall.Core
     // 등록 대상은 Core에 정의된 인터페이스만 (IInventoryService, IMagazineSource, IBodyStatusView,
     // M3: IPlayerTarget, IProjectileService, M4: IPlayerPlacement(Player), IRaidInfo(Raid), M5: IHideoutService(Hideout),
     // M6: IAshStormInfo(Raid — 레이드 씬에만),
-    // M7: ILooseAmmoSource(Inventory — 튜브 장전 낱탄, IMagazineSource와 같은 인스턴스)).
+    // M7: ILooseAmmoSource(Inventory — 튜브 장전 낱탄, IMagazineSource와 같은 인스턴스),
+    //     IRadiationField(Raid RadiationField — 레이드 씬에만, 7C)).
+    // IBodyStatusView는 M7에 GetSurvivalTier(등급만), IHideoutService는 Recipes·TryCraft(제작대)가 늘었다 — 같은 등록을 그대로 쓴다.
     // 씬을 넘는 흐름(GameFlow)은 서비스가 아니라 GameManager.Flow로 쓴다.
     // 제공자: Awake/OnEnable에서 Register, OnDisable에서 Unregister. 소비자: Start 이후 TryGet.
     public sealed class ServiceRegistry

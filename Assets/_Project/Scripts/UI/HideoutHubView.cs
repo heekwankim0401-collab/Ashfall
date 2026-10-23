@@ -4,7 +4,8 @@ using UnityEngine.UIElements;
 namespace Ashfall.UI
 {
     // 은신처 허브 (Art/UI/HideoutUI.uxml). 데이터·판정은 HideoutPresenter. 여기서는 문구·활성·버튼 연결만.
-    // 탭 내용: [장비] = InventoryScreenView(inventory-screen), [상인] = TraderView(trader-panel). 둘의 표시는 HideoutRoot가 정한다.
+    // 탭 내용: [장비] = InventoryScreenView(inventory-screen), [상인] = TraderView(trader-panel), [제작] = CraftingView(crafting-panel, M7).
+    // 표시는 HideoutRoot가 정한다.
     public sealed class HideoutHubView
     {
         public const string RootName = "hideout-root";
@@ -12,6 +13,7 @@ namespace Ashfall.UI
         public const string CasingsName = "hideout-casings";
         public const string TabLoadoutName = "hideout-tab-loadout";
         public const string TabTraderName = "hideout-tab-trader";
+        public const string TabCraftingName = "hideout-tab-crafting";
         public const string KitButtonName = "hideout-kit-button";
         public const string KitStatusName = "hideout-kit-status";
         public const string StartRaidName = "hideout-start-raid";
@@ -26,6 +28,7 @@ namespace Ashfall.UI
         private readonly Label casings;
         private readonly Button tabLoadout;
         private readonly Button tabTrader;
+        private readonly Button tabCrafting;
         private readonly Button kitButton;
         private readonly Label kitStatus;
         private readonly Button startRaid;
@@ -34,6 +37,7 @@ namespace Ashfall.UI
 
         private readonly Action onTabLoadout;
         private readonly Action onTabTrader;
+        private readonly Action onTabCrafting;
         private readonly Action onKit;
         private readonly Action onStartRaid;
         private readonly Action onMainMenu;
@@ -44,6 +48,7 @@ namespace Ashfall.UI
             casings = RaidResultView.Find<Label>(documentRoot, CasingsName);
             tabLoadout = RaidResultView.Find<Button>(documentRoot, TabLoadoutName);
             tabTrader = RaidResultView.Find<Button>(documentRoot, TabTraderName);
+            tabCrafting = RaidResultView.Find<Button>(documentRoot, TabCraftingName);
             kitButton = RaidResultView.Find<Button>(documentRoot, KitButtonName);
             kitStatus = RaidResultView.Find<Label>(documentRoot, KitStatusName);
             startRaid = RaidResultView.Find<Button>(documentRoot, StartRaidName);
@@ -52,17 +57,20 @@ namespace Ashfall.UI
 
             tabLoadout.text = UiText.HideoutTabLoadout;
             tabTrader.text = UiText.HideoutTabTrader;
+            tabCrafting.text = UiText.HideoutTabCrafting;
             kitButton.text = UiText.HideoutKitButton;
             startRaid.text = UiText.HideoutStartRaid;
             mainMenu.text = UiText.HideoutMainMenu;
 
             onTabLoadout = () => onTab?.Invoke(HideoutTab.Loadout);
             onTabTrader = () => onTab?.Invoke(HideoutTab.Trader);
+            onTabCrafting = () => onTab?.Invoke(HideoutTab.Crafting);
             this.onKit = onKit ?? (() => { });
             this.onStartRaid = onStartRaid ?? (() => { });
             this.onMainMenu = onMainMenu ?? (() => { });
             tabLoadout.clicked += onTabLoadout;
             tabTrader.clicked += onTabTrader;
+            tabCrafting.clicked += onTabCrafting;
             kitButton.clicked += this.onKit;
             startRaid.clicked += this.onStartRaid;
             mainMenu.clicked += this.onMainMenu;
@@ -81,8 +89,10 @@ namespace Ashfall.UI
             message.text = presenter.Message ?? string.Empty;
             tabLoadout.EnableInClassList(TabSelectedClass, presenter.Tab == HideoutTab.Loadout);
             tabTrader.EnableInClassList(TabSelectedClass, presenter.Tab == HideoutTab.Trader);
+            tabCrafting.EnableInClassList(TabSelectedClass, presenter.Tab == HideoutTab.Crafting);
             tabLoadout.SetEnabled(enabled);
             tabTrader.SetEnabled(enabled);
+            tabCrafting.SetEnabled(enabled);
             startRaid.SetEnabled(enabled);
             mainMenu.SetEnabled(enabled);
             RenderKit(presenter);
@@ -101,6 +111,7 @@ namespace Ashfall.UI
         {
             tabLoadout.clicked -= onTabLoadout;
             tabTrader.clicked -= onTabTrader;
+            tabCrafting.clicked -= onTabCrafting;
             kitButton.clicked -= onKit;
             startRaid.clicked -= onStartRaid;
             mainMenu.clicked -= onMainMenu;

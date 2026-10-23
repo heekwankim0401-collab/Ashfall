@@ -7,5 +7,9 @@ namespace Ashfall.Core
         bool IsDead { get; }
         HealthTier GetTier(BodyPart part);
         bool HasStatus(BodyPart part, StatusEffect effect);
+
+        // M7 §4.3 전신 생존 상태 (수분·에너지·방사능) — 등급만. 수치(수분·에너지·선량)는 Player 내부에만 둔다 (M7 설계 §1.2, Q43).
+        // 등급이 바뀌면 기존 PlayerBodyStatusChanged가 나간다(새 이벤트 없음).
+        SurvivalTier GetSurvivalTier(SurvivalStat stat);
     }
 }
