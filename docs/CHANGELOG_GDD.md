@@ -418,3 +418,10 @@
     `BuildWindows64Mono` Succeeded·경고 0, 110,253,574 bytes, 백엔드 IL2CPP로 되돌림·ProjectSettings 동일.
   - **link.xml·제품 코드 변경 없음**(스트리핑·AOT·JsonUtility 문제 없음 — 스모크로 세이브 쓰기·읽기 확인). 바뀐 것은 `EditorTools/BuildTools.cs`·`BuildToolsTests`(백엔드 Mono 고정 → IL2CPP 고정, 다른 백엔드 출력 판정)·ProjectSettings 두 키.
   - 테스트: EditMode 1797/1797, PlayMode 181/181 × 2회 연속(종료 0). 영구 전환 뒤 테스트 전후 ProjectSettings md5 동일.
+
+## 2026-10-24 — MVP 마무리 설계 결정 (§5.1, §5.3, §7, §9, §12, §13.3, §14 — MF-Q1~Q24)
+사용자 결정(2026-10-24): §5.3 방어구를 MVP에 넣고(M7 Q19 B 뒤집기), 무기 내구도 대략 표시·상인 수리·가격 반영(M7 Q15·Q16·Q17 뒤집기),
+전신 사인 문구(M7 Q33 TODO 해소), 보관함 업그레이드(M5 Q1 뒤집기). 나머지 모호한 항목(`docs/design/MVP_finish_design.md` §5 MF-Q1~Q24)은 ★추천안,
+단 MF-Q16(적 방어구)은 사용자 결정 "플레이어와 적 모두"에 따라 B. 코드 결정 지점에는 `TODO(GDD-?) MF-Qn`. 하위 단계 F1 → F2 → F3 → F4, 단계마다 커밋.
+- **F1 §12 사인 (Q1~Q4):** Core `DeathCauseKind { Wound, Bleeding, Dehydration }`, `PlayerDied.Kind`·`RaidResult.DeathKind`(선택 인자, 기존 = Wound).
+  결과 제목 "사망 — 탈수"/"사망 — 출혈"(출혈·중출혈 틱 사망, 파괴 부위 분산 포함)/피격은 기존 "사망 — 부위". 방사능은 최대 HP만 줄여 사인이 될 수 없다 — 문구 없음.

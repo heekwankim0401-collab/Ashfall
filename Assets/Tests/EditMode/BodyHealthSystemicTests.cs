@@ -76,7 +76,7 @@ namespace Ashfall.Tests.EditMode
         {
             // 7C-2a는 머리(35)가 70초에 먼저 0 → 사인 머리였다(HeadReachesZeroFirst). Q33 A 문구 "흉부 80 → 160초"에 맞추려고
             // 리뷰 7C 1 결정 (b)로 탈수 피해에서 머리를 뺐다 → 흉부가 먼저(160초) 0, 사인 흉부.
-            // TODO(GDD-?) Q33: 전신 사인 문구("탈수")는 MVP 남은 목록.
+            // 사인 부위는 흉부 그대로. MVP 마무리 F1: 사인 종류 Dehydration → 결과 "사망 — 탈수"는 DeathCauseTests가 본다.
             for (int i = 0; i < 159; i++)
                 body.ApplySystemicDamage(config.dehydratedHpPerSec);
             Assert.IsFalse(body.IsDead, "159초: 흉부 0.5 남음");

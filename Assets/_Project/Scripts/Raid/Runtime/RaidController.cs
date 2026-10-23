@@ -184,7 +184,7 @@ namespace Ashfall.Raid
 
         // ── 이벤트 → 세션 ──
 
-        private void OnPlayerDied(PlayerDied evt) => Session?.EndByDeath(evt.Cause);
+        private void OnPlayerDied(PlayerDied evt) => Session?.EndByDeath(evt.Cause, evt.Kind);   // MVP 마무리 F1 사인 종류
         private void OnEnemyKilled(EnemyKilled evt) => Session?.RecordKill();
         private void OnAbandonRequested(RaidAbandonRequested evt) => Session?.Abandon();
 

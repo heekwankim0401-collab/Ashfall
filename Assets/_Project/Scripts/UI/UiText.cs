@@ -32,6 +32,9 @@ namespace Ashfall.UI
         public const string ResultCarriedOut = "반출";
         public const string ResultLost = "소실";
         public const string ResultNone = "없음";
+        // MVP 마무리 F1 전신 사인 (TODO(GDD-?) MF-Q4): 결과 제목 "사망 — " 뒤의 말. 부위 없이 이것만(피격 사망은 부위 이름 그대로).
+        public const string DeathBleeding = "출혈";
+        public const string DeathDehydration = "탈수";
 
         // ── M5 은신처 (M5 설계 §3.4) ─────────────────────
         // 탄 수·HP·무게 숫자는 은신처에서도 만들지 않는다. 가격·탄피·키트 남은 분은 메뉴 화면 정보라 표시한다.

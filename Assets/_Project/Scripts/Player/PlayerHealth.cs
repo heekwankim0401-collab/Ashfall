@@ -209,8 +209,9 @@ namespace Ashfall.Player
 
         private void OnDied(BodyPart cause)
         {
-            Debug.Log($"[PlayerHealth] 사망: {cause}");
-            Publish(new PlayerDied(cause));
+            // MVP 마무리 F1: 사인 종류(피격·출혈·탈수)를 같이 보낸다 (Died 서명은 그대로 — 기존 단언 유지)
+            Debug.Log($"[PlayerHealth] 사망: {cause} ({Body.DeathKind})");
+            Publish(new PlayerDied(cause, Body.DeathKind));
         }
 
         private static void Publish<T>(in T evt) where T : struct, IGameEvent

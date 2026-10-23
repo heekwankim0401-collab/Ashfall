@@ -21,6 +21,16 @@ namespace Ashfall.Core
         Fracture,
     }
 
+    // MVP 마무리 F1 전신 사인 (MF-Q1~Q4): 사망을 낸 피해 종류. 부위 사인(BodyPart)과 함께 전달한다.
+    // Wound = 피격(결과 "사망 — 흉부/머리"), Bleeding = 출혈·중출혈 틱(파괴 부위 분산 포함, "사망 — 출혈"),
+    // Dehydration = 수분 0 전신 피해("사망 — 탈수"). 방사능은 HP를 0으로 만들지 않아 종류가 없다 (TODO(GDD-?) MF-Q3).
+    public enum DeathCauseKind
+    {
+        Wound,
+        Bleeding,
+        Dehydration,
+    }
+
     // M7 §4.3 전신 생존 수치 종류 (STAT-DEHY 수분, STAT-HUNG 에너지, STAT-RAD 방사능 선량). 값 자체는 Player 내부에만 있다.
     public enum SurvivalStat
     {

@@ -164,10 +164,17 @@ namespace Ashfall.Core
     public readonly struct PlayerDied : IGameEvent
     {
         public readonly BodyPart Cause;
+        // MVP 마무리 F1(MF-Q1): 사망을 낸 피해 종류. 기존 생성자(부위만) = Wound.
+        public readonly DeathCauseKind Kind;
 
-        public PlayerDied(BodyPart cause)
+        public PlayerDied(BodyPart cause) : this(cause, DeathCauseKind.Wound)
+        {
+        }
+
+        public PlayerDied(BodyPart cause, DeathCauseKind kind)
         {
             Cause = cause;
+            Kind = kind;
         }
     }
 

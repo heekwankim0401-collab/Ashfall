@@ -33,6 +33,8 @@ namespace Ashfall.Raid
         public ExtractionModel CurrentZone { get; private set; }       // 플레이어가 있는 활성 구역 (없으면 null)
         public bool HasDeathCause { get; private set; }
         public BodyPart DeathCause { get; private set; }
+        // MVP 마무리 F1: 사인 종류 (HasDeathCause일 때만 의미, 기본 Wound)
+        public DeathCauseKind DeathKind { get; private set; } = DeathCauseKind.Wound;
         public int EnemiesKilled { get; private set; }
         public IReadOnlyList<ExtractionModel> Extractions => extractions;
 
@@ -122,12 +124,14 @@ namespace Ashfall.Raid
                 Finish(RaidOutcome.MissingInAction, null);
         }
 
-        public void EndByDeath(BodyPart cause)
+        // MVP 마무리 F1(MF-Q1): kind 생략 = 피격(Wound) — 기존 호출 그대로.
+        public void EndByDeath(BodyPart cause, DeathCauseKind kind = DeathCauseKind.Wound)
         {
             if (IsOver)
                 return;
             HasDeathCause = true;
             DeathCause = cause;
+            DeathKind = kind;
             Finish(RaidOutcome.Killed, null);
         }
 

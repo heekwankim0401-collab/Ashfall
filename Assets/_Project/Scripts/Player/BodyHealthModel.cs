@@ -21,9 +21,14 @@ namespace Ashfall.Player
         private readonly SurvivalTier[] lastSurvivalTiers;
         private bool diedRaised;
         private float maxHpMultiplier = 1f;
+        // MVP 마무리 F1(MF-Q1·Q2): 지금 처리 중인 피해 진입점의 사인 종류. CheckDeath가 DeathKind로 복사한다.
+        private DeathCauseKind currentKind = DeathCauseKind.Wound;
 
         public bool IsDead { get; private set; }
         public BodyPart? DeathCause { get; private set; }
+        // MVP 마무리 F1: 사망을 낸 피해 종류 (피격 Wound·출혈 틱 Bleeding·수분 0 Dehydration). 살아 있는 동안은 Wound,
+        // 한 번 정해지면 바뀌지 않는다. 방사능은 사인이 될 수 없어 종류가 없다 (TODO(GDD-?) MF-Q3).
+        public DeathCauseKind DeathKind { get; private set; } = DeathCauseKind.Wound;
         public ConditionModifiers Modifiers { get; private set; } = ConditionModifiers.Healthy;
 
         // M7 생존 상태 (AttachSurvival 전에는 null = 전신 등급 Normal, 전신 효과 아이템 불필요)
@@ -124,11 +129,12 @@ namespace Ashfall.Player
         // M7 STAT-DEHY 수분 0 (§4.3 −0.5 HP/s, Q33): 머리를 뺀 파괴되지 않은 부위마다 perPart만큼 깎는다. 파괴 부위는 제외(분산 없음),
         // 복부 배율·상태이상 굴림 없음. 머리 제외 = 흉부 80이 160초에 0 → 사망(Q33 A 문구, M7 리뷰 7C 1 결정 (b)).
         // 사망하면 그 자리에서 멈춘다(남은 부위는 깎지 않음, 리뷰 7C 5).
-        // TODO(GDD-?) Q33: 사인은 흉부로 나온다 — 전신 사인 문구("탈수")는 MVP 남은 목록.
+        // MVP 마무리 F1(TODO(GDD-?) MF-Q1·Q4): 사인 부위(DeathCause)는 흉부 그대로, DeathKind = Dehydration → 결과 "사망 — 탈수".
         public void ApplySystemicDamage(float perPart)
         {
             if (IsDead || !(perPart > 0f) || float.IsInfinity(perPart))
                 return;
+            currentKind = DeathCauseKind.Dehydration;
             bool died = false;
             for (int i = 0; i < PartCount; i++)
             {
@@ -150,6 +156,7 @@ namespace Ashfall.Player
             if (IsDead || damage <= 0f)
                 return;
 
+            currentKind = DeathCauseKind.Wound;
             float amount = IsDestroyed(BodyPart.Stomach) ? damage * config.stomachDestroyedDamageMultiplier : damage;
             bool statusChanged = DamageInternal(part, amount);
             if (!IsDead)
@@ -162,14 +169,17 @@ namespace Ashfall.Player
         {
             if (IsDead || damage <= 0f)
                 return;
+            currentKind = DeathCauseKind.Wound;
             Refresh(DamageInternal(part, damage));
         }
 
         // 출혈·중출혈 지속 피해. 파괴 부위면 분산 규칙 적용, 복부 배율은 미적용 (TODO(GDD-?)).
+        // MVP 마무리 F1(TODO(GDD-?) MF-Q2): 이 틱이 낸 사망은 분산(파괴 부위 → 흉부) 포함 모두 Bleeding.
         public void Tick(float dt)
         {
             if (IsDead || dt <= 0f)
                 return;
+            currentKind = DeathCauseKind.Bleeding;
 
             bool any = false;
             for (int i = 0; i < PartCount && !IsDead; i++)
@@ -256,6 +266,7 @@ namespace Ashfall.Player
                 return false;
             IsDead = true;
             DeathCause = part;
+            DeathKind = currentKind;
             return true;
         }
 

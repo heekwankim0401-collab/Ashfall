@@ -21,13 +21,15 @@ namespace Ashfall.Core
         public RaidResult(RaidOutcome outcome, string extractionId, string extractionName,
             bool hasDeathCause, BodyPart deathCause, float durationSec, int enemiesKilled,
             IReadOnlyList<ItemDefinitionSO> broughtIn, IReadOnlyList<ItemInstance> carriedOut,
-            IReadOnlyList<ItemDefinitionSO> lost, Loadout carriedOutLoadout = null)
+            IReadOnlyList<ItemDefinitionSO> lost, Loadout carriedOutLoadout = null,
+            DeathCauseKind deathKind = DeathCauseKind.Wound)
         {
             Outcome = outcome;
             ExtractionId = extractionId;
             ExtractionName = extractionName;
             HasDeathCause = hasDeathCause;
             DeathCause = deathCause;
+            DeathKind = deathKind;
             DurationSec = durationSec;
             EnemiesKilled = enemiesKilled;
             BroughtIn = Copy(broughtIn);
@@ -43,6 +45,8 @@ namespace Ashfall.Core
         public string ExtractionName { get; }
         public bool HasDeathCause { get; }                        // Killed일 때
         public BodyPart DeathCause { get; }
+        // MVP 마무리 F1: 사인 종류 (HasDeathCause일 때만 의미, 생략 = Wound)
+        public DeathCauseKind DeathKind { get; }
         public float DurationSec { get; }
         public int EnemiesKilled { get; }
         public IReadOnlyList<ItemDefinitionSO> BroughtIn { get; } // 반입(시작 시점, 표시용)

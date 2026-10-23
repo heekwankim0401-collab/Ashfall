@@ -61,7 +61,8 @@ namespace Ashfall.Raid
                 completed?.Config.id, completed?.Config.displayName,
                 session.Outcome == RaidOutcome.Killed && session.HasDeathCause, session.DeathCause,
                 duration, session.EnemiesKilled, broughtIn, carriedOut, lost,
-                extracted ? endLoadout : null);
+                extracted ? endLoadout : null,
+                session.DeathKind);   // MVP 마무리 F1: 사인 종류 (원인 모르는 사망·사망 외 = Wound, 표시에 안 쓰임)
         }
 
         // 소지품 실물 → 정의 목록 (반입 기록용, M4 설계 §1.6: 탄 수·사용 횟수가 바뀌어도 정의는 남는다)

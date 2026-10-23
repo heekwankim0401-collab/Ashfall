@@ -61,11 +61,22 @@ namespace Ashfall.UI
                 case RaidOutcome.Extracted:
                     return string.IsNullOrEmpty(result.ExtractionName) ? "탈출 성공" : "탈출 성공 — " + result.ExtractionName;
                 case RaidOutcome.Killed:
-                    return result.HasDeathCause ? "사망 — " + BodyStatusPresenter.PartLabel(result.DeathCause) : "사망";
+                    return result.HasDeathCause ? "사망 — " + DeathCauseLabel(result) : "사망";
                 case RaidOutcome.MissingInAction:
                     return "작전 중 실종 (MIA)";
                 default:
                     return "레이드 포기";   // TODO(GDD-?) Q16
+            }
+        }
+
+        // MVP 마무리 F1(TODO(GDD-?) MF-Q2·Q4): 출혈·탈수 사망은 부위 없이 종류만, 피격 사망은 부위 이름.
+        private static string DeathCauseLabel(RaidResult result)
+        {
+            switch (result.DeathKind)
+            {
+                case DeathCauseKind.Bleeding: return UiText.DeathBleeding;
+                case DeathCauseKind.Dehydration: return UiText.DeathDehydration;
+                default: return BodyStatusPresenter.PartLabel(result.DeathCause);
             }
         }
 
