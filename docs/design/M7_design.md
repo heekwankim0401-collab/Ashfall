@@ -1791,3 +1791,19 @@ Mono `BuildWindows64` 종료 0: "Succeeded, 오류 0, 경고 0", 110,232,870 byt
   ② 값 없는 `-ashfallSmoke`(마지막 인자) → **종료 1**("뒤에 세이브 폴더가 없다"). ③ `-ashfallSmoke <LocalLow\DefaultCompany\Ashfall>`(= persistentDataPath) → **종료 1**, 실제 `save.json`·`.bak` md5·시각(10-22 15:12) 그대로.
 - 테스트·적용·빌드 전후 Assets(Tests 제외)·ProjectSettings·Packages md5 동일(AiConfig.asset 한 줄은 의도한 변경), git status 차이 = 이번 새 파일뿐. ProjectSettings 무변경(백엔드 Mono). Unity·빌드·게임 프로세스 남지 않음(Hub 보조 `unity.exe` 하나).
 - IL2CPP: 그대로 사용자 설치 대기(이번에 다시 실행하지 않음).
+
+## 7D-IL2CPP 구현 메모 (gameplay-programmer, 2026-10-23)
+
+원본에서 작업(커밋하지 않음). 새 파일·`.meta` 없음. CLAUDE.md는 고치지 않았다(오케스트레이터 몫). 자세한 기록은 CHANGELOG "7D 성능·빌드·폴리시"의 "7D-IL2CPP 전환".
+
+- **툴체인:** Hub IL2CPP 모듈(`win64_player_{development,nondevelopment}_il2cpp`) + **Visual Studio Community 2026**(18, MSVC 14.51, Windows SDK 10.0.26100). Unity 6000.3.26f1이 VS 2026을 그대로 쓴다(빌드 로그 `C_Win_x64_VS2026_VB_MT`). VS 2022·MSVC v143 따로 필요 없음.
+- **임시 전환 빌드(전환 전, §6 절차):** 전 `git status --porcelain ProjectSettings` 깨끗·md5 23파일 기록. `BuildWindows64Il2CppDevelopment` 종료 0(21분 51초, 오류·경고 0) → ProjectSettings.asset에 `scriptingBackend: Standalone: 0`·`il2cppStacktraceInformation: Standalone: 0`이 남음(예상대로) → HEAD 내용으로 되돌려 md5 동일.
+  스모크(`timeout 180`) 종료 0·8/8·13.8초·오류·예외 0, 세이브 version 2·raidInProgress false, 실제 `save.json`·`.bak` md5 그대로. 값 없는 `-ashfallSmoke` → 종료 1. `BuildWindows64Il2Cpp` 종료 0(17분 8초, 경고 0) → 같은 임시 키 → 되돌림.
+- **영구 전환:** `BuildTools.SetStandaloneBackendIl2Cpp`(메뉴 `Ashfall/Build/Set Standalone Backend IL2CPP`) — 모듈 확인 → 백엔드 IL2CPP + 스택 추적 MethodOnly 명시 → `AssetDatabase.SaveAssets`. diff = 두 키뿐(`Standalone: 1`, `il2cppStacktraceInformation: Standalone: 0`).
+  `BuildWindows64`·`Development` = IL2CPP(`BuildWithBackend`: 이미 같으면 백엔드를 건드리지 않음, IL2CPP 개발 빌드만 스택 추적 파일·줄을 임시로), `BuildWindows64Il2Cpp*` 유지(되돌림 무동작), Mono 대체 `BuildWindows64Mono(·Development)`.
+- **발견·수정:** 영구 전환 뒤 첫 `BuildWindows64`가 1.6초 만에 실패 — `BuildFailedException: Build path contains a project previously built with the Mono2x scripting backend, the current setting is for IL2CPP`(이전 Mono 출력 `Builds/Windows64/`).
+  → `Build`가 출력 폴더(Builds/ 아래)에 다른 백엔드의 이전 빌드(`MonoBleedingEdge` / `GameAssembly.dll`)가 있으면 먼저 지운다(순수 `IsOtherBackendOutput` + 테스트). 실패한 빌드가 남긴 Input System `preloadedAssets` 항목(InputSystem_Actions)과 Performance Testing `Assets/Resources/`(+ `.meta`)는 되돌리고 전환 메서드를 다시 실행.
+- **결과(영구 전환 뒤):** `BuildWindows64` 종료 0(20초, Bee 캐시, 경고 0, 배포 약 122MB / `totalSize` 1,340,621,650 bytes는 BackUpThisFolder 포함) → 창 모드 15초 실행 Boot → MainMenu, 예외 없음.
+  `BuildWindows64Development` 종료 0(17분 12초, 경고 0, 배포 약 251MB) → 스모크 종료 0·8/8·13.8초·예외 0, 스택 추적에 파일:줄. 값 없는 인자 → 종료 1. `BuildWindows64Mono` 종료 0(110,253,574 bytes), 백엔드 IL2CPP로 되돌림. 모든 빌드 뒤 ProjectSettings md5 = 전환 직후와 동일.
+- **link.xml·제품 코드 변경 없음.** 바뀐 파일: `EditorTools/BuildTools.cs`, `Tests/EditMode/BuildToolsTests.cs`(`ProjectBackend_StaysMono_UntilIl2CppStep` → `ProjectBackend_IsIl2Cpp`, `OtherBackendOutput_Detection` 추가, 출력 경로 6개), `ProjectSettings/ProjectSettings.asset`(두 키).
+- **테스트:** EditMode 1797/1797(종료 0). PlayMode 전체 181/181 × 2회 연속(811초·811초, 종료 0).

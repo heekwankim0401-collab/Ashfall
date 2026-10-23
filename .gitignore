@@ -54,3 +54,10 @@ crashlytics-build.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# VS 2026 솔루션·권장 구성요소(Unity/VS가 자동 생성)
+*.slnx
+.vsconfig
+
+# Performance Testing 패키지가 빌드·테스트 중 만드는 임시 파일
+/Assets/Resources/PerformanceTestRun*

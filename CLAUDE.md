@@ -7,7 +7,7 @@
 - 마일스톤: M0~M5(이동·사격, 체력·인벤토리, 적 AI, 레이드 루프, 은신처 & 세이브) 완료(자동 테스트 + 에디터·빌드 확인).
   M6(아트 & 오디오 패스, 재 폭풍)은 자동 테스트·빌드 완료, 에디터 확인 대기(`docs/design/M6_design.md` §7.1).
   M7(콘텐츠 확장 & 폴리시 — MVP 마지막)은 하위 단계 7A 무기·7B AI·7C 생존·제작·7D 성능·빌드로 자동 테스트·Mono 빌드 완료, 에디터 확인 대기(`docs/design/M7_design.md` §7.1).
-  IL2CPP 빌드(7D-IL2CPP)는 사용자 설치 대기(Unity Hub "Windows Build Support (IL2CPP)" + VS 2022 C++ 워크로드). 설치 전까지 ProjectSettings 백엔드는 Mono로 둔다(`BuildToolsTests`가 고정).
+  IL2CPP 전환(7D-IL2CPP) 완료: ProjectSettings Standalone 백엔드 = IL2CPP(`BuildToolsTests`가 고정), C++ 툴체인 = Visual Studio 2026(2022도 가능) "C++를 사용한 데스크톱 개발".
   1080p 60fps(GTX 1660)는 사람이 개발 빌드 `Player.log`의 `[DevDiagnostics]` 프레임 로그로 판정한다.
 - 마일스톤 설계·리뷰 노트와 진행 방식은 `docs/design/`(README 참고). 새 마일스톤도 같은 방식으로 설계 문서를 여기에 남긴다.
   한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
@@ -25,8 +25,9 @@
   (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
 - 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5/M6/M7 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
   기획 확정이 필요한 MVP 남은 임시값 목록은 `docs/design/M7_design.md` §10.
-- Windows 빌드: `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.BuildTools.BuildWindows64` → `Builds/Windows64/`(릴리스, Mono).
-  `BuildWindows64Development` → `Builds/Windows64Dev/`, `BuildWindows64Il2Cpp`(·`Il2CppDevelopment`)은 모듈이 없으면 종료 1(백엔드는 그 빌드 동안만 바꾸고 되돌림).
+- Windows 빌드(IL2CPP): `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.BuildTools.BuildWindows64` → `Builds/Windows64/`(릴리스).
+  `BuildWindows64Development` → `Builds/Windows64Dev/`(IL2CPP 개발). 첫 IL2CPP 빌드는 약 20분, 이후 캐시. Mono 대체 경로 `BuildWindows64Mono`(·`Development`) → `Builds/Windows64Mono*/`(그 빌드 동안만 Mono).
+  출력 폴더에 다른 백엔드의 이전 빌드가 있으면 빌드 전에 지운다. 백엔드 전환 메뉴 `Ashfall/Build/Set Standalone Backend IL2CPP`.
   스모크: `Builds/Windows64Dev/Ashfall.exe -batchmode -nographics -ashfallSmoke <임시 폴더> -logFile smoke.log` → 성공 0·실패 1(개발 빌드만, 실제 세이브 폴더 금지).
 
 ## 구조 (GDD §13.2)
@@ -83,4 +84,5 @@
 ```
 - PlayMode는 `-testPlatform PlayMode`. 종료 코드 0 = 통과, 2 = 실패 테스트 있음, 그 밖 = 실행·컴파일 오류(`test.log`에서 `error CS` 확인).
 - 에디터 메서드 실행: `-batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.SceneSetup.CreateM0Scenes -logFile setup.log`
-- 알려진 무해한 로그: 스크립트 없는 asmdef의 "will not be compiled" 경고, Cinemachine HDRP 샘플 asmref 경고, Addressables의 `DocExampleCode.TestStub` 테스트 1개.
+- 알려진 무해한 로그: 스크립트 없는 asmdef의 "will not be compiled" 경고, Cinemachine HDRP 샘플 asmref 경고, Addressables의 `DocExampleCode.TestStub` 테스트 1개,
+  IL2CPP 빌드의 Cinemachine 생성 코드 C++ 경고 C4717 1건, BuildReport `totalSize`에 `*_BackUpThisFolder_ButDontShipItWithYourGame`(약 1.2GB, 배포 제외)이 포함되는 것.

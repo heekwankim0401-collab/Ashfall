@@ -408,3 +408,13 @@
   8. `RarityStyle.ClassFor` 범위 밖 = null(기본 테두리, 예외 없음). 9. 이 소절. 10. `BuildToolsTests` — 설치 확인을 구현과 다른 계산(고정 경로 + 파일 패턴 + 빌드 대상 지원)으로, link.xml 역방향·중복 검사, 에디터 전용 = includePlatforms만.
   11. 진단 코드가 릴리스에 남는 것은 유지(가드로 실행 안 됨, 위 Q51).
 - **GDD에 수치가 없어 임시값을 넣은 항목 (TODO(GDD-?), 7D):** 희귀 청색 `#4E6C8A`, 유물 2px·상인 줄 왼쪽 테두리 3px/4px, 적 접근 정지 거리 2.0m, Q51 기술 상수(10초·4096·60초·10초), 스모크 바깥 제한 180초.
+- **7D-IL2CPP 전환 (2026-10-23, §13.1 "IL2CPP 빌드", Q52):** 사용자가 Hub 모듈 "Windows Build Support (IL2CPP)"와 **Visual Studio Community 2026**(18, MSVC 14.51, Windows SDK 10.0.26100)을 설치 → Unity 6000.3.26f1이 VS 2026 툴체인을 그대로 인식(`C_Win_x64_VS2026`). VS 2022·MSVC v143 따로 필요 없음.
+  - 임시 전환 빌드(전환 전): `BuildWindows64Il2CppDevelopment` 21분 51초(첫 C++ 컴파일), `BuildWindows64Il2Cpp` 17분 8초 — 둘 다 Succeeded·오류 0·경고 0(C++ 컴파일러 경고 C4717 1건은 Cinemachine 패키지 생성 코드). 빌드 뒤 ProjectSettings에 남은 임시 키(`scriptingBackend: Standalone: 0`·`il2cppStacktraceInformation: Standalone: 0`)는 매번 HEAD로 되돌림(md5 동일 확인).
+  - 영구 전환: 메뉴 `Ashfall/Build/Set Standalone Backend IL2CPP`(`BuildTools.SetStandaloneBackendIl2Cpp`, `PlayerSettings` API) → ProjectSettings diff = `scriptingBackend: Standalone: 1` + `il2cppStacktraceInformation: Standalone: 0`(MethodOnly 명시 — IL2CPP 개발 빌드의 스택 추적 임시 변경·되돌림 뒤에도 파일이 같다) 두 키뿐.
+  - 빌드 메서드: `BuildWindows64`(릴리스)·`BuildWindows64Development`(개발)가 이제 IL2CPP. 이전 `BuildWindows64Il2Cpp(·Development)`는 같은 동작의 다른 출력 폴더로 남김(백엔드 되돌림 무동작). **Mono 대체 경로** `BuildWindows64Mono(·Development)`(`Builds/Windows64Mono*/`, 이 빌드 동안만 Mono).
+    빌드는 출력 폴더에 다른 백엔드의 이전 빌드(Mono = `MonoBleedingEdge`, IL2CPP = `GameAssembly.dll`)가 있으면 그 폴더(Builds/ 아래만)를 먼저 지운다 — 영구 전환 뒤 첫 `BuildWindows64`가 "Build path contains a project previously built with the Mono2x scripting backend"로 실패했다(이 실패한 빌드는 Input System의 `preloadedAssets` 항목과 Performance Testing의 `Assets/Resources/` 임시 파일을 남겨 둘 다 되돌림).
+  - 결과(영구 전환 뒤): `BuildWindows64` Succeeded·경고 0, 20초(Bee 캐시), 배포 크기 약 122MB(`totalSize` 1,340,621,650 bytes는 `*_BackUpThisFolder_ButDontShipItWithYourGame` C++·심볼 포함 — Mono 릴리스 110MB). 15초 실행(창 1280×720): Boot → MainMenu, 예외 없음.
+    `BuildWindows64Development` Succeeded·경고 0, 17분 12초, 배포 약 251MB. 스모크(바깥 `timeout 180`) 종료 0·8/8 단계 13.8초·오류·예외 로그 0, 세이브 version 2·raidInProgress false, 실제 persistentDataPath `save.json`·`.bak` md5 그대로. 값 없는 `-ashfallSmoke` → 종료 1. 스택 추적에 파일:줄 표시.
+    `BuildWindows64Mono` Succeeded·경고 0, 110,253,574 bytes, 백엔드 IL2CPP로 되돌림·ProjectSettings 동일.
+  - **link.xml·제품 코드 변경 없음**(스트리핑·AOT·JsonUtility 문제 없음 — 스모크로 세이브 쓰기·읽기 확인). 바뀐 것은 `EditorTools/BuildTools.cs`·`BuildToolsTests`(백엔드 Mono 고정 → IL2CPP 고정, 다른 백엔드 출력 판정)·ProjectSettings 두 키.
+  - 테스트: EditMode 1797/1797, PlayMode 181/181 × 2회 연속(종료 0). 영구 전환 뒤 테스트 전후 ProjectSettings md5 동일.

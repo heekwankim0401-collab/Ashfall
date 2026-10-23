@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Ashfall.Tests.EditMode
 {
-    // M7 7D 빌드 메서드 (M7 설계 §1.9, Q52·Q53): IL2CPP 모듈 판정(순수) + 이 PC에서의 실제 확인, link.xml, 백엔드 불변.
+    // M7 7D 빌드 메서드 (M7 설계 §1.9, Q52·Q53): IL2CPP 모듈 판정(순수) + 이 PC에서의 실제 확인, link.xml, 백엔드 IL2CPP 고정(7D-IL2CPP).
     public class BuildToolsTests
     {
         [Test]
@@ -72,10 +72,25 @@ namespace Ashfall.Tests.EditMode
         }
 
         [Test]
-        public void ProjectBackend_StaysMono_UntilIl2CppStep()
+        public void ProjectBackend_IsIl2Cpp()
         {
-            // 7D-IL2CPP(사용자 설치 확인 뒤) 전까지 ProjectSettings 백엔드는 Mono (Q52)
-            Assert.AreEqual(ScriptingImplementation.Mono2x, PlayerSettings.GetScriptingBackend(NamedBuildTarget.Standalone));
+            // 7D-IL2CPP에서 §13.1 "IL2CPP 빌드"대로 ProjectSettings 백엔드를 IL2CPP로 영구 전환했다(SetStandaloneBackendIl2Cpp).
+            // 기본 빌드(BuildWindows64·Development)가 IL2CPP이고 Mono는 BuildWindows64Mono 대체 경로만 임시로 쓴다.
+            // 스택 추적은 MethodOnly를 명시해 두어 IL2CPP 개발 빌드의 임시 변경·되돌림 뒤에도 ProjectSettings가 같다.
+            Assert.AreEqual(ScriptingImplementation.IL2CPP, BuildTools.ProjectBackend);
+            Assert.AreEqual(BuildTools.ProjectBackend, PlayerSettings.GetScriptingBackend(NamedBuildTarget.Standalone));
+            Assert.AreEqual(BuildTools.ProjectStacktrace, PlayerSettings.GetIl2CppStacktraceInformation(NamedBuildTarget.Standalone));
+        }
+
+        // 7D-IL2CPP: 이전 Mono 빌드가 있는 폴더에 IL2CPP로 빌드하면 유니티가 실패한다 → 다른 백엔드 출력만 지운다
+        [Test]
+        public void OtherBackendOutput_Detection()
+        {
+            Assert.IsTrue(BuildTools.IsOtherBackendOutput(ScriptingImplementation.IL2CPP, hasMonoRuntimeFolder: true, hasGameAssembly: false));
+            Assert.IsFalse(BuildTools.IsOtherBackendOutput(ScriptingImplementation.IL2CPP, false, true), "같은 백엔드 = 증분 빌드");
+            Assert.IsFalse(BuildTools.IsOtherBackendOutput(ScriptingImplementation.IL2CPP, false, false), "빈 폴더");
+            Assert.IsTrue(BuildTools.IsOtherBackendOutput(ScriptingImplementation.Mono2x, false, true));
+            Assert.IsFalse(BuildTools.IsOtherBackendOutput(ScriptingImplementation.Mono2x, true, false));
         }
 
         [Test]
@@ -84,6 +99,7 @@ namespace Ashfall.Tests.EditMode
             string[] paths =
             {
                 BuildTools.OutputPath, BuildTools.DevelopmentOutputPath, BuildTools.Il2CppOutputPath, BuildTools.Il2CppDevelopmentOutputPath,
+                BuildTools.MonoOutputPath, BuildTools.MonoDevelopmentOutputPath,
             };
             Assert.AreEqual(paths.Length, paths.Select(Path.GetDirectoryName).Distinct().Count());
             Assert.AreEqual("Builds/Windows64Dev/Ashfall.exe", BuildTools.DevelopmentOutputPath);
