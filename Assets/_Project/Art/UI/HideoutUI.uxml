@@ -19,6 +19,12 @@
                     <ui:Button name="hideout-kit-button" text="부랑자 키트 받기" class="ash-button" />
                     <ui:Label name="hideout-kit-status" class="hideout-kit-status" picking-mode="Ignore" />
                 </ui:VisualElement>
+                <!-- MVP 마무리 F2 보관함 업그레이드 (§9, MF-Q7): 상태 "보관함 10×30" + [보관함 확장 10×40 (5000 탄피)], 최대면 "보관함 최대" 비활성.
+                     키트 줄과 같은 USS 클래스(새 클래스 없음). 결과 문구는 hideout-message. -->
+                <ui:VisualElement class="hideout-kit" picking-mode="Ignore">
+                    <ui:Label name="hideout-stash-status" text="보관함 10×30" class="hideout-kit-status" picking-mode="Ignore" />
+                    <ui:Button name="hideout-stash-upgrade-button" text="보관함 확장" class="ash-button" />
+                </ui:VisualElement>
                 <ui:VisualElement class="hideout-spacer" picking-mode="Ignore" />
                 <ui:Button name="hideout-start-raid" text="레이드 시작" class="ash-button ash-button--danger hideout-action" />
                 <ui:Button name="hideout-main-menu" text="메인 메뉴" class="ash-button hideout-action" />

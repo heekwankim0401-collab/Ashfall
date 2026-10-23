@@ -425,3 +425,7 @@
 단 MF-Q16(적 방어구)은 사용자 결정 "플레이어와 적 모두"에 따라 B. 코드 결정 지점에는 `TODO(GDD-?) MF-Qn`. 하위 단계 F1 → F2 → F3 → F4, 단계마다 커밋.
 - **F1 §12 사인 (Q1~Q4):** Core `DeathCauseKind { Wound, Bleeding, Dehydration }`, `PlayerDied.Kind`·`RaidResult.DeathKind`(선택 인자, 기존 = Wound).
   결과 제목 "사망 — 탈수"/"사망 — 출혈"(출혈·중출혈 틱 사망, 파괴 부위 분산 포함)/피격은 기존 "사망 — 부위". 방사능은 최대 HP만 줄여 사인이 될 수 없다 — 문구 없음.
+- **F2 §9 보관함 업그레이드 (Q5~Q9):** 너비 10 고정, 30 → 40줄(5000 탄피) → 50줄(12000)(`HideoutConfigSO.stashUpgrades`, TODO). 허브 공통 줄 버튼, 확인 없음,
+  읽기 전용 프로필에서도 허용(상인과 같음). 그리드는 제자리 확장(`ItemGrid.TryGrow`), 확장 실패 시 탄피를 깎지 않는다. 줄 수가 이전 단계 이하인 설정 단계부터는 무시.
+- **F2 §13.3 세이브 version 3:** `SaveData.stashLevel`(v1·v2 → 0, 음수 → 0, 설정 최대보다 크면 최대로 자름·환불 없음). v4 이상 = 지원 안 함(격리, 기존 규칙). v3 파일을 이전 빌드로 열면 격리 + 새 프로필.
+  에셋은 `Ashfall/Setup/Apply MVP Finish Data`(`MvpFinishDataSetup.ApplyAll`, `Apply M7 Content` 끝에서도 호출, 파일에 없는 필드만)가 기록.

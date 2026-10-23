@@ -141,6 +141,34 @@ namespace Ashfall.UI
             }
         }
 
+        // ── MVP 마무리 F2 보관함 업그레이드 (§9, MF-Q7) — 크기·탄피는 메뉴 화면 정보 ──
+        public const string StashMaxed = "보관함 최대";
+        public const string MessageStashMaxLevel = "보관함이 이미 최대다.";
+
+        // "보관함 10×30"
+        public static string StashStatus(UnityEngine.Vector2Int size) => "보관함 " + StashSizeText(size);
+
+        // "보관함 확장 10×40 (5000 탄피)"
+        public static string StashUpgradeButton(UnityEngine.Vector2Int newSize, int cost) =>
+            "보관함 확장 " + StashSizeText(newSize) + " (" + Price(cost) + ")";
+
+        // 성공 "보관함을 10×40으로 늘렸다."
+        public static string StashUpgraded(UnityEngine.Vector2Int newSize) => "보관함을 " + StashSizeText(newSize) + "으로 늘렸다.";
+
+        // 실패 문구 (성공은 StashUpgraded)
+        public static string StashUpgrade(StashUpgradeResult result)
+        {
+            switch (result)
+            {
+                case StashUpgradeResult.NotEnoughCasings: return MessageNotEnoughCasings;
+                case StashUpgradeResult.MaxLevel: return MessageStashMaxLevel;
+                case StashUpgradeResult.Unavailable: return MessageUnavailable;
+                default: return string.Empty;
+            }
+        }
+
+        private static string StashSizeText(UnityEngine.Vector2Int size) => size.x + "×" + size.y;
+
         // ── M7 부위 상태 화면 "전신" 줄 (Q43, RULE-05: 등급 문구만, 숫자·막대 없음) ──
         public const string SurvivalRowLabel = "전신";
 

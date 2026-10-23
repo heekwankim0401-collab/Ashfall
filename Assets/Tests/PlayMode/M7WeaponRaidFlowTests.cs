@@ -237,11 +237,11 @@ namespace Ashfall.Tests.PlayMode
                 Assert.IsFalse(hDmr.IsJammed, "고장 난 채 탈출 → 은신처 장비가 되면 해제 (같은 실행의 다음 레이드에 남지 않음, Q14)");
                 Assert.IsFalse(dmr.IsJammed, "레이드에서 든 인스턴스도 해제");
 
-                SaveData afterExtract = M5Save.Read(storage);   // version = 2 단언 포함
+                SaveData afterExtract = M5Save.Read(storage);   // version = CurrentVersion 단언 포함
                 Assert.IsFalse(afterExtract.raidInProgress);
                 AssertWeaponRecord(afterExtract, "WPN-SHT-01", EquipSlot.Primary1, shotgunDurability, "MAG-12GA-TUBE", shotgunTubeRounds);
                 AssertWeaponRecord(afterExtract, "WPN-DMR-01", EquipSlot.Primary2, dmrDurability, "MAG-762-5", dmrMagRounds);
-                StringAssert.Contains("\"version\": 2", File.ReadAllText(storage.FilePath));
+                StringAssert.Contains("\"version\": " + SaveSerializer.CurrentVersion, File.ReadAllText(storage.FilePath));
 
                 // ── [메인 메뉴](W2 저장) → 다음 실행 흉내(같은 폴더 저장소 다시 꽂기 = 프로필 버림) → [은신처] = 파일에서 읽기 ──
                 yield return pointer.Click(hideout.ButtonNamed(HideoutHubView.MainMenuName));
@@ -324,7 +324,7 @@ namespace Ashfall.Tests.PlayMode
                 // 진입 저장(W1) = v2, 무기 durability 100, 그 밖 -1. 직전 세대(.bak) = 원래 v1 파일
                 SaveData saved = M5Save.Read(storage);
                 Assert.AreEqual(SaveSerializer.CurrentVersion, saved.version);
-                StringAssert.Contains("\"version\": 2", File.ReadAllText(storage.FilePath));
+                StringAssert.Contains("\"version\": " + SaveSerializer.CurrentVersion, File.ReadAllText(storage.FilePath));
                 Assert.AreEqual(777, saved.casings);
                 Assert.AreEqual(100f, saved.stash.Single(r => r.id == "WPN-RIF-01").durability, 1e-4f);
                 Assert.AreEqual(-1f, saved.stash.Single(r => r.id == "MAG-556-30").durability, "탄창 = 해당 없음 -1");

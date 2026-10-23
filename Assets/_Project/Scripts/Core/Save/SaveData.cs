@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace Ashfall.Core
 {
-    // save.json 최상위 (M5 설계 §2.2, version 1 → M7 version 2: ItemRecord.durability). JsonUtility DTO — 필드 이름 = JSON 키.
+    // save.json 최상위 (M5 설계 §2.2, version 1 → M7 version 2: ItemRecord.durability → MVP 마무리 F2 version 3: stashLevel).
+    // JsonUtility DTO — 필드 이름 = JSON 키.
     // §13.3의 raid_in_progress는 키 raidInProgress로 쓴다(의미 같음).
     [Serializable]
     public sealed class SaveData
@@ -13,6 +14,7 @@ namespace Ashfall.Core
         public bool raidInProgress;        // §13.3 / RULE-03
         public int casings;                // §9 탄피
         public long kitLastClaimUtcTicks;  // 부랑자 키트 마지막 수령 UTC Ticks, 0 = 받은 적 없음
+        public int stashLevel;             // v3: §9 보관함 업그레이드 단계 (MF-Q6). v1·v2 파일은 버전으로 판정해 0
         public List<ItemRecord> stash = new List<ItemRecord>();
         public List<ItemRecord> loadout = new List<ItemRecord>();   // Loadout.Entries 순서
         public int[] quickSlots;           // 길이 4, loadout 인덱스, -1 = 빈 칸

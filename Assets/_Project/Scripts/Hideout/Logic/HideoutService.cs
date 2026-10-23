@@ -6,7 +6,8 @@ using UnityEngine;
 namespace Ashfall.Hideout
 {
     // SYS-HUB 은신처 서비스 (M5 설계 §1.4·§3·§4.2). 순수 C# — HideoutController가 만들고 IHideoutService로 등록한다.
-    // 진입 절차(W1, Enter) · 저장(W2 메뉴 복귀 / W3 앱 종료 = SaveNow) · 레이드 시작(W4, GameFlow.StartRaid) + 상인·키트·제작대(M7, CraftingModel) 조합.
+    // 진입 절차(W1, Enter) · 저장(W2 메뉴 복귀 / W3 앱 종료 = SaveNow) · 레이드 시작(W4, GameFlow.StartRaid) + 상인·키트·제작대(M7, CraftingModel)
+    // · 보관함 업그레이드(MVP 마무리 F2, StashUpgradeModel) 조합.
     // 거래·키트·제작은 메모리에서만 바뀌고 W2/W3/W4에서 함께 저장된다 (Q7) — 프로필 전체를 한 번에 써서 크래시에도 복제·소실이 없다.
     public sealed class HideoutService : IHideoutService
     {
@@ -23,6 +24,7 @@ namespace Ashfall.Hideout
         private PlayerProfile modelProfile;
         private TraderModel traderModel;
         private VagrantKitModel kitModel;
+        private StashUpgradeModel stashUpgradeModel;   // MVP 마무리 F2
 
         // ── W1 진입 절차 ────────────────────────────────────
 
@@ -203,6 +205,23 @@ namespace Ashfall.Hideout
             return result;
         }
 
+        // ── MVP 마무리 F2 보관함 업그레이드 (§9, MF-Q5~Q9) ──
+
+        public int StashLevel => Profile?.StashLevel ?? 0;
+        public StashUpgradeOffer NextStashUpgrade => StashUpgrade?.Next ?? StashUpgradeOffer.None;
+
+        // 떠나는 중·프로필 없음 → Unavailable. 읽기 전용은 허용(MF-Q8 — 상인처럼, 저장만 안 된다). 확인 없이 즉시(MF-Q9).
+        // 성공하면 메모리에서만 바뀌고 W2/W3/W4에서 저장 + HideoutChanged → 은신처 인벤토리가 InventoryChanged로 새 크기를 다시 그린다.
+        public StashUpgradeResult TryUpgradeStash()
+        {
+            if (IsLeaving || StashUpgrade == null)
+                return StashUpgradeResult.Unavailable;
+            StashUpgradeResult result = StashUpgrade.TryUpgrade();
+            if (result == StashUpgradeResult.Ok)
+                publishChanged();
+            return result;
+        }
+
         // id가 같은 유효한 레시피 중 첫 번째
         private CraftingRecipe FindRecipe(string recipeId)
         {
@@ -326,6 +345,15 @@ namespace Ashfall.Hideout
             }
         }
 
+        private StashUpgradeModel StashUpgrade
+        {
+            get
+            {
+                EnsureModels();
+                return stashUpgradeModel;
+            }
+        }
+
         private void EnsureModels()
         {
             PlayerProfile profile = Profile;
@@ -334,6 +362,7 @@ namespace Ashfall.Hideout
             modelProfile = profile;
             traderModel = profile != null ? new TraderModel(profile, trader) : null;
             kitModel = profile != null ? new VagrantKitModel(profile, config, utcNow) : null;
+            stashUpgradeModel = profile != null ? new StashUpgradeModel(profile, config) : null;
         }
     }
 }

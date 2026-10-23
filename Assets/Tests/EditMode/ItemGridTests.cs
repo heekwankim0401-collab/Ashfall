@@ -112,5 +112,35 @@ namespace Ashfall.Tests.EditMode
             Assert.IsTrue(grid.IsEmpty);
             Assert.IsFalse(grid.Remove(item));
         }
+
+        // MVP 마무리 F2 (§9 보관함 업그레이드): 제자리 확장 — 아이템 자리 그대로, 새 줄에 배치 가능
+        [Test]
+        public void TryGrow_KeepsPlacement_NewRowsUsable()
+        {
+            var grid = Grid(3, 2);
+            var item = Sized(2, 1);
+            Assert.IsTrue(grid.TryPlace(item, new Vector2Int(1, 1), false));
+            var tall = Sized(1, 2);
+            Assert.IsFalse(grid.CanPlace(tall, new Vector2Int(0, 2), false));
+
+            Assert.IsTrue(grid.TryGrow(new Vector2Int(3, 4)));
+            Assert.AreEqual(new Vector2Int(3, 4), grid.Size);
+            Assert.IsTrue(grid.TryGetPlacement(item, out PlacedItem placed));
+            Assert.AreEqual(new Vector2Int(1, 1), placed.Cell);
+            Assert.IsTrue(grid.TryPlace(tall, new Vector2Int(0, 2), false));
+            Assert.IsTrue(grid.TryFindFreeCell(Sized(2, 2), out Vector2Int cell, out _));
+            Assert.AreEqual(new Vector2Int(1, 2), cell);
+        }
+
+        [Test]
+        public void TryGrow_ShrinkOrSame_Rejected()
+        {
+            var grid = Grid(3, 3);
+            Assert.IsFalse(grid.TryGrow(new Vector2Int(3, 3)), "같은 크기");
+            Assert.IsFalse(grid.TryGrow(new Vector2Int(3, 2)), "줄이기");
+            Assert.IsFalse(grid.TryGrow(new Vector2Int(2, 5)), "한 축이라도 줄면 거부");
+            Assert.AreEqual(new Vector2Int(3, 3), grid.Size);
+            Assert.IsTrue(grid.TryGrow(new Vector2Int(4, 3)), "한 축만 커져도 된다");
+        }
     }
 }

@@ -10,7 +10,7 @@ namespace Ashfall.EditorTools
 {
     // M5 데이터 에셋 생성 (M5 설계 §2.3, §3.2·§3.3, §4.6 "2c").
     // - 아이템 basePrice: 설계 §4.6 가격 표 (전부 TODO(GDD-?) Q10). 값이 0(미설정)일 때만 기록 — 조정한 값 보존.
-    // - Data/Hideout/HideoutConfig.asset: §9 보관함 10×30, 시작 탄피 6000(Q9), 부랑자 키트 20분 + 녹슨 권총·권총 탄창 ×2·붕대(Q13~Q17)
+    // - Data/Hideout/HideoutConfig.asset: §9 보관함 10×30(시작 단계 — 업그레이드 단계 stashUpgrades는 MVP 마무리 F2, MvpFinishDataSetup), 시작 탄피 6000(Q9), 부랑자 키트 20분 + 녹슨 권총·권총 탄창 ×2·붕대(Q13~Q17)
     // - Data/Hideout/TraderConfig.asset: 상인 1명, 매수 1.0 / 매도 0.4(Q10), 고정 판매 목록(Q11)
     // - Data/Items/ItemDatabase.asset: 프로젝트(Assets/)의 모든 ItemDefinitionSO를 id 순으로. 매번 다시 채운다(GUID 유지).
     //   id 중복·빈 id면 예외(DB를 바꾸지 않는다).
@@ -131,7 +131,7 @@ namespace Ashfall.EditorTools
         {
             var config = SetupUtil.CreateAssetIfMissing<HideoutConfigSO>(HideoutConfigPath, c =>
             {
-                c.stashSize = new Vector2Int(10, 30);  // §9 10×30 (W×H), 업그레이드 없음 TODO(GDD-?) Q1
+                c.stashSize = new Vector2Int(10, 30);  // §9 10×30 (W×H) = 단계 0. 업그레이드 단계는 C# 기본값 + MvpFinishDataSetup (MF-Q5)
                 c.startingCasings = 6000;              // TODO(GDD-?) Q9 = 소총+5.56 탄창 2+지도+조끼(5500) + 여유 500
                 c.vagrantKitCooldownSec = 1200f;       // §9 20분
                 c.vagrantKitItems = LoadAll(VagrantKitPaths);

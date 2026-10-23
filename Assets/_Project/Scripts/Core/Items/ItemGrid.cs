@@ -11,7 +11,7 @@ namespace Ashfall.Core
         private readonly List<PlacedItem> items = new List<PlacedItem>();
 
         public GridRef Ref { get; }
-        public Vector2Int Size { get; }
+        public Vector2Int Size { get; private set; }
         public IReadOnlyList<PlacedItem> Items => items;
         public bool IsEmpty => items.Count == 0;
 
@@ -31,6 +31,16 @@ namespace Ashfall.Core
         {
             Ref = id;
             Size = size;
+        }
+
+        // MVP 마무리 F2 (§9 보관함 업그레이드, MF-Q5): 제자리 확장. 두 축 모두 현재 이상이고 적어도 한 축이 커질 때만 true.
+        // 줄이기·같은 크기는 false. 아이템 배치는 그대로 — 이 그리드를 들고 있는 참조(보관함 화면·서비스)가 계속 유효하다.
+        public bool TryGrow(Vector2Int newSize)
+        {
+            if (newSize.x < Size.x || newSize.y < Size.y || newSize == Size)
+                return false;
+            Size = newSize;
+            return true;
         }
 
         // 아이템 자신과 ignore는 겹침 판정에서 뺀다 (같은 그리드 안에서 옮길 때).

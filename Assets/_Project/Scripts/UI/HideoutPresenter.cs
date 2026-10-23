@@ -58,6 +58,11 @@ namespace Ashfall.UI
         public string KitStatusText { get; private set; }
         public bool CanClaimKit { get; private set; }
         public string Message { get; private set; }
+        // MVP 마무리 F2 보관함 업그레이드 (§9, MF-Q7): "보관함 10×30" / "보관함 확장 10×40 (5000 탄피)" 또는 "보관함 최대"
+        public string StashStatusText { get; private set; }
+        public string StashUpgradeText { get; private set; }
+        // 다음 단계가 있고 탄피 ≥ 비용이고 떠나는 중이 아님 (뷰는 HubEnabled와 같이 본다)
+        public bool CanUpgradeStash { get; private set; }
         public bool IsLeaving => hideout.IsLeaving;
         // 허브 버튼(탭·키트·레이드 시작·메인 메뉴·거래)이 눌릴 수 있나
         public bool HubEnabled => Panel == HideoutPanel.Hub && !hideout.IsLeaving;
@@ -90,6 +95,7 @@ namespace Ashfall.UI
             }
 
             CasingsText = UiText.Casings(hideout.Casings);
+            UpdateStashUpgrade();
             trader = null;   // 다음에 읽을 때 다시 만든다
             crafting = null;
             UpdateKitStatus();
@@ -112,6 +118,27 @@ namespace Ashfall.UI
             KitStatusText = text;
             CanClaimKit = canClaim;
             return changed;
+        }
+
+        private void UpdateStashUpgrade()
+        {
+            IGridView stash = hideout.Stash;
+            StashStatusText = stash != null ? UiText.StashStatus(stash.Size) : string.Empty;
+            StashUpgradeOffer next = hideout.NextStashUpgrade;
+            StashUpgradeText = next.HasNext ? UiText.StashUpgradeButton(next.NewSize, next.Cost) : UiText.StashMaxed;
+            CanUpgradeStash = next.HasNext && hideout.Casings >= next.Cost && !hideout.IsLeaving;
+        }
+
+        // [보관함 확장] (MF-Q9 확인 없음). 결과 문구는 허브 메시지 줄. 성공하면 서비스가 HideoutChanged를 발행하지만 여기서도 다시 읽는다.
+        public bool UpgradeStash()
+        {
+            if (!HubEnabled)
+                return false;
+            StashUpgradeResult result = hideout.TryUpgradeStash();
+            IGridView stash = hideout.Stash;
+            Message = result == StashUpgradeResult.Ok && stash != null ? UiText.StashUpgraded(stash.Size) : UiText.StashUpgrade(result);
+            Refresh();
+            return result == StashUpgradeResult.Ok;
         }
 
         // 알림 [확인]

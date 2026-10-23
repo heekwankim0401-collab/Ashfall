@@ -14,7 +14,7 @@ namespace Ashfall.Tests.EditMode
     internal sealed class FakeHideoutService : IHideoutService
     {
         public readonly List<TraderOffer> OfferList = new List<TraderOffer>();
-        public readonly FakeGridView StashGrid = new FakeGridView(new GridRef(GridKind.Loot), new Vector2Int(10, 30));
+        public FakeGridView StashGrid { get; private set; } = new FakeGridView(new GridRef(GridKind.Loot), new Vector2Int(10, 30));
         public readonly Dictionary<ItemInstance, int> SellPrices = new Dictionary<ItemInstance, int>();
         public readonly List<string> Calls = new List<string>();
 
@@ -75,6 +75,25 @@ namespace Ashfall.Tests.EditMode
         {
             Calls.Add("Craft:" + recipeId);
             return CraftResultToReturn;
+        }
+
+        // MVP 마무리 F2: 보관함 업그레이드. 정해 둔 다음 단계·결과를 돌려주고 호출을 기록한다.
+        // UpgradeResult = Ok면 StashGrid 크기를 NextStashUpgrade.NewSize로 바꾸고 단계 +1(탄피·다음 단계는 테스트가 정한다).
+        public int StashLevel { get; set; }
+        public StashUpgradeOffer NextStashUpgrade { get; set; } = new StashUpgradeOffer(new Vector2Int(10, 40), 5000);
+        public StashUpgradeResult UpgradeResult = StashUpgradeResult.Ok;
+
+        public StashUpgradeResult TryUpgradeStash()
+        {
+            Calls.Add("UpgradeStash");
+            if (UpgradeResult == StashUpgradeResult.Ok && NextStashUpgrade.HasNext)
+            {
+                var grown = new FakeGridView(StashGrid.Ref, NextStashUpgrade.NewSize);
+                grown.Placed.AddRange(StashGrid.Placed);
+                StashGrid = grown;
+                StashLevel++;
+            }
+            return UpgradeResult;
         }
 
         public void AcknowledgeNotice()
@@ -1004,6 +1023,144 @@ namespace Ashfall.Tests.EditMode
                 root.Q(CraftingView.RecipesName).Query<Label>().ToList().Select(l => l.text));
             hub.Dispose();
             Assert.IsNull(tab);
+        }
+    }
+
+    // MVP 마무리 F2 보관함 업그레이드 허브 줄 (§9, 설계 §3.5·§7 AC-F2, MF-Q7·Q9): 문구·활성·결과 메시지 + 실제 UXML에 그린다.
+    // 실제 버튼 클릭 → TryUpgradeStash는 PlayMode StashUpgradeFlowTests.
+    public class HideoutStashUpgradeUiTests
+    {
+        private GameFlow flow;
+        private FakeHideoutService hideout;
+
+        [SetUp]
+        public void SetUp()
+        {
+            var rec = new FlowRecorder();
+            flow = rec.Create();
+            flow.OnSceneLoaded(SceneNames.Hideout);
+            hideout = new FakeHideoutService { Casings = 6000 };
+        }
+
+        private HideoutPresenter Create() => new HideoutPresenter(hideout, flow);
+
+        [Test]
+        public void Texts_StatusAndButton()
+        {
+            Assert.AreEqual("보관함 10×30", UiText.StashStatus(new Vector2Int(10, 30)));
+            Assert.AreEqual("보관함 확장 10×40 (5000 탄피)", UiText.StashUpgradeButton(new Vector2Int(10, 40), 5000));
+            Assert.AreEqual("보관함 최대", UiText.StashMaxed);
+            Assert.AreEqual("보관함을 10×50으로 늘렸다.", UiText.StashUpgraded(new Vector2Int(10, 50)));
+        }
+
+        [Test]
+        public void Presenter_Level0_CanUpgrade()
+        {
+            HideoutPresenter p = Create();
+            Assert.AreEqual("보관함 10×30", p.StashStatusText);
+            Assert.AreEqual("보관함 확장 10×40 (5000 탄피)", p.StashUpgradeText);
+            Assert.IsTrue(p.CanUpgradeStash);
+        }
+
+        [Test]
+        public void Presenter_NotEnoughCasings_Disabled()
+        {
+            hideout.Casings = 4999;
+            HideoutPresenter p = Create();
+            Assert.IsFalse(p.CanUpgradeStash);
+            Assert.AreEqual("보관함 확장 10×40 (5000 탄피)", p.StashUpgradeText, "문구는 그대로");
+        }
+
+        [Test]
+        public void Presenter_Max_DisabledMaxText()
+        {
+            hideout.NextStashUpgrade = StashUpgradeOffer.None;
+            HideoutPresenter p = Create();
+            Assert.AreEqual("보관함 최대", p.StashUpgradeText);
+            Assert.IsFalse(p.CanUpgradeStash);
+        }
+
+        [Test]
+        public void Presenter_Leaving_DisabledAndIgnored()
+        {
+            HideoutPresenter p = Create();
+            hideout.IsLeaving = true;
+            p.Refresh();
+            Assert.IsFalse(p.CanUpgradeStash);
+            Assert.IsFalse(p.UpgradeStash());
+            CollectionAssert.IsEmpty(hideout.Calls);
+        }
+
+        [Test]
+        public void UpgradeStash_Ok_MessageAndStatusRefreshed()
+        {
+            HideoutPresenter p = Create();
+            int changed = 0;
+            p.Changed += () => changed++;
+            hideout.NextStashUpgrade = new StashUpgradeOffer(new Vector2Int(10, 40), 5000);
+            Assert.IsTrue(p.UpgradeStash());
+            CollectionAssert.AreEqual(new[] { "UpgradeStash" }, hideout.Calls);
+            Assert.AreEqual("보관함을 10×40으로 늘렸다.", p.Message);
+            Assert.AreEqual("보관함 10×40", p.StashStatusText);
+            Assert.AreEqual(1, changed);
+        }
+
+        [TestCase(StashUpgradeResult.NotEnoughCasings, "탄피가 모자란다.")]
+        [TestCase(StashUpgradeResult.MaxLevel, "보관함이 이미 최대다.")]
+        [TestCase(StashUpgradeResult.Unavailable, "지금은 할 수 없다.")]
+        public void UpgradeStash_Failure_Message(StashUpgradeResult result, string message)
+        {
+            hideout.UpgradeResult = result;
+            HideoutPresenter p = Create();
+            Assert.IsFalse(p.UpgradeStash());
+            Assert.AreEqual(message, p.Message);
+            Assert.AreEqual("보관함 10×30", p.StashStatusText);
+        }
+
+        // 실제 HideoutUI.uxml: 요소 2개가 있고 뷰가 상태·버튼 문구·활성을 그린다
+        [Test]
+        public void HubView_RendersStashRow()
+        {
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(HideoutUxmlTests.HideoutUxml);
+            Assert.IsNotNull(asset);
+            VisualElement root = asset.CloneTree();
+            Assert.IsNotNull(root.Q<Button>(HideoutHubView.StashUpgradeButtonName));
+            Assert.IsNotNull(root.Q<Label>(HideoutHubView.StashStatusName));
+            Assert.AreEqual("hideout-stash-upgrade-button", HideoutHubView.StashUpgradeButtonName);
+            Assert.AreEqual("hideout-stash-status", HideoutHubView.StashStatusName);
+
+            int upgrades = 0;
+            var hub = new HideoutHubView(root, null, null, null, null, () => upgrades++);
+            HideoutPresenter p = Create();
+            hub.Render(p);
+            var button = root.Q<Button>(HideoutHubView.StashUpgradeButtonName);
+            var status = root.Q<Label>(HideoutHubView.StashStatusName);
+            Assert.AreEqual("보관함 10×30", status.text);
+            Assert.AreEqual("보관함 확장 10×40 (5000 탄피)", button.text);
+            Assert.IsTrue(button.enabledSelf);
+
+            hideout.Casings = 100;
+            p.Refresh();
+            hub.Render(p);
+            Assert.IsFalse(button.enabledSelf, "탄피 부족 → 비활성");
+
+            hideout.Casings = 99999;
+            hideout.NextStashUpgrade = StashUpgradeOffer.None;
+            p.Refresh();
+            hub.Render(p);
+            Assert.AreEqual("보관함 최대", button.text);
+            Assert.IsFalse(button.enabledSelf, "최대 → 비활성");
+
+            hideout.NextStashUpgrade = new StashUpgradeOffer(new Vector2Int(10, 50), 12000);
+            p.Refresh();
+            hub.Render(p);
+            Assert.IsTrue(button.enabledSelf);
+            p.StartRaid();   // 떠나는 중
+            hub.Render(p);
+            Assert.IsFalse(button.enabledSelf, "떠나는 중 → 비활성");
+
+            hub.Dispose();
+            Assert.AreEqual(0, upgrades);
         }
     }
 }

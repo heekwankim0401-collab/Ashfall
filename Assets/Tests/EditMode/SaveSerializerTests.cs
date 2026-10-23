@@ -160,7 +160,7 @@ namespace Ashfall.Tests.EditMode
             profile.Loadout = M5TestData.SampleLoadout(catalog, out _);
             string json = SaveSerializer.ToJson(profile, M5TestData.Epoch);
 
-            StringAssert.Contains("\"version\": 2", json);
+            StringAssert.Contains("\"version\": " + SaveSerializer.CurrentVersion, json);   // MVP 마무리 F2: v3
             StringAssert.Contains("\"raidInProgress\": false", json);
             StringAssert.Contains("\"casings\": 7", json);
             StringAssert.Contains("\"savedAtUtc\": \"2026-10-22T09:30:00.0000000Z\"", json);
@@ -449,10 +449,10 @@ namespace Ashfall.Tests.EditMode
         [Test]
         public void TryParse_NewerVersion_Unsupported()
         {
-            Assert.IsFalse(SaveSerializer.TryParse("{\"version\": 3}", out SaveData data, out SaveLoadStatus status, out string error));
+            Assert.IsFalse(SaveSerializer.TryParse("{\"version\": 4}", out SaveData data, out SaveLoadStatus status, out string error));
             Assert.AreEqual(SaveLoadStatus.UnsupportedVersion, status);
             Assert.IsNull(data);
-            StringAssert.Contains("3", error);
+            StringAssert.Contains("4", error);
         }
 
         // ── 헬퍼 ─────────────────────────────────────────────

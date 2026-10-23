@@ -407,3 +407,19 @@ GDD §15에 이 작업의 AC가 없어 아래를 AC로 쓴다(§9 GDD 수정 제
 - 테스트: EditMode `DeathCauseTests.cs` 26개(몸 10·이벤트/결과 3·세션 6·제목 7), PlayMode `DeathCauseFlowTests` 1개(EditMode 1823·PlayMode 182 전부 통과, 레이드 씬 수분 0 → 흉부 사망 → `PlayerDied(Thorax, Dehydration)` → 은신처 결과 제목 "사망 — 탈수";
   시간 단축은 `PlayerHealth.config`를 복제본(dehydratedHpPerSec 40)으로 리플렉션 교체, 에셋 불변, SaveSandbox 새 폴더). 기존 단언 변경 없음(`BodyHealthSystemicTests` 주석 1곳만).
 - 사본 환경 메모: git clone(autocrlf)으로 CRLF가 된 `.mat`·`.asset`·`.terrainlayer` 17개(+ PlayMode 뒤 `ProjectSettings.asset`)를 첫 EditMode 실행의 에셋 재생성이 LF로 다시 써서 `AtmosphereAssetTests.CreateAssets_Rerun_KeepsGuidsAndBytes`가 1회 실패, 두 번째 실행부터 통과(내용 차이 없음, `git diff` 빈 결과). F1과 무관 — 커밋에 넣지 않는다.
+
+## F2 구현 메모 (gameplay-programmer, 2026-10-24)
+- 설계 §1.3·§1.6·§3대로 구현: Core `ItemGrid.TryGrow`(두 축 ≥, 같은 크기 false), `ProfileDefaults(IReadOnlyList<Vector2Int>, int)`·`StashSizeFor`·`MaxStashLevel`(기존 생성자 = 단계 1개),
+  `PlayerProfile(size, casings, stashLevel = 0)`·`StashLevel`·`TryUpgradeStash`, `SaveData.stashLevel`, `SaveSerializer.CurrentVersion = 3`·`ReadStashLevel`(v < 3·음수 → 0, 최대로 자름),
+  `IHideoutService.StashLevel`·`NextStashUpgrade`·`TryUpgradeStash()`·`StashUpgradeOffer`(생성자 = HasNext, `None`)·`StashUpgradeResult`. Hideout `StashUpgradeStep`·`HideoutConfigSO.stashUpgrades`(C# 기본 40/5000·50/12000, TODO MF-Q5),
+  순수 `StashUpgradeModel`(최대 → MaxLevel, 부족 → NotEnoughCasings, 확장 실패 → Unavailable, 성공 때만 차감), `HideoutService` 위임(떠나는 중·프로필 없음 Unavailable, 읽기 전용 허용 MF-Q8) + `HideoutChanged`.
+  UI `HideoutHubView`(요소 2개, 생성자 끝 선택 인자 `onStashUpgrade` — 기존 호출 유지)·`HideoutPresenter`(`StashStatusText`·`StashUpgradeText`·`CanUpgradeStash`·`UpgradeStash()`)·`HideoutRoot` 연결·`UiText` 문구, `HideoutUI.uxml` 키트 줄 다음 줄(기존 `hideout-kit`·`hideout-kit-status`·`ash-button`만).
+  EditorTools `MvpFinishDataSetup`(메뉴·`ApplyAll` = `ApplyHideoutConfig`), `M7SceneSetup.ApplyAll` 끝 호출, `M5DataSetup` 주석.
+- 설계와 다른 점: ① `HideoutConfigSO`에 도우미 `BaseStashSize`·`ValidStashUpgradeCount`·`StashSizesByLevel()`·`TryGetStashUpgrade(from, out size, out cost)` — 줄 수가 이전보다 크지 않은 단계부터는 무시(설정 오류에도 `TryGrow` 실패 없음), `OnValidate`는 rows ≥ 이전 + 1로 고친다.
+  ② 성공 문구 `UiText.StashUpgraded(size)` "보관함을 10×40으로 늘렸다."·`MessageStashMaxLevel` 추가(설계에 "결과 문구"만 있었다). ③ §8.1 목록에 없던 기존 단언 3곳도 같은 이유(버전 3)로 고쳤다:
+  `SaveSerializerTests.ToJson_WritesSchemaKeys`("version": 2 → `CurrentVersion`), `SaveSerializerTests.TryParse_NewerVersion_Unsupported`(3 → 4), `SaveSerializerV2Tests.V1File_ResavedAsV2`("version": 2 → `CurrentVersion`).
+  ④ EditMode에는 UI Toolkit 클릭 흉내가 없어 버튼 클릭 → `TryUpgradeStash`는 PlayMode `StashUpgradeFlowTests`(UiPointer)로 확인한다.
+- 에셋: 사본에서 `-executeMethod Ashfall.EditorTools.MvpFinishDataSetup.ApplyAll` 1회 → `HideoutConfig.asset`에 `stashUpgrades`(40/5000, 50/12000) 기록, 2회째 기록 로그 없음·md5 동일.
+  EditMode `MvpFinishDataAssetTests`가 파일 기록·재실행 바이트 동일을 고정한다.
+- 테스트: EditMode 새 46개(`SaveSerializerV3Tests`·`StashUpgradeModelTests`(모델·서비스 위임·에셋)·`ItemGridTests` TryGrow 2·`HideoutStashUpgradeUiTests`), PlayMode `StashUpgradeFlowTests` 1개.
+  사본에서 EditMode 1869·PlayMode 183 전부 통과. 새 `.meta`는 Unity가 만들었다(손으로 만든 것 없음). CHANGELOG_GDD는 손대지 않았다(§10 초안 = 오케스트레이터).

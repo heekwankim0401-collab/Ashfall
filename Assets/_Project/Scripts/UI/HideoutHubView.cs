@@ -16,6 +16,9 @@ namespace Ashfall.UI
         public const string TabCraftingName = "hideout-tab-crafting";
         public const string KitButtonName = "hideout-kit-button";
         public const string KitStatusName = "hideout-kit-status";
+        // MVP 마무리 F2 보관함 업그레이드 (§9, MF-Q7)
+        public const string StashUpgradeButtonName = "hideout-stash-upgrade-button";
+        public const string StashStatusName = "hideout-stash-status";
         public const string StartRaidName = "hideout-start-raid";
         public const string MainMenuName = "hideout-main-menu";
         public const string MessageName = "hideout-message";
@@ -31,6 +34,8 @@ namespace Ashfall.UI
         private readonly Button tabCrafting;
         private readonly Button kitButton;
         private readonly Label kitStatus;
+        private readonly Button stashUpgradeButton;
+        private readonly Label stashStatus;
         private readonly Button startRaid;
         private readonly Button mainMenu;
         private readonly Label message;
@@ -39,10 +44,12 @@ namespace Ashfall.UI
         private readonly Action onTabTrader;
         private readonly Action onTabCrafting;
         private readonly Action onKit;
+        private readonly Action onStashUpgrade;
         private readonly Action onStartRaid;
         private readonly Action onMainMenu;
 
-        public HideoutHubView(VisualElement documentRoot, Action<HideoutTab> onTab, Action onKit, Action onStartRaid, Action onMainMenu)
+        public HideoutHubView(VisualElement documentRoot, Action<HideoutTab> onTab, Action onKit, Action onStartRaid, Action onMainMenu,
+            Action onStashUpgrade = null)
         {
             hub = RaidResultView.Find<VisualElement>(documentRoot, HubName);
             casings = RaidResultView.Find<Label>(documentRoot, CasingsName);
@@ -51,6 +58,8 @@ namespace Ashfall.UI
             tabCrafting = RaidResultView.Find<Button>(documentRoot, TabCraftingName);
             kitButton = RaidResultView.Find<Button>(documentRoot, KitButtonName);
             kitStatus = RaidResultView.Find<Label>(documentRoot, KitStatusName);
+            stashUpgradeButton = RaidResultView.Find<Button>(documentRoot, StashUpgradeButtonName);
+            stashStatus = RaidResultView.Find<Label>(documentRoot, StashStatusName);
             startRaid = RaidResultView.Find<Button>(documentRoot, StartRaidName);
             mainMenu = RaidResultView.Find<Button>(documentRoot, MainMenuName);
             message = RaidResultView.Find<Label>(documentRoot, MessageName);
@@ -66,12 +75,14 @@ namespace Ashfall.UI
             onTabTrader = () => onTab?.Invoke(HideoutTab.Trader);
             onTabCrafting = () => onTab?.Invoke(HideoutTab.Crafting);
             this.onKit = onKit ?? (() => { });
+            this.onStashUpgrade = onStashUpgrade ?? (() => { });
             this.onStartRaid = onStartRaid ?? (() => { });
             this.onMainMenu = onMainMenu ?? (() => { });
             tabLoadout.clicked += onTabLoadout;
             tabTrader.clicked += onTabTrader;
             tabCrafting.clicked += onTabCrafting;
             kitButton.clicked += this.onKit;
+            stashUpgradeButton.clicked += this.onStashUpgrade;
             startRaid.clicked += this.onStartRaid;
             mainMenu.clicked += this.onMainMenu;
             SetVisible(false);
@@ -95,6 +106,10 @@ namespace Ashfall.UI
             tabCrafting.SetEnabled(enabled);
             startRaid.SetEnabled(enabled);
             mainMenu.SetEnabled(enabled);
+            // 보관함 업그레이드: 상태 + 버튼(최대면 "보관함 최대" 비활성, 탄피 부족·떠나는 중 비활성)
+            stashStatus.text = presenter.StashStatusText ?? string.Empty;
+            stashUpgradeButton.text = presenter.StashUpgradeText ?? string.Empty;
+            stashUpgradeButton.SetEnabled(enabled && presenter.CanUpgradeStash);
             RenderKit(presenter);
         }
 
@@ -113,6 +128,7 @@ namespace Ashfall.UI
             tabTrader.clicked -= onTabTrader;
             tabCrafting.clicked -= onTabCrafting;
             kitButton.clicked -= onKit;
+            stashUpgradeButton.clicked -= onStashUpgrade;
             startRaid.clicked -= onStartRaid;
             mainMenu.clicked -= onMainMenu;
         }

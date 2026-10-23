@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Ashfall.Core
 {
@@ -33,6 +34,32 @@ namespace Ashfall.Core
             Item = item;
             BuyPrice = buyPrice;
         }
+    }
+
+    // MVP 마무리 F2 보관함 업그레이드 결과 (§9, MF-Q5~Q9)
+    public enum StashUpgradeResult
+    {
+        Ok,
+        NotEnoughCasings, // 탄피 부족 → 변화 없음
+        MaxLevel,         // 이미 최대 단계
+        Unavailable,      // 떠나는 중·프로필 없음 등
+    }
+
+    // 다음 보관함 단계. HasNext = false면 최대 단계(NewSize·Cost = 0)
+    public readonly struct StashUpgradeOffer
+    {
+        public readonly bool HasNext;
+        public readonly Vector2Int NewSize;
+        public readonly int Cost;   // 탄피
+
+        public StashUpgradeOffer(Vector2Int newSize, int cost)
+        {
+            HasNext = true;
+            NewSize = newSize;
+            Cost = cost;
+        }
+
+        public static StashUpgradeOffer None => default;
     }
 
     // M7 제작대 결과 (§9, M7 설계 §1.5, Q44~Q47)
@@ -101,6 +128,11 @@ namespace Ashfall.Core
         // HideoutChanged 발행. Recipes는 읽을 때의 보관함 기준(Owned)이다.
         IReadOnlyList<CraftingRecipeView> Recipes { get; }
         CraftResult TryCraft(string recipeId);
+        // MVP 마무리 F2 보관함 업그레이드 (§9, MF-Q5~Q9): 탄피로 줄 수를 늘린다(너비 고정, 그리드 제자리 확장 — Stash 참조 그대로).
+        // 확인 없이 즉시, 읽기 전용 프로필에서도 허용(상인과 같음). 성공하면 메모리에서만 바뀌고 W2/W3/W4에서 저장 + HideoutChanged.
+        int StashLevel { get; }
+        StashUpgradeOffer NextStashUpgrade { get; }
+        StashUpgradeResult TryUpgradeStash();
         SaveLoadReport PendingNotice { get; }         // ProfileService.PendingNotice
         bool LastSaveFailed { get; }
         bool IsReadOnly { get; }                      // 세이브를 읽지 못한 실행 — 저장 막음, 레이드 시작 불가 (ProfileService.IsReadOnly)

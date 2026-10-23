@@ -253,7 +253,7 @@ namespace Ashfall.UI
                 return;
 
             float threshold = hudConfig != null ? hudConfig.dragThresholdPx : DefaultDragThresholdPx;
-            hubView = new HideoutHubView(root, OnTabClicked, OnKitClicked, OnStartRaidClicked, OnMainMenuClicked);
+            hubView = new HideoutHubView(root, OnTabClicked, OnKitClicked, OnStartRaidClicked, OnMainMenuClicked, OnStashUpgradeClicked);
             noticeView = new HideoutNoticeView(root, OnNoticeConfirmClicked);
             resultView = new RaidResultView(root, OnResultConfirmClicked);
             traderView = new TraderView(root, OnBuyClicked, OnSellClicked);
@@ -337,6 +337,13 @@ namespace Ashfall.UI
         private void OnTabClicked(HideoutTab tab) => presenter?.SelectTab(tab);
 
         private void OnKitClicked() => presenter?.ClaimKit();
+
+        // MVP 마무리 F2 [보관함 확장]
+        private void OnStashUpgradeClicked()
+        {
+            inventoryView?.CancelPointer();
+            presenter?.UpgradeStash();
+        }
 
         private void OnStartRaidClicked()
         {

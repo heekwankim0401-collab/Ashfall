@@ -13,6 +13,11 @@ MonoBehaviour:
   m_Name: HideoutConfig
   m_EditorClassIdentifier: Ashfall.Hideout::Ashfall.Hideout.HideoutConfigSO
   stashSize: {x: 10, y: 30}
+  stashUpgrades:
+  - rows: 40
+    costCasings: 5000
+  - rows: 50
+    costCasings: 12000
   startingCasings: 6000
   vagrantKitCooldownSec: 1200
   vagrantKitItems:

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Ashfall.Tests.EditMode
 {
-    // save.json version 2 (M7 설계 §1.6, Q13·Q14): 무기 내구도 왕복, v1 → 100 이전, 튜브 무기 복원, 잘못된 값, v3 거부
+    // save.json version 2 (M7 설계 §1.6, Q13·Q14): 무기 내구도 왕복, v1 → 100 이전, 튜브 무기 복원, 잘못된 값, v4 거부(MVP 마무리 F2에서 현재 = v3)
     public class SaveSerializerV2Tests
     {
         private FakeCatalog catalog;
@@ -51,10 +51,10 @@ namespace Ashfall.Tests.EditMode
         // ── 쓰기 ─────────────────────────────────────────────
 
         [Test]
-        public void CurrentVersion_Is2()
+        public void CurrentVersion_Is3()
         {
-            Assert.AreEqual(2, SaveSerializer.CurrentVersion);
-            StringAssert.Contains("\"version\": 2", SaveSerializer.ToJson(WithStash(), M5TestData.Epoch));
+            Assert.AreEqual(3, SaveSerializer.CurrentVersion);   // MVP 마무리 F2: v3 = stashLevel
+            StringAssert.Contains("\"version\": 3", SaveSerializer.ToJson(WithStash(), M5TestData.Epoch));
         }
 
         [Test]
@@ -153,7 +153,7 @@ namespace Ashfall.Tests.EditMode
             PlayerProfile profile = Load(V1Json);
             StashWeapon(profile, 0).Durability = 80f;
             string json = SaveSerializer.ToJson(profile, M5TestData.Epoch);
-            StringAssert.Contains("\"version\": 2", json);
+            StringAssert.Contains("\"version\": " + SaveSerializer.CurrentVersion, json);   // 현재 버전으로 다시 쓴다
 
             report = new SaveLoadReport();
             Assert.AreEqual(80f, StashWeapon(Load(json), 0).Durability);
@@ -288,19 +288,20 @@ namespace Ashfall.Tests.EditMode
         // ── 버전 ─────────────────────────────────────────────
 
         [Test]
-        public void V3_Unsupported()
+        public void V4_Unsupported()
         {
-            Assert.IsFalse(SaveSerializer.TryParse("{\"version\": 3}", out SaveData data, out SaveLoadStatus status, out string error));
+            Assert.IsFalse(SaveSerializer.TryParse("{\"version\": 4}", out SaveData data, out SaveLoadStatus status, out string error));
             Assert.AreEqual(SaveLoadStatus.UnsupportedVersion, status);
             Assert.IsNull(data);
-            StringAssert.Contains("3", error);
+            StringAssert.Contains("4", error);
         }
 
         [Test]
-        public void V1_And_V2_Parse()
+        public void V1_V2_V3_Parse()
         {
             Assert.IsTrue(SaveSerializer.TryParse("{\"version\": 1}", out _, out _, out _));
             Assert.IsTrue(SaveSerializer.TryParse("{\"version\": 2}", out _, out _, out _));
+            Assert.IsTrue(SaveSerializer.TryParse("{\"version\": 3}", out _, out _, out _));
         }
     }
 }

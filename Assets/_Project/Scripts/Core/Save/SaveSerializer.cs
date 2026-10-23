@@ -8,10 +8,12 @@ namespace Ashfall.Core
     // JSON ↔ SaveData ↔ PlayerProfile (M5 설계 §2.1~§2.4). JsonUtility, 평평한 레코드, enum은 이름 문자열.
     // 예외를 밖으로 던지지 않는다(파싱). RULE-03 감지(raidInProgress → 장비 삭제)는 ProfileService가 한다.
     // M7 (설계 §1.6, TODO(GDD-?) Q13): version 2 = ItemRecord.durability. v1은 읽을 때 모든 무기 내구도 100으로 이전한다
-    // (JsonUtility의 누락 필드 처리에 기대지 않고 버전으로 판정). 이전은 메모리에서만 — 다음 저장이 v2로 쓴다.
+    // (JsonUtility의 누락 필드 처리에 기대지 않고 버전으로 판정). 이전은 메모리에서만 — 다음 저장이 현재 버전으로 쓴다.
+    // MVP 마무리 F2 (설계 §1.6, MF-Q6): version 3 = SaveData.stashLevel. v1·v2 → 단계 0, 설정 최대보다 크면 최대로 자름. v4 이상 = 지원 안 함.
     public static class SaveSerializer
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;
+        public const int StashLevelVersion = 3;   // stashLevel 필드가 생긴 버전
         public const int FirstVersion = 1;
 
         private const string PocketContainer = nameof(GridKind.Pocket);
@@ -34,6 +36,7 @@ namespace Ashfall.Core
                 savedAtUtc = ToUtc(utcNow).ToString("o", CultureInfo.InvariantCulture),
                 raidInProgress = profile.RaidInProgress,
                 casings = profile.Casings,
+                stashLevel = profile.StashLevel,
                 kitLastClaimUtcTicks = profile.LastKitClaimUtc.HasValue ? ToUtc(profile.LastKitClaimUtc.Value).Ticks : 0L,
             };
 
@@ -151,7 +154,8 @@ namespace Ashfall.Core
                 error = $"지원하지 않는 세이브 버전 {parsed.version} (현재 {CurrentVersion})";
                 return false;
             }
-            // FirstVersion(1) ≤ version < CurrentVersion(2): 이 단계에서는 그대로 두고 ToProfile/FromRecord가 버전을 보고 이전한다 (v1 → 무기 내구도 100).
+            // FirstVersion(1) ≤ version < CurrentVersion(3): 이 단계에서는 그대로 두고 ToProfile/FromRecord가 버전을 보고 이전한다
+            // (v1 → 무기 내구도 100, v1·v2 → 보관함 단계 0).
 
             parsed.stash ??= new List<ItemRecord>();
             parsed.loadout ??= new List<ItemRecord>();
@@ -175,7 +179,9 @@ namespace Ashfall.Core
                 throw new ArgumentNullException(nameof(catalog));
             report ??= new SaveLoadReport();
 
-            var profile = new PlayerProfile(defaults.StashSize, data.casings);
+            // 보관함 단계 → 그 단계 크기로 만들고 기록된 자리에 놓는다 (범위 밖은 아래 기존 규칙: 자동 배치 → 버림)
+            int stashLevel = ReadStashLevel(data.stashLevel, data.version, defaults.MaxStashLevel);
+            var profile = new PlayerProfile(defaults.StashSizeFor(stashLevel), data.casings, stashLevel);
             profile.LastKitClaimUtc = data.kitLastClaimUtcTicks > 0 && data.kitLastClaimUtcTicks <= DateTime.MaxValue.Ticks
                 ? new DateTime(data.kitLastClaimUtcTicks, DateTimeKind.Utc)
                 : (DateTime?)null;
@@ -285,6 +291,15 @@ namespace Ashfall.Core
             if (version < 2 || float.IsNaN(recorded) || recorded < 0f)
                 return WeaponItem.MaxDurability;
             return Math.Min(recorded, WeaponItem.MaxDurability);
+        }
+
+        // 보관함 단계 (MVP 마무리 F2, 설계 §1.6). v1·v2 → 0(필드 기본값이 아니라 버전으로 판정). 음수 → 0.
+        // 설정 최대보다 크면 최대로 자른다 — TODO(GDD-?) MF-Q6: 설정에서 단계를 줄였을 때 탄피 환불 없음(가장 단순).
+        public static int ReadStashLevel(int recorded, int version, int maxLevel)
+        {
+            if (version < StashLevelVersion || recorded <= 0)
+                return 0;
+            return Math.Min(recorded, Math.Max(0, maxLevel));
         }
 
         // ── 자리 ─────────────────────────────────────────────
