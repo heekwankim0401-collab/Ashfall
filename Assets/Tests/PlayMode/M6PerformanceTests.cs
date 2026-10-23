@@ -22,6 +22,11 @@ namespace Ashfall.Tests.PlayMode
     // M6 4단계 성능 (M6 설계 §1.7·§6 4단계·§7 AC2/AC3): 실제 Raid_CrimsonBasin(AudioDirector·AshStorm·AshParticles 포함)에서
     // 재 폭풍을 Peak로 강제하고, 적 20명을 무적 TestTarget(= 오디오 청취자) 주변 12~24m로 모아 전원 교전시킨 채 잰다.
     // (RaidPerformanceTests B와 같은 방식. Peak 시야 30m라 고리를 35~55m → 12~24m로 좁혔다.)
+    // M7(7B-4, 오케스트레이터 결정 (b)): 씬은 34명(M4 20 + M7 14). M7 적은 씬 제자리에 두어 부하(AI 틱 34명·총성에 스스로 반응)에 포함하고,
+    // 고리로 옮기는 것과 "전원 교전 진입" 전제는
+    // M4 고정 배치 20명(이름이 Enemy_M7_로 시작하지 않는 SCV·RDR)에만 건다. M7 유형 최악 부하는 7D M7PerformanceTests.
+    // 측정 직전 탄을 테스트 도우미(RaidPerformanceTests.RefillAmmo)로 가득 채운다 — 교전 대기 중 탄이 바닥나면 측정 구간 ShotFired 0(7B-3 진단).
+    // 표적 근처 변이체(고속도로 무리)는 RaidPerformanceTests.ParkNearbyMutants로 표적에서 500m+ 떨어진 NavMesh로 옮긴다(씬·틱에는 남음, 7D에서 별도 계측).
     //  - AI 틱("Ashfall.AI.Tick" Stats)·투사체 스텝·프레임 중앙값: 기존 M3/M4 예산 그대로.
     //  - AudioDirector.Update + AshStormController.Update: 엔진 호출과 별도로 같은 메서드를 한 번 더 직접 불러 Stopwatch·GC.Alloc 측정
     //    (AiPerformanceTests의 director.Update 측정과 같은 방식 — 끄면 이벤트 구독·서비스 등록이 풀리므로 끄지 않고 추가 호출한다.
@@ -33,7 +38,8 @@ namespace Ashfall.Tests.PlayMode
     // 한계: 배치모드는 화면을 그리지 않는다(GPU·파티클 렌더·포스트 비용 없음, 오디오 장치 없을 수 있음) — 사람 확인 P1.
     public class M6PerformanceTests
     {
-        private const int ExpectedEnemies = 20;
+        // M4 고정 배치 20(CrimsonBasinLayout.ExpectedEnemyCount) + M7 배치 14(M7EnemyLayout.Count). PlayMode는 EditorTools를 안 보므로 상수(M7 설계 §6 7B-3).
+        private const int ExpectedEnemies = 34;
         private const float StressNoiseRadiusM = 300f;
         private const float NoiseIntervalSec = 2f;
         private const float CombatTimeoutSec = 90f;
@@ -76,7 +82,7 @@ namespace Ashfall.Tests.PlayMode
         [Timeout(420000)]
         public IEnumerator RaidScene_StormPeak_TwentyEnemiesCombat_AudioOn_BudgetsHold_AudioStormUpdateUnder02ms_NoGc()
         {
-            Assert.AreEqual(ExpectedEnemies, raid.Enemies.Count, "적 20명");
+            Assert.AreEqual(ExpectedEnemies, raid.Enemies.Count, $"적 {ExpectedEnemies}명");
             AiDirector director = raid.Director;
             AudioDirector audio = Object.FindFirstObjectByType<AudioDirector>();
             AshStormController storm = Object.FindFirstObjectByType<AshStormController>();
@@ -102,6 +108,7 @@ namespace Ashfall.Tests.PlayMode
             {
                 foreach (EnemyAgent e in raid.Enemies)
                     MakeImmortal(e, clones);
+                string parked = RaidPerformanceTests.ParkNearbyMutants(raid.Enemies, center);   // 변이체 = 7D에서 별도 계측
                 raid.Gm.Services.Unregister<IPlayerTarget>(raid.Motor);
                 target.Register();
                 audio.ResolveServices();   // 청취자 = 표적 (재조회 0.5초를 기다리지 않음)
@@ -123,29 +130,35 @@ namespace Ashfall.Tests.PlayMode
                 yield return M3Scene.WaitUntil(() => Mathf.Approximately(director.VisibilityCapM, 30f), 3f, () => "AI 시야 상한 30m 반영");
                 Assert.IsTrue(audio.Ambient.StormLoopActive, "폭풍 루프 재생 요청");
 
-                // ── 적 20명을 표적 주변 12~24m로 모아 전원 교전 ──
+                // ── M4 적 20명을 표적 주변 12~24m로 모아 전원 교전 (M7 14명은 제자리) ──
                 var ring = RingSpots(terrain, center, raid.Enemies.Count);
                 for (int i = 0; i < raid.Enemies.Count; i++)
                 {
                     EnemyAgent e = raid.Enemies[i];
+                    if (RaidPerformanceTests.IsM7(e))
+                        continue;   // M7 적은 제자리(부하에는 포함 — 소리를 듣고 스스로 움직인다)
                     Vector3 spot = ring[i % ring.Count];
                     Vector3 face = center - spot;
                     M3Scene.WarpEnemy(e, spot, Mathf.Atan2(face.x, face.z) * Mathf.Rad2Deg);
                 }
+                int m4Count = raid.Enemies.Count(e => !RaidPerformanceTests.IsM7(e));
+                Assert.AreEqual(RaidPerformanceTests.ExpectedM4Enemies, m4Count, "M4 고정 배치 20명");
                 var everCombat = new HashSet<EnemyAgent>();
+                var m7EverCombat = new HashSet<EnemyAgent>();
                 float next = 0f;
                 float start = Time.realtimeSinceStartup;
-                while (everCombat.Count < ExpectedEnemies)
+                while (everCombat.Count < m4Count)
                 {
                     if (Time.realtimeSinceStartup - start > CombatTimeoutSec)
-                        Assert.Fail($"{CombatTimeoutSec}초 안에 20명 교전 진입 안 됨 ({everCombat.Count}): {StateSummary()}");
+                        Assert.Fail($"{CombatTimeoutSec}초 안에 M4 {m4Count}명 교전 진입 안 됨 ({everCombat.Count}): {StateSummary()}");
                     next = MaybeNoise(center, next);
                     yield return null;
                     foreach (EnemyAgent e in raid.Enemies)
                         if (e.State == EnemyState.Combat)
-                            everCombat.Add(e);
+                            (RaidPerformanceTests.IsM7(e) ? m7EverCombat : everCombat).Add(e);
                 }
                 float toAll = Time.realtimeSinceStartup - start;
+                int refilled = RaidPerformanceTests.RefillAmmo(raid.Enemies);
                 Assert.AreEqual(AshStormPhase.Peak, storm.Phase, "교전 대기 중에도 Peak (180초)");
 
                 // ── 측정 ──
@@ -158,14 +171,14 @@ namespace Ashfall.Tests.PlayMode
 
                 Assert.AreEqual(AshStormPhase.Peak, storm.Phase, "측정 내내 Peak");
                 string report =
-                    $"[M6PerformanceTests] 적 {ExpectedEnemies}, 폭풍 Peak(시야 {storm.VisibilityM}m, AI 상한 {director.VisibilityCapM}m), 교전 진입 {toAll:0.0}초 | " +
+                    $"[M6PerformanceTests] 적 {ExpectedEnemies}({parked}), 폭풍 Peak(시야 {storm.VisibilityM}m, AI 상한 {director.VisibilityCapM}m), M4 {m4Count}명 교전 진입 {toAll:0.0}초(그동안 교전한 M7 {m7EverCombat.Count}/{ExpectedEnemies - m4Count}, 측정 전 탄 보충 {refilled}명) | " +
                     $"{m} | 전환(Rising) {transition} | 이벤트 재발행 {replay} | " +
                     $"오디오: 재생 {audio.PlayedCount}, 거리 밖 {audio.CulledCount}, voice 빼앗기 {audio.Voices.StealCount}, 버림 {audio.Voices.DroppedCount}, 가이거 클릭 {audio.Ambient.GeigerClicks} | " +
                     $"재 파티클 최대 {m.MaxParticles} / 상한 {ash.main.maxParticles} (폭풍 상한 {stormCap}) | 엔진 마커 {m.EngineMarkers} | " +
                     $"화면 {Screen.width}x{Screen.height}, 배치모드 렌더 없음";
                 Debug.Log(report);
 
-                Assert.AreEqual(ExpectedEnemies, m.MinAlive, "측정 중 20명 생존");
+                Assert.AreEqual(ExpectedEnemies, m.MinAlive, $"측정 중 {ExpectedEnemies}명 생존");
                 Assert.LessOrEqual(m.AiAvg, AiAverageBudgetMs, "AI 틱 평균 예산");
                 Assert.LessOrEqual(m.AiP99, AiP99BudgetMs, "AI 틱 99% 예산");
                 Assert.LessOrEqual(m.ProjAvg, ProjectileAverageBudgetMs, "투사체 평균 예산");

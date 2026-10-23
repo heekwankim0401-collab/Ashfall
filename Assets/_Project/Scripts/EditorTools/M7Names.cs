@@ -42,6 +42,39 @@ namespace Ashfall.EditorTools
         public const string JamClearClipPath = WeaponAudioFolder + "/WPN_JamClear.wav";
 
         // ── 7B AI (7B-1 계약이 추가) ───────────────────────────
+        public const string AiDataFolder = M3DataSetup.AiFolder;                 // Assets/_Project/Data/AI
+        public const string LootDataFolder = M3DataSetup.LootFolder;             // Assets/_Project/Data/Loot
+        public const string RelicFolder = DataFolder + "/Items/Relics";
+
+        // 적 유형 (7B-1b M7AiDataSetup, 설계 §3.4)
+        public const string SniperArchetypeId = "AI-SNP";
+        public const string MutantArchetypeId = "AI-MUT";
+        public const string BossArchetypeId = "AI-BOS";
+        public const string BodyguardArchetypeId = "AI-BGD";
+        public const string SniperArchetypePath = AiDataFolder + "/" + SniperArchetypeId + ".asset";
+        public const string MutantArchetypePath = AiDataFolder + "/" + MutantArchetypeId + ".asset";
+        public const string BossArchetypePath = AiDataFolder + "/" + BossArchetypeId + ".asset";
+        public const string BodyguardArchetypePath = AiDataFolder + "/" + BodyguardArchetypeId + ".asset";
+
+        // 루트 테이블·유물 (설계 §3.7·§3.9, Q31). 호위는 LT-RDR(기존)을 쓴다.
+        public const string LootSniperId = "LT-SNP";
+        public const string LootMutantId = "LT-MUT";
+        public const string LootBossId = "LT-BOS";
+        public const string LootSniperPath = LootDataFolder + "/" + LootSniperId + ".asset";
+        public const string LootMutantPath = LootDataFolder + "/" + LootMutantId + ".asset";
+        public const string LootBossPath = LootDataFolder + "/" + LootBossId + ".asset";
+        public const string RelicId = "ITM-REL-01";                               // 재의 군주 인장 (유물)
+        public const string RelicPath = RelicFolder + "/" + RelicId + ".asset";
+
+        // 씬 오브젝트 (7B-2a 섬광, 7B-2c 배치). 런타임(AI EnemyAgent)은 이름이 아니라 자식의 SniperGlint 컴포넌트로 찾는다.
+        public const string SniperGlintObject = "SniperGlint";                   // 저격수 자식 Quad (SniperGlint 컴포넌트)
+        public const string M7EnemyPrefix = "M7_";                               // M7EnemySceneApply가 추가하는 적·분대 이름 접두어
+        public const string SniperGlintMaterialPath = M6Names.MaterialFolder + "/M_SniperGlint.mat";   // Unlit 발광 Bone × HDR
+
+        // 자리표시 소리 (7B-2c, EnemyVocalized). LMG 총성 세트는 M6AudioSetup 파일 이름 규칙("Lmg")을 따른다(7A).
+        public const string EnemyAudioFolder = M6Names.PlaceholderAudioFolder + "/Enemy";
+        public const string MutantAlertClipPath = EnemyAudioFolder + "/MUT_Alert.wav";
+        public const string MutantAttackClipPath = EnemyAudioFolder + "/MUT_Attack.wav";
 
         // ── 7C 생존·제작 (7C-1 계약이 추가) ────────────────────
     }

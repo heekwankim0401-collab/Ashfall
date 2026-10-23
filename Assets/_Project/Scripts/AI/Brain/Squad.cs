@@ -9,6 +9,7 @@ namespace Ashfall.AI
     // - 정보 공유: ReportContact → 거리 ≤ squadShareRangeM인 다른 분대원에게 OnSquadContact.
     //   같은 보고자는 squadReportMinIntervalSec 간격으로만 보고한다.
     // - 측면 우회권: 동시에 한 명, 반납 후 flankCooldownSec 동안 다시 안 줌
+    // - M7 경계 울음권: 분대에서 한 명만, vocalCooldownSec 간격 (TryClaimAlertVocal)
     public sealed class Squad
     {
         private readonly AiConfigSO config;
@@ -16,6 +17,7 @@ namespace Ashfall.AI
         private readonly List<float> lastReportTime = new List<float>(4);
         private readonly List<int> joinOrder = new List<int>(4);
         private float flankAvailableAt = float.NegativeInfinity;
+        private float alertVocalAvailableAt = float.NegativeInfinity;
 
         public Squad(int id, AiConfigSO config)
         {
@@ -119,6 +121,16 @@ namespace Ashfall.AI
                 return;
             FlankHolder = -1;
             flankAvailableAt = now + config.flankCooldownSec;
+        }
+
+        // 분대 경계 울음 (M7 7B 리뷰 10, Q26): 분대가 함께 경계에 드는 순간 첫 대원만 운다(무리 4명 동시 재생 방지).
+        // 한 번 주면 cooldownSec 동안 다른 대원에게 주지 않는다. TODO(GDD-?) Q26.
+        public bool TryClaimAlertVocal(float now, float cooldownSec)
+        {
+            if (now < alertVocalAvailableAt)
+                return false;
+            alertVocalAvailableAt = now + Mathf.Max(0f, cooldownSec);
+            return true;
         }
     }
 }

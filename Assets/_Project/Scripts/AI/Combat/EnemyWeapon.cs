@@ -11,6 +11,10 @@ namespace Ashfall.AI
     // - 반자동: semiShotIntervalSec 간격으로 방아쇠를 한 프레임씩 당겼다 놓음 (FireControl 반자동 규칙 통과)
     // - 장착 탄창 0발이면 일반 재장전(빠른 재장전 안 씀 → 탄창이 바닥에 떨어지지 않는다)
     // - 탄이 다 떨어지면 사격 의도를 무시한다. TODO(GDD-?): 탄 없는 적 행동
+    // - M7 (Q12·Q18): 스폰 내구도 = archetype.weaponDurabilityRange(%) 안 균등 무작위. 적은 마모·고장이 없고(WeaponModel 마모 끔)
+    //   시체에서 주운 무기에만 의미가 있다. 그래서 값은 생성 때가 아니라 시체가 될 때 RollSpawnDurability로 한 번 정한다
+    //   (CorpseLootBuilder, 루트 굴림 뒤). 생성자에서 굴리면 같은 난수를 쓰는 전술 결정 순서가 모두 밀린다(기존 시드 재현 테스트가 깨짐).
+    //   살아 있는 동안 Item.Durability = 100. (100,100)(초기값 = 미설정)이면 100이고 난수를 쓰지 않는다.
     // Tick은 할당 없음.
     public sealed class EnemyWeapon
     {
@@ -143,6 +147,31 @@ namespace Ashfall.AI
             for (int i = 0; i < spares.Count; i++)
                 into.Add(spares[i]);
         }
+
+        // 스폰 내구도를 정했는가 (한 번만)
+        public bool SpawnDurabilityRolled { get; private set; }
+
+        // archetype.weaponDurabilityRange로 Item.Durability를 한 번 정한다. 두 번째부터는 아무것도 안 한다(난수도 안 씀).
+        public void RollSpawnDurability(System.Random random)
+        {
+            if (SpawnDurabilityRolled)
+                return;
+            SpawnDurabilityRolled = true;
+            Item.Durability = PickSpawnDurability(archetype.weaponDurabilityRange, random);
+        }
+
+        // 스폰 내구도 (%, 0~100). 범위는 0~100으로 자르고 max < min이면 min. 최솟값이 100이거나 폭이 0이면 난수를 쓰지 않는다. NaN = 100.
+        public static float PickSpawnDurability(Vector2 range, System.Random random)
+        {
+            float min = Clamp100(range.x);
+            float max = Mathf.Max(min, Clamp100(range.y));
+            if (max <= min || random == null)
+                return min;
+            return min + (float)random.NextDouble() * (max - min);
+        }
+
+        private static float Clamp100(float v) =>
+            float.IsNaN(v) ? WeaponItem.MaxDurability : Mathf.Clamp(v, 0f, WeaponItem.MaxDurability);
 
         // 무장 정의 검사 (리뷰 7): 무기·탄·탄창이 모두 있고 탄 종류가 무기와 맞아야 한다.
         // 탄(ammo)이 비면 ProjectileSystem.Fire에서 NullReferenceException이 났다.

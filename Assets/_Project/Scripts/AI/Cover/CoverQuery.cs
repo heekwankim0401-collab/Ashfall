@@ -16,5 +16,10 @@ namespace Ashfall.AI
         // 방금 무효화한 지점을 coverInvalidatedExcludeSec 동안 후보에서 뺀다 (같은 지점 재선택 반복 방지, 리뷰 4)
         public bool HasExcludedCover;
         public int ExcludedCoverId;
+        // 거점 (M7 Q29, 7B 리뷰 2): HasAnchor면 숨는 자리·내다보는 자리가 AnchorCenter에서 수평 AnchorRadiusM 밖인 지점은 뺀다
+        // (반경 밖 엄폐를 골라 경계에서 엄폐 아닌 곳에 서던 문제). 기본값(false) = 제한 없음 = 기존 동작.
+        public bool HasAnchor;
+        public Vector3 AnchorCenter;
+        public float AnchorRadiusM;
     }
 }

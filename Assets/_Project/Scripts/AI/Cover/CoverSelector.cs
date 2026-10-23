@@ -9,6 +9,7 @@ namespace Ashfall.AI
     //      (+ 자기보다 위협에 가까워지는 지점 coverAdvancePenalty). 낮을수록 좋음.
     // 5. 점수 상위 coverLosCandidates개만 레이 확인: (a) 위협 눈 → 숨는 눈이 막힘, (b) 사격 눈 → 위협 눈이 뚫림.
     // 우회(query.Flank): 표적에서 본 (FlankFrom 방향)과 (후보 방향) 사이 각이 flankMinAngleDeg~flankMaxAngleDeg.
+    // 거점(query.HasAnchor, M7 Q29): 숨는 자리·내다보는 자리 중 하나라도 거점 반경 밖이면 후보에서 뺀다.
     public static class CoverSelector
     {
         public static bool TrySelect(CoverIndex index, in CoverQuery query, AiConfigSO config, ILineOfSight los,
@@ -29,6 +30,7 @@ namespace Ashfall.AI
             float selfToThreat = Vector3.Distance(selfFlat, threatFlat);
             float radius = query.Flank ? config.flankSearchRadiusM : config.coverSearchRadiusM;
             float preferredCenter = (query.PreferredRangeM.x + query.PreferredRangeM.y) * 0.5f;
+            bool anchored = query.HasAnchor && query.AnchorRadiusM > 0f;
 
             Vector3 flankFromDir = Vector3.zero;
             if (query.Flank)
@@ -51,6 +53,8 @@ namespace Ashfall.AI
                 Vector3 posFlat = new Vector3(s.Position.x, 0f, s.Position.z);
                 float selfDistance = Vector3.Distance(selfFlat, posFlat);
                 if (selfDistance > radius)
+                    continue;
+                if (anchored && (OutsideAnchor(s.Position, query) || OutsideAnchor(s.PeekPosition, query)))
                     continue;
 
                 Vector3 toThreat = threatFlat - posFlat;
@@ -97,6 +101,12 @@ namespace Ashfall.AI
                 return true;
             }
             return false;
+        }
+
+        private static bool OutsideAnchor(Vector3 point, in CoverQuery query)
+        {
+            float dx = point.x - query.AnchorCenter.x, dz = point.z - query.AnchorCenter.z;
+            return dx * dx + dz * dz > query.AnchorRadiusM * query.AnchorRadiusM;
         }
 
         // 점수 오름차순 상위 keep개만 유지하는 삽입. 새 개수 반환.

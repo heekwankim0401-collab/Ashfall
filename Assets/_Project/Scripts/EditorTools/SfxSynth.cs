@@ -27,6 +27,8 @@ namespace Ashfall.EditorTools
         public const float DroneSec = 30f;   // 화음 주파수가 30초에 정수 주기 → 이음매 없음
         public const float DryFireSec = 0.1f;   // M7 헛격발 클릭 (3ms 클릭 + 공진)
         public const float JamClearSec = 0.4f;  // M7 고장 해제
+        public const float MutantAlertSec = 1.2f;   // M7 7B-2c 변이체 경계 울음 (하강 그르렁)
+        public const float MutantAttackSec = 0.5f;  // M7 7B-2c 변이체 공격 (비명 + 휘두름)
 
         private const double TwoPi = Math.PI * 2.0;
 
@@ -239,6 +241,67 @@ namespace Ashfall.EditorTools
             return Normalize(s);
         }
 
+        // M7 7B-2c 변이체 경계 울음: 하강 톤 그르렁 = 성문 펄스열(톱니) × 저역 공진 + 거친 노이즈 (설계 §2.2, 1.2초)
+        public static float[] MutantAlert(int rate = DefaultRate)
+        {
+            var r = new Random(7001);
+            int n = SampleCount(MutantAlertSec, rate);
+            var s = new float[n];
+            var formant1 = new OnePole(700, rate);
+            var formant2 = new OnePole(1800, rate);
+            var rasp = new OnePole(2400, rate);
+            double phase = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)rate;
+                double u = t / MutantAlertSec;
+                // 180Hz → 70Hz 하강 + 느린 떨림(그르렁)
+                double f0 = 180 - 110 * u + 6 * Math.Sin(TwoPi * 23 * t);
+                phase += f0 / rate;
+                phase -= Math.Floor(phase);
+                double saw = phase * 2.0 - 1.0;
+                double low = formant1.Run(saw);
+                double voiced = low * 1.6 + (formant2.Run(saw) - low) * 0.5;
+                double noise = rasp.Run(Noise(r)) * (0.5 + 0.5 * Math.Sin(TwoPi * 31 * t));
+                double env = Math.Min(1.0, t / 0.08) * (u < 0.7 ? 1.0 : Math.Max(0.0, (1.0 - u) / 0.3));
+                s[i] = (float)((voiced + noise * 0.6) * env);
+            }
+            FadeOutTail(s, rate, 0.03);
+            return Normalize(s);
+        }
+
+        // M7 7B-2c 변이체 공격: 짧은 비명(높은 톤 급상승 후 하강) + 휘두름 노이즈 스윕 (설계 §2.2, 0.5초)
+        public static float[] MutantAttack(int rate = DefaultRate)
+        {
+            var r = new Random(7002);
+            int n = SampleCount(MutantAttackSec, rate);
+            var s = new float[n];
+            var scream = new OnePole(3000, rate);
+            var swishLo = new OnePole(600, rate);
+            var swishHi = new OnePole(5000, rate);
+            double phase = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double t = i / (double)rate;
+                double f0 = 420 + 380 * Math.Exp(-Math.Pow((t - 0.08) / 0.06, 2)) - 200 * Math.Max(0.0, t - 0.1);
+                phase += f0 / rate;
+                phase -= Math.Floor(phase);
+                double saw = phase * 2.0 - 1.0;
+                double cry = scream.Run(saw + Noise(r) * 0.3) * Env(t, 0.01, 0.12);
+                // 0.15~0.4초 휘두름: 대역 노이즈, 가운데가 가장 크다
+                double swish = 0;
+                if (t >= 0.15 && t <= 0.4)
+                {
+                    double band = swishHi.Run(Noise(r));
+                    band -= swishLo.Run(band);
+                    swish = band * Math.Sin(Math.PI * (t - 0.15) / 0.25) * 1.4;
+                }
+                s[i] = (float)(cry * 1.5 + swish);
+            }
+            FadeOutTail(s, rate, 0.02);
+            return Normalize(s);
+        }
+
         // 저음 사인 화음 드론 + 느린 트레몰로, 30초 루프 (모든 주파수가 30초에 정수 주기)
         public static float[] HideoutDrone(int rate = DefaultRate)
         {
@@ -406,6 +469,8 @@ namespace Ashfall.EditorTools
                 case WeaponClass.Smg: return new GunParams { Pitch = 1.1, LengthScale = 0.92f, Crack = 1, Body = 1, Echo = 1, EchoSpread = 1 };
                 case WeaponClass.Shotgun: return new GunParams { Pitch = 0.8, LengthScale = 1.1f, Crack = 0.6, Body = 1.6, Echo = 1, EchoSpread = 1 };
                 case WeaponClass.Sniper: return new GunParams { Pitch = 0.85, LengthScale = 1.15f, Crack = 2.2, Body = 0.9, Echo = 1.3, EchoSpread = 1.25 };
+                // M7 7B-2c 경기관총(적 전용, 설계 §2.2): 소총보다 낮고 짧게 — 600RPM 연사에서 겹쳐도 뭉개지지 않게
+                case WeaponClass.MachineGun: return new GunParams { Pitch = 0.78, LengthScale = 0.88f, Crack = 0.9, Body = 1.25, Echo = 1, EchoSpread = 1 };
                 default: return new GunParams { Pitch = 0.9, LengthScale = 1f, Crack = 1, Body = 1, Echo = 1, EchoSpread = 1 };
             }
         }

@@ -34,6 +34,16 @@ namespace Ashfall.AI
         private Vector3 destination;
         private float destinationSetAt = float.NegativeInfinity;
 
+        // 거점 (M7 Q28): anchorRadiusM > 0이면 첫 Tick 위치(= 스폰 위치)가 중심. 그 전·반경 0이면 자르지 않는다.
+        public bool HasAnchor { get; private set; }
+        public Vector3 AnchorCenter { get; private set; }
+        public float AnchorRadiusM => Archetype.anchorRadiusM;
+
+        // ClampToAnchor 캐시 (직전 입력 → NavMesh에 붙인 결과)
+        private bool hasClampCache;
+        private Vector3 clampCacheIn;
+        private Vector3 clampCacheOut;
+
         public TacticsContext(EnemyBrain brain, EnemyArchetypeSO archetype, AiConfigSO config, IEnemyWorld world,
                               System.Random random, Squad squad)
         {
@@ -64,8 +74,43 @@ namespace Ashfall.AI
             return basePos + Vector3.up * Config.standEyeHeightM;
         }
 
+        // EnemyBrain이 한 번 부른다 (anchorRadiusM > 0일 때만, 중심 = 분대 리더의 거점 또는 자기 첫 Tick 위치 — EnemyBrain.ResolveAnchor).
+        public void SetAnchor(Vector3 center)
+        {
+            HasAnchor = true;
+            AnchorCenter = center;
+            hasClampCache = false;
+        }
+
+        // 이동 목적지를 거점 반경 안으로 자른다. 거점 없음·반경 0·반경 안 = 그대로 (M7 설계 §1.4).
+        // 잘린 점은 NavMesh에 붙인다(7B 리뷰 7: 원래 목적지 높이를 그대로 두면 경사·언덕에서 공중·땅속 점이 된다).
+        // 샘플이 반경 밖으로 밀리면 그 높이로 다시 수평만 자른다. 샘플 실패 = 잘린 점 그대로.
+        // 같은 입력은 직전 결과를 다시 쓴다(MoveTo·Reached가 같은 점을 매 Tick 묻는다 — NavMesh 질의 1회).
+        public Vector3 ClampToAnchor(Vector3 point)
+        {
+            if (!HasAnchor)
+                return point;
+            Vector3 clamped = AnchorRules.Clamp(point, AnchorCenter, AnchorRadiusM);
+            if (clamped == point)
+                return point;
+            if (hasClampCache && clampCacheIn == point)
+                return clampCacheOut;
+
+            Vector3 result = clamped;
+            if (World != null && World.TrySampleNavPoint(clamped, Config.navSampleRadiusM, out Vector3 ground))
+                result = AnchorRules.Clamp(ground, AnchorCenter, AnchorRadiusM);
+            hasClampCache = true;
+            clampCacheIn = point;
+            clampCacheOut = result;
+            return result;
+        }
+
+        // 모든 이동은 여기를 지난다 → 목적지는 거점 안으로 잘린다. Reached도 같은 자른 점으로 판정해
+        // 반경 밖 지점(순찰·수색·LKP)을 향하면 반경 경계에 닿은 것을 도착으로 본다.
+        // 엄폐 선택은 CoverQuery의 거점(HasAnchor·AnchorCenter·AnchorRadiusM)으로 반경 밖 후보를 아예 뺀다(7B 리뷰 2, Q29).
         public void MoveTo(ref EnemyIntent i, Vector3 point, EnemyMoveMode mode)
         {
+            point = ClampToAnchor(point);
             if (!hasDestination || (destination - point).sqrMagnitude > 0.01f)
             {
                 hasDestination = true;
@@ -89,9 +134,25 @@ namespace Ashfall.AI
             i.LookPoint = point;
         }
 
+        // focus 쪽을 기준으로 좌우 yawDeg를 period 주기로 훑는다(elapsed = 상태 경과 시간). 수색 둘러보기·저격수 훑기 공용.
+        // focus가 자기 위치와 겹치면 fallbackForward 기준.
+        public static void LookAround(ref EnemyIntent i, in EnemySenses s, Vector3 focus, Vector3 fallbackForward,
+                                      float yawDeg, float period, float elapsed, float lookAheadM)
+        {
+            Vector3 dir = focus - s.SelfPosition;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 1e-4f)
+                dir = fallbackForward;
+            if (period <= 0f)
+                period = 1f;
+            float yaw = yawDeg * Mathf.Sin((elapsed / period) * Mathf.PI);
+            LookAt(ref i, s.SelfPosition + Quaternion.Euler(0f, yaw, 0f) * dir.normalized * lookAheadM);
+        }
+
         // 수평 거리 ≤ arriveDistance, 또는 NavMeshAgent가 이 목적지에 대해 도착(경로 끝)이라고 한 지 충분히 지남.
         public bool Reached(in EnemySenses s, Vector3 point, float arriveDistance)
         {
+            point = ClampToAnchor(point);
             Vector3 d = point - s.SelfPosition;
             d.y = 0f;
             if (d.sqrMagnitude <= arriveDistance * arriveDistance)

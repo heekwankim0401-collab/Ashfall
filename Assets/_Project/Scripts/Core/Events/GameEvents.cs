@@ -352,6 +352,28 @@ namespace Ashfall.Core
         }
     }
 
+    // ── M7: AI → Audio ────────────────────────────────────
+
+    // 적 울음 종류 (§7 AI-MUT, M7 Q26). "소리가 곧 정보"(기둥 3) — 무리 접근을 듣고 알게 한다.
+    public enum EnemyVocalKind
+    {
+        MutantAlert,    // 변이체가 평시 → Alert/Combat에 들어간 순간 (경계 울음)
+        MutantAttack,   // 변이체 근접 공격 시작마다
+    }
+
+    // 적 울음 → Audio (3D, 적 위치). 발행: AI EnemyAgent. 같은 적의 울음 간격은 AiConfigSO.vocalCooldownSec.
+    public readonly struct EnemyVocalized : IGameEvent
+    {
+        public readonly Vector3 Position;   // 적 눈 위치
+        public readonly EnemyVocalKind Kind;
+
+        public EnemyVocalized(Vector3 position, EnemyVocalKind kind)
+        {
+            Position = position;
+            Kind = kind;
+        }
+    }
+
     // ── M6: Raid(재 폭풍) → 다른 기능 ─────────────────────
 
     // 재 폭풍 단계 (§8.3, M6 Q23·Q24). 레이드당 Pending → Rising → Peak → Falling → Over 한 번씩.

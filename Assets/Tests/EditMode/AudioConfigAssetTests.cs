@@ -236,7 +236,7 @@ namespace Ashfall.Tests.EditMode
         public void M7Recipes_8Files_UniquePaths_DistinctFromM6()
         {
             string[] m7 = M7WavPaths();
-            Assert.AreEqual(2 * 3 + 2, m7.Length, "산탄·저격 근/중/원 + 헛격발·고장 해제");
+            Assert.AreEqual(3 * 3 + 2 + 2, m7.Length, "산탄·저격·경기관총(7B-2c) 근/중/원 + 헛격발·고장 해제 + 변이체 울음·공격(7B-2c)");
             Assert.AreEqual(m7.Length, m7.Distinct().Count());
             Assert.IsEmpty(m7.Intersect(AllWavPaths()), "M6 경로와 겹치지 않는다");
             Assert.IsTrue(m7.All(p => p.StartsWith(M6Names.PlaceholderAudioFolder + "/") && p.EndsWith(".wav")));
@@ -345,7 +345,7 @@ namespace Ashfall.Tests.EditMode
                 Assert.Greater(M6AudioSetup.FillAudioConfig(c), 0);
 
                 CollectionAssert.AreEqual(
-                    new[] { WeaponClass.Pistol, WeaponClass.Smg, WeaponClass.AssaultRifle, WeaponClass.Shotgun, WeaponClass.Sniper },
+                    new[] { WeaponClass.Pistol, WeaponClass.Smg, WeaponClass.AssaultRifle, WeaponClass.Shotgun, WeaponClass.Sniper, WeaponClass.MachineGun },   // 7B-2c: MachineGun 이어 붙임
                     c.gunshots.Select(g => g.weaponClass).ToArray(), "M7 세트는 끝에 추가");
                 Assert.AreSame(rifle, c.gunshots[2], "기존 세트 객체 유지");
                 Assert.AreSame(userClip, rifle.near, "사용자 총성 클립 보존");
@@ -362,7 +362,80 @@ namespace Ashfall.Tests.EditMode
                 Assert.AreSame(userClip, c.jamClearClip, "사용자 해제 클립 보존");
 
                 Assert.AreEqual(0, M6AudioSetup.FillAudioConfig(c), "두 번째는 채울 것 없음");
-                Assert.AreEqual(5, c.gunshots.Length, "두 번째 실행은 세트를 더 붙이지 않는다");
+                Assert.AreEqual(6, c.gunshots.Length, "두 번째 실행은 세트를 더 붙이지 않는다");   // 7B-2c: 5 → 6 (MachineGun)
+            }
+            finally
+            {
+                Object.DestroyImmediate(c);
+            }
+        }
+
+        // ---------- M7 7B-2c: 경기관총 총성 세트, 변이체 울음·공격 (M7 설계 §2.2·§4.9, Q26·Q27) ----------
+
+        [Test]
+        public void Config_MachineGunSet_UsesLmgPlaceholders()
+        {
+            AudioConfigSO c = LoadConfig();
+            GunshotSet set = GunshotMix.FindSet(c, WeaponClass.MachineGun);
+            Assert.IsNotNull(set, $"MachineGun 세트 없음. {MenuHint}");
+            Assert.AreEqual(WeaponClass.MachineGun, c.gunshots.Last().weaponClass, "M7 세트 끝에 추가(산탄·저격 다음)");
+            foreach (GunshotLayer layer in M6AudioSetup.GunshotLayers)
+                StringAssert.Contains("/GS_Lmg_" + layer, M6AudioSetup.GunshotPath(WeaponClass.MachineGun, layer));
+            Assert.AreEqual(AssetDatabase.LoadAssetAtPath<AudioClip>(M6AudioSetup.GunshotPath(WeaponClass.MachineGun, GunshotLayer.Near)), set.near);
+            Assert.AreEqual(AssetDatabase.LoadAssetAtPath<AudioClip>(M6AudioSetup.GunshotPath(WeaponClass.MachineGun, GunshotLayer.Mid)), set.mid);
+            Assert.AreEqual(AssetDatabase.LoadAssetAtPath<AudioClip>(M6AudioSetup.GunshotPath(WeaponClass.MachineGun, GunshotLayer.Far)), set.far);
+            var rifle = GunshotMix.FindSet(c, WeaponClass.AssaultRifle);
+            Assert.Less(set.near.length, rifle.near.length, "경기관총 근거리 = 소총보다 짧다(설계 §2.2)");
+        }
+
+        [Test]
+        public void Config_MutantVocals_Assigned_AlertLongerThanAttack()
+        {
+            AudioConfigSO c = LoadConfig();
+            Assert.IsNotNull(c.mutantAlertClips, MenuHint);
+            Assert.IsNotNull(c.mutantAttackClips, MenuHint);
+            Assert.GreaterOrEqual(c.mutantAlertClips.Length, 1, $"울음 클립 없음. {MenuHint}");
+            Assert.GreaterOrEqual(c.mutantAttackClips.Length, 1, $"공격 클립 없음. {MenuHint}");
+            Assert.IsTrue(c.mutantAlertClips.All(x => x != null), "빈 울음 클립");
+            Assert.IsTrue(c.mutantAttackClips.All(x => x != null), "빈 공격 클립");
+            Assert.AreEqual(AssetDatabase.LoadAssetAtPath<AudioClip>(M7Names.MutantAlertClipPath), c.mutantAlertClips[0]);
+            Assert.AreEqual(AssetDatabase.LoadAssetAtPath<AudioClip>(M7Names.MutantAttackClipPath), c.mutantAttackClips[0]);
+            Assert.Greater(c.mutantAlertClips[0].length, c.mutantAttackClips[0].length, "울음(1.2초) > 공격(0.5초)");
+            Assert.Greater(c.vocalAudibleM, 0f);
+            Assert.That(c.mutantAlertVolume, Is.InRange(0f, 1f));
+            Assert.That(c.mutantAttackVolume, Is.InRange(0f, 1f));
+        }
+
+        [Test]
+        public void M7bWavs_PathsUnderPlaceholderEnemy_InRecipes()
+        {
+            string[] m7 = M7WavPaths();
+            CollectionAssert.Contains(m7, M7Names.MutantAlertClipPath);
+            CollectionAssert.Contains(m7, M7Names.MutantAttackClipPath);
+            CollectionAssert.Contains(m7, M6Names.GunshotAudioFolder + "/GS_Lmg_Near.wav");
+            CollectionAssert.Contains(m7, M6Names.GunshotAudioFolder + "/GS_Lmg_Far.wav");
+            StringAssert.StartsWith(M6Names.PlaceholderAudioFolder + "/", M7Names.MutantAlertClipPath);
+            StringAssert.StartsWith(M6Names.PlaceholderAudioFolder + "/", M7Names.MutantAttackClipPath);
+        }
+
+        // 빈 울음 배열만 채운다: 사용자가 넣은 공격 클립(여러 개)은 그대로, 빈 칸만 있는 배열은 자리표시로. 두 번째는 0.
+        [Test]
+        public void Fill_MutantVocals_OnlyEmptyArrays_PreservesUserClips()
+        {
+            var userClip = AssetDatabase.LoadAssetAtPath<AudioClip>(M6AudioSetup.FootstepPath(SurfaceKind.Dirt, 0));
+            Assert.IsNotNull(userClip, MenuHint);
+            var c = ScriptableObject.CreateInstance<AudioConfigSO>();
+            try
+            {
+                c.mutantAlertClips = new AudioClip[] { null, null };
+                c.mutantAttackClips = new[] { userClip, userClip };
+                M6AudioSetup.FillAudioConfig(c);
+                Assert.AreEqual(1, c.mutantAlertClips.Length);
+                Assert.AreEqual(AssetDatabase.LoadAssetAtPath<AudioClip>(M7Names.MutantAlertClipPath), c.mutantAlertClips[0], "빈 칸만 있는 배열 → 자리표시");
+                Assert.AreEqual(2, c.mutantAttackClips.Length, "사용자 배열 보존");
+                Assert.IsTrue(c.mutantAttackClips.All(x => x == userClip));
+                Assert.AreEqual(0, M6AudioSetup.FillAudioConfig(c), "두 번째는 채울 것 없음");
+                Assert.AreEqual(1, c.gunshots.Count(g => g.weaponClass == WeaponClass.MachineGun), "MachineGun 세트 하나");
             }
             finally
             {

@@ -226,5 +226,101 @@ namespace Ashfall.Tests.EditMode
                     pistols++;
             Assert.That(pistols / (float)n, Is.InRange(0.62f, 0.71f), "권총 가중 2 : SMG 1");
         }
+
+        // ── M7 7B-2b: 스폰 내구도 (Q12·Q18) — 시체가 될 때 RollSpawnDurability로 한 번 정한다 ──
+
+        private static float Rolled(EnemyWeapon w, int seed)
+        {
+            w.RollSpawnDurability(new System.Random(seed));
+            return w.Item.Durability;
+        }
+
+        [Test]
+        public void SpawnDurability_DefaultRange_Is100()
+        {
+            EnemyArchetypeSO scv = M3TestData.Scv();
+            Assert.AreEqual(new Vector2(100f, 100f), scv.weaponDurabilityRange, "미설정 = (100,100)");
+            for (int seed = 1; seed <= 10; seed++)
+                Assert.AreEqual(100f, Rolled(Make(scv, 0, 0, seed), seed));
+        }
+
+        [Test]
+        public void SpawnDurability_WithinArchetypeRange_SeedReproducible_Spread()
+        {
+            EnemyArchetypeSO rdr = M3TestData.Rdr();
+            rdr.weaponDurabilityRange = new Vector2(35f, 85f);
+            float min = float.MaxValue, max = float.MinValue;
+            for (int seed = 1; seed <= 200; seed++)
+            {
+                EnemyWeapon w = Make(rdr, 0, 3, seed);
+                Assert.AreEqual(100f, w.Item.Durability, "살아 있는 동안 100 (생성자는 난수를 쓰지 않음)");
+                float d = Rolled(w, seed);
+                Assert.That(d, Is.InRange(35f, 85f), $"seed {seed}");
+                Assert.AreEqual(d, Rolled(Make(rdr, 0, 3, seed), seed), "같은 시드 = 같은 값");
+                min = Mathf.Min(min, d);
+                max = Mathf.Max(max, d);
+            }
+            Assert.Less(min, 45f, "범위 아래쪽도 나온다");
+            Assert.Greater(max, 75f, "범위 위쪽도 나온다");
+        }
+
+        [Test]
+        public void SpawnDurability_RolledOnce()
+        {
+            EnemyArchetypeSO rdr = M3TestData.Rdr();
+            rdr.weaponDurabilityRange = new Vector2(35f, 85f);
+            EnemyWeapon w = Make(rdr, 0, 0);
+            Assert.IsFalse(w.SpawnDurabilityRolled);
+            float first = Rolled(w, 1);
+            Assert.IsTrue(w.SpawnDurabilityRolled);
+            var r = new System.Random(2);
+            var same = new System.Random(2);
+            w.RollSpawnDurability(r);
+            Assert.AreEqual(first, w.Item.Durability, "두 번째 굴림 없음");
+            Assert.AreEqual(same.Next(), r.Next(), "두 번째는 난수도 안 씀");
+        }
+
+        // 생성자가 공유 난수를 쓰지 않는다 → 같은 난수를 쓰는 전술 결정 순서가 M3~M7A와 같다
+        [Test]
+        public void Constructor_DoesNotConsumeSharedRandom()
+        {
+            EnemyArchetypeSO rdr = M3TestData.Rdr();
+            rdr.weaponDurabilityRange = new Vector2(35f, 85f);
+            var shared = new System.Random(11);
+            var reference = new System.Random(11);
+            new EnemyWeapon(rdr.loadouts[0], 3, rdr, projectiles, shared);
+            Assert.AreEqual(reference.Next(), shared.Next());
+        }
+
+        [Test]
+        public void SpawnDurability_EnemyWeaponDoesNotWear()
+        {
+            EnemyArchetypeSO rdr = M3TestData.Rdr();
+            rdr.weaponDurabilityRange = new Vector2(50f, 50f);
+            rdr.loadouts[0].weapon.durabilityLossPerShot = 1f;
+            EnemyWeapon w = Make(rdr, 0, 1);
+            Assert.AreEqual(50f, Rolled(w, 1));
+            Assert.Greater(Run(w, 2f).Count, 0);
+            Assert.AreEqual(50f, w.Item.Durability, "적 무기는 마모 없음 (Q18)");
+            Assert.IsFalse(w.Item.IsJammed);
+        }
+
+        [Test]
+        public void PickSpawnDurability_ClampsAndEdgeCases()
+        {
+            var random = new System.Random(1);
+            Assert.AreEqual(100f, EnemyWeapon.PickSpawnDurability(new Vector2(100f, 100f), random));
+            Assert.AreEqual(100f, EnemyWeapon.PickSpawnDurability(new Vector2(150f, 300f), random), "100으로 자름");
+            Assert.AreEqual(0f, EnemyWeapon.PickSpawnDurability(new Vector2(-20f, -5f), random), "0으로 자름");
+            Assert.AreEqual(60f, EnemyWeapon.PickSpawnDurability(new Vector2(60f, 40f), random), "max < min = min");
+            Assert.AreEqual(100f, EnemyWeapon.PickSpawnDurability(new Vector2(float.NaN, float.NaN), random), "NaN = 100");
+            Assert.AreEqual(35f, EnemyWeapon.PickSpawnDurability(new Vector2(35f, 85f), null), "난수 없음 = 최솟값");
+
+            // 폭이 0이면 난수를 쓰지 않는다 (기존 시드 순서 유지)
+            var a = new System.Random(9);
+            var b = new System.Random(9);
+            EnemyWeapon.PickSpawnDurability(new Vector2(100f, 100f), a);
+            Assert.AreEqual(b.Next(), a.Next());
+        }
     }
 }

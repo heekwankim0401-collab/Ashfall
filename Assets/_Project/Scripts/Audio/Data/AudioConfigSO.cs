@@ -143,6 +143,18 @@ namespace Ashfall.Audio
         [Tooltip("고장 해제 음량. TODO(GDD-?)")]
         [Range(0f, 1f)] public float jamClearVolume = 0.8f;
 
+        [Header("적 울음 (M7 EnemyVocalized, 설계 §1.2·§4.9, Q26 — 변이체)")]
+        [Tooltip("변이체 경계 울음 (평시 → 경계·교전 진입). 무작위(직전과 다르게)")]
+        public AudioClip[] mutantAlertClips = new AudioClip[0];
+        [Tooltip("변이체 근접 공격 시작")]
+        public AudioClip[] mutantAttackClips = new AudioClip[0];
+        [Tooltip("울음이 들리는 거리 (m). 이보다 멀면 재생 없음. TODO(GDD-?) Q26")]
+        public float vocalAudibleM = 60f;
+        [Tooltip("경계 울음 음량. 게인 = 음량 × (1 − d/들리는 거리). TODO(GDD-?)")]
+        [Range(0f, 1f)] public float mutantAlertVolume = 1f;
+        [Tooltip("공격 음량. TODO(GDD-?)")]
+        [Range(0f, 1f)] public float mutantAttackVolume = 0.9f;
+
         [Header("voice 풀")]
         [Tooltip("효과음 AudioSource 수 (Awake 1회 생성)")]
         public int voiceCount = 24;

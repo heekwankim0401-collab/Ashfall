@@ -18,6 +18,8 @@ namespace Ashfall.EditorTools
             Crate,
             Accent,
             Puddle,
+            Mutant,   // M7 7B-2c: AI-MUT 몸
+            Boss,     // M7 7B-2c: AI-BOS 몸
         }
 
         // 머티리얼 한 개의 사양. 색은 토큰(+ 알파), 셰이더 속성은 URP Lit/Unlit 이름 그대로.
@@ -75,7 +77,35 @@ namespace Ashfall.EditorTools
             { Key.Crate, new Spec("M_Crate", PalettePath("M_Crate"), PaletteToken.RustRed, smoothness: 0.2f) },
             { Key.Accent, new Spec("M_Accent", PalettePath("M_Accent"), PaletteToken.Ember, smoothness: 0.3f, emission: 0.6f) },
             { Key.Puddle, new Spec("M_Puddle", PalettePath("M_Puddle"), PaletteToken.AshBlack, smoothness: 0.95f) },
+            // M7 설계 §2.2 (7B-2c): 변이체 = Ash_Grey 거친 면, 보스 = Ember 강조(약한 발광). TODO(GDD-?) 자리표시
+            { Key.Mutant, new Spec("M_Mutant", PalettePath("M_Mutant"), PaletteToken.AshGrey, smoothness: 0.02f) },
+            { Key.Boss, new Spec("M_Boss", PalettePath("M_Boss"), PaletteToken.Ember, smoothness: 0.35f, emission: 0.3f) },
         };
+
+        // M7 저격 섬광 (설계 §1.4·§2.2, Q23): URP Unlit, _BaseColor = Bone × Emission(HDR — Bloom이 받는다), 그림자 없음.
+        // 경로는 계약 M7Names.SniperGlintMaterialPath(Art/Materials — 팔레트 폴더 밖)라 Materials 표에 넣지 않는다.
+        // Unlit에는 _EmissionColor가 없어 M7EnemySceneApply가 HDR 배율을 _BaseColor에 곱한다. TODO(GDD-?) Q23 배율 4
+        public static readonly Spec SniperGlint =
+            new Spec("M_SniperGlint", M7Names.SniperGlintMaterialPath, PaletteToken.Bone, unlit: true, smoothness: 0f, emission: 4f);
+
+        // M7 적 유형 → 몸 머티리얼 (7B-2c). 저격수·호위는 기존 M3_EnemyRDR(Bone, 레이더 계열), 변이체·보스는 새 키.
+        public static Spec EnemyBodySpec(M7EnemyLayout.Kind kind)
+        {
+            switch (kind)
+            {
+                case M7EnemyLayout.Kind.Mutant: return Materials[Key.Mutant];
+                case M7EnemyLayout.Kind.Boss: return Materials[Key.Boss];
+                default: return LegacySpec(M3SceneSetup.RdrMaterialPath);
+            }
+        }
+
+        private static Spec LegacySpec(string path)
+        {
+            foreach (Spec spec in LegacyMaterials)
+                if (spec.Path == path)
+                    return spec;
+            return null;
+        }
 
         // §3.4 기존 M2~M4 머티리얼 재도색 (Q7, GUID 유지 — 셰이더는 바꾸지 않고 색·투명만)
         public static readonly IReadOnlyList<Spec> LegacyMaterials = new[]

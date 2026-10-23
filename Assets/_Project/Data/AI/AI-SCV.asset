@@ -55,3 +55,13 @@ MonoBehaviour:
   hideSec: {x: 0, y: 0}
   tacticalReloadBelow: 0
   strafeIntervalSec: {x: 2, y: 4}
+  tactics: 0
+  anchorRadiusM: 0
+  weaponDurabilityRange: {x: 35, y: 85}
+  meleeDamage: 0
+  meleeRangeM: 0
+  meleeIntervalSec: 0
+  meleeWindupSec: 0
+  surroundRadiusM: 0
+  telegraphSec: 0
+  scanArcDeg: 0

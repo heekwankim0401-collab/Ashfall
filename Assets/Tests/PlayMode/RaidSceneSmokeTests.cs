@@ -21,7 +21,9 @@ namespace Ashfall.Tests.PlayMode
         private const float RunSeconds = 3f;           // 오류 없이 도는지 보는 최소 시간
         private const float LoadTimeoutSec = 30f;
         private const int WarmupFrames = 5;
-        private const int ExpectedEnemies = 20;        // TODO(GDD-?) Q12: SCV 12 + RDR 8
+        // M4 고정 배치 20(CrimsonBasinLayout.ExpectedEnemyCount, SCV 12 + RDR 8, TODO(GDD-?) Q12) + M7 배치 14(M7EnemyLayout.Count — SNP 2·MUT 8·BOS 1·BGD 3).
+        // PlayMode asmdef는 EditorTools를 참조하지 않으므로 상수로 둔다(M7 설계 §6 7B-3).
+        private const int ExpectedEnemies = 34;
         private const int ExpectedSpawns = 3;          // Q2
         private const string AlwaysActiveExtraction = "EXT-01"; // Q3: EXT-01 항상 열림
         private const float SpawnToleranceM = 1f;      // 배치 후 수평 오차(착지·충돌 해소)
@@ -69,7 +71,7 @@ namespace Ashfall.Tests.PlayMode
             Assert.AreEqual(active.Count, raidInfo.ActiveExtractions.Count, "IRaidInfo 활성 탈출구 수");
             Assert.AreEqual(5, raidInfo.PointsOfInterest.Count, "POI 수");
 
-            // 적 20명, 최상위, NavMesh 위, AiDirector 등록
+            // 적 34명(M4 20 + M7 14), 최상위, NavMesh 위, AiDirector 등록
             EnemyAgent[] enemies = Object.FindObjectsByType<EnemyAgent>(FindObjectsSortMode.InstanceID);
             Assert.AreEqual(ExpectedEnemies, enemies.Length, "적 수");
             var directors = Object.FindObjectsByType<AiDirector>(FindObjectsSortMode.None);

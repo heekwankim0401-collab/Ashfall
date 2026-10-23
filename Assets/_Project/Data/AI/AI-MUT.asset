@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8cdc2289023ba5b489233634bc10aadd, type: 3}
+  m_Name: AI-MUT
+  m_EditorClassIdentifier: Ashfall.AI::Ashfall.AI.EnemyArchetypeSO
+  id: AI-MUT
+  displayName: "\uBCC0\uC774\uCCB4"
+  corpseDisplayName: "\uBCC0\uC774\uCCB4 \uC0AC\uCCB4"
+  hp: 60
+  headHp: 30
+  legsHp: 50
+  sightRange: 40
+  sightAngle: 140
+  hearingMultiplier: 1.5
+  loot: {fileID: 11400000, guid: 2fc5384388deeeb45848c0e39cd08094, type: 2}
+  loadouts: []
+  spareMagazines: 0
+  patrolSpeed: 1.2
+  moveSpeed: 4
+  sprintSpeed: 5
+  reactionTimeSec: 0
+  aimErrorBaseM: 0
+  aimErrorPerMeterM: 0
+  aimSettleSec: 0
+  unsettledErrorMultiplier: 0
+  selfMovingErrorMultiplier: 0
+  targetMovingErrorMultiplier: 0
+  burstErrorGrowthM: 0
+  burstRounds: {x: 0, y: 0}
+  burstPauseSec: {x: 0, y: 0}
+  semiShotIntervalSec: {x: 0, y: 0}
+  preferredRangeM: {x: 0, y: 0}
+  engageMaxRangeM: 0
+  usesCover: 0
+  flanks: 0
+  investigatesNoise: 1
+  peekSec: {x: 0, y: 0}
+  hideSec: {x: 0, y: 0}
+  tacticalReloadBelow: 0
+  strafeIntervalSec: {x: 0, y: 0}
+  tactics: 4
+  anchorRadiusM: 0
+  weaponDurabilityRange: {x: 100, y: 100}
+  meleeDamage: 14
+  meleeRangeM: 1.8
+  meleeIntervalSec: 1.1
+  meleeWindupSec: 0.3
+  surroundRadiusM: 2.5
+  telegraphSec: 0
+  scanArcDeg: 0

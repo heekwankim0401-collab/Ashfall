@@ -171,7 +171,7 @@ EnemyIntent 추가: Melee(bool), Telegraph(bool)  ─► EnemyAgent: ApplyMelee 
   안개에 가려지는 것은 그대로(폭풍 중에는 안 보임 — 저격수도 못 봄).
 - **AI-MUT** ⟨Q24·Q25⟩: 무장 없음(`loadouts` 비움), 엄폐·우회 없음. Patrol = 무리(분대) 대형으로 느리게 배회. Suspicious = 소리 위치로 걷기. Alert/Combat = 질주로 표적 쪽, 목적지 = 표적 위치 + 분대 순번별 둘레 오프셋(`surroundRadiusM`, 각도 = 360°/분대 수) — 한 줄로 몰리지 않게.
   표적과 수평 거리 ≤ `meleeRangeM`(1.8m)이고 눈 → 표적 중심 시야가 트였으면 `meleeWindupSec`(0.3초) 뒤 타격, 다음 타격까지 `meleeIntervalSec`(1.1초). 준비 중 표적이 사거리 밖으로 나가면 헛침(피해 없음, 쿨다운 소모).
-  피해 = `IDamageable.ApplyDamage(DamageInfo(meleeDamage, 관통 0, 지점, 방향, 거리))`, 지점 = 표적 캡슐의 흉부·복부·팔 높이 중 무작위(`EnemyMelee.PickStrikeHeight` — PlayerHealth의 기존 부위 판정이 고른다). 출혈·골절 굴림은 기존 규칙.
+  피해 = `IDamageable.ApplyDamage(DamageInfo(meleeDamage, 관통 0, 표적 중심, 방향, 거리, 부위 힌트))`, 부위 = 흉부·복부·왼팔·오른팔 중 AiConfigSO 가중치(`EnemyMelee.PickStrikePart`) — PlayerHealth는 힌트 부위에 그대로 맞힌다(7B 리뷰 수정 1, CHANGELOG 7B). 출혈·골절 굴림은 기존 규칙.
   분대 연락(기존 50m 공유) = 무리가 함께 돈다. 첫 Alert/Combat 진입·타격마다 `EnemyVocalized` ⟨Q26⟩. 발소리는 기존 `FootstepTaken`(질주).
 - **AI-BOS·AI-BGD** ⟨Q27~Q29⟩: 보스 = Raider 전술(엄폐 사용, `flanks = false`) + `anchorRadiusM` 25 + 적 전용 WPN-LMG-01(Auto, 긴 점사). 호위 AI-BGD 3명 = Raider 전술(소총, `flanks = false`, 같은 anchor), 보스와 같은 분대.
   거점 = 매몰된 마을 외곽의 기존 구조물·CoverPoint(새 구조물·NavMesh 재굽기 없음). 시체: 보스 무기·탄창은 `enemyOnly`라 시체에 넣지 않고 LT-BOS만 굴린다(호위는 일반 시체).
@@ -1020,3 +1020,332 @@ EditMode 1430 중 1429 통과 — 실패 1개는 예상된 것(아래 "통합이
 
 **결과**: EditMode 1472/1472(새 11: 튜브 3·ProfileService 1·마모 기록 판정 7, Inconclusive 0), PlayMode 142/142 × 2회 연속(607초·606초, 새 `TriggerHeldThroughSwitch` 1), Mono 빌드 성공(오류 0·경고 0, 110,083,622 bytes, 30초).
 테스트·빌드 전후 `Assets`·`Packages`·`ProjectSettings`의 .cs 제외 파일 770개 md5 동일, git status 변화 없음. 커밋하지 않음.
+
+## 7B-1 구현 메모 (ai-programmer, 2026-10-23)
+
+계약만(원본). 새 asmdef·기능 간 참조 없음. 새 `.meta` 안 만듦. EditMode 1498/1498(새 26: `EnemyTacticsFactoryTests` 14, `AnchorTests` 12), 기존 테스트 무변경. 커밋하지 않음.
+
+**Core**
+- `Events/GameEvents.cs`: `enum EnemyVocalKind { MutantAlert, MutantAttack }`, `readonly struct EnemyVocalized(Vector3 Position, EnemyVocalKind Kind)`(Position = 적 눈). `WeaponClass.MachineGun`은 다시 추가하지 않음.
+
+**AI 공개 API**
+- `AiEnums.cs`: `EnemyTacticsKind { Auto, Scavenger, Raider, Sniper, Mutant }`, `MeleeEvent { None, WindupStarted, Strike, Whiff }`.
+- `EnemyArchetypeSO`의 M7 필드(초기값 = 기존 동작, 필드가 없는 기존 SCV·RDR 에셋도 이 값으로 읽힘): `tactics = Auto`, `anchorRadiusM = 0`, `weaponDurabilityRange = (100, 100)`(%),
+  `meleeDamage`·`meleeRangeM`·`meleeIntervalSec`·`meleeWindupSec`·`surroundRadiusM`(0), `telegraphSec`·`scanArcDeg`(0). `AiConfigSO`: `glintAngularSizeDeg = 0.35`, `vocalCooldownSec = 4`.
+- `EnemyIntent`: `bool Melee`, `bool Telegraph`. `EnemyBrain`은 표적이 안 보이면 `Fire`와 함께 `Telegraph`도 false로 만든다(`Melee`는 건드리지 않음).
+- `EnemyBrain`: `static EnemyTacticsKind ResolveTacticsKind(archetype)`(Auto나 정의되지 않은 값 = `usesCover ? Raider : Scavenger`), `internal static IEnemyTactics CreateTactics(archetype)`, 공개 `TacticsKind`, `HasAnchor`, `AnchorCenter`.
+- 거점: 순수 `AnchorRules.Clamp(point, center, radiusM)`(수평만 자르고 y 유지, radius ≤ 0 또는 NaN = 무제한). `TacticsContext.SetAnchor`/`ClampToAnchor`/`HasAnchor`/`AnchorCenter`.
+  중심 = **첫 Tick 위치**(anchorRadiusM > 0일 때만). `MoveTo`와 `Reached`가 둘 다 자른 점을 쓰므로 반경 밖 목적지(순찰·수색·엄폐·LKP)는 경계에 닿으면 도착으로 본다. LKP 자체는 자르지 않는다.
+- `IEnemyTactics.TryTickRelaxed(EnemyState state, c, s, ref i)`(새 훅): Idle·Patrol·Search 의도를 전술이 대신 채운다(true = EnemyBrain 기본 행동 건너뜀). 전이는 여전히 EnemyBrain 몫. SCV·RDR은 false.
+- `TacticsContext.LookAround(ref i, s, focus, fallbackForward, yawDeg, period, elapsed, lookAheadM)`(static): EnemyBrain 수색 둘러보기를 옮긴 것(동작 동일). 저격수 훑기에 쓴다(`c.Brain.TimeInState`).
+- `EnemyAgent` 훅(7B-2는 이 파일을 고치지 않는다):
+  - `ApplyMelee`: `archetype.meleeDamage > 0`이면 `new EnemyMelee(meleeWindupSec, meleeIntervalSec)`. 매 프레임 `melee.Tick(now, inRange, hasLos)`를 부른다.
+    inRange = `intent.Melee` && 표적이 살아 있음 && 수평 거리 ≤ `meleeRangeM`, hasLos = 표적이 살아 있음 && 마지막 감각에서 보였음.
+    `WindupStarted`면 공격 울음, `Strike`면 표적 Root의 `IDamageable.ApplyDamage(DamageInfo(meleeDamage, 0, 지점, 눈→지점 방향, 거리))`.
+    지점 = 표적 발 + Root.right × off.x + up × off.y, 이때 off = `EnemyMelee.PickStrikeOffset(random, 높이, 반지름)`. 높이·반지름은 Root의 `CharacterController`에서 읽고, 없으면 (중심 − 발) × 2와 그 0.2배를 쓴다.
+  - `ApplyTelegraph`: Awake에서 `GetComponentInChildren<SniperGlint>(true)`로 한 번 찾는다(이름 검색 없음). `intent.Telegraph` && 보임 && 표적이 살아 있으면 `SetActive(true)` + `Face(target.EyePosition, config.glintAngularSizeDeg)`, 아니면 `SetActive(false)`. 사망 시 끈다.
+  - `TickVocal`: 전술이 Mutant일 때만. Alert·Combat이 아니다가 들어가는 순간 `MutantAlert`, 근접 준비 시작마다 `MutantAttack`. 두 종류가 한 쿨다운(`vocalCooldownSec`)을 같이 쓴다.
+- 빈 껍데기(시그니처 고정, 내용은 7B-2가 채운다): `Brain/SniperTactics.cs`(전부 Hold + 위협 쪽 보기, `TryTickRelaxed` = Hold·true), `Brain/MutantTactics.cs`(Hold + 보기, 평시는 기본 행동),
+  `Combat/EnemyMelee.cs`(`EnemyMelee(windupSec, intervalSec)`, `MeleeEvent Tick(now, inRange, hasLos)` → None, `Reset()`, `IsWindingUp`, `static Vector2 PickStrikeOffset(Random, capsuleHeight, capsuleRadius)`),
+  `Runtime/SniperGlint.cs`(MonoBehaviour: `IsOn`, `SetActive(bool)`(같은 값이면 무시), `Face(Vector3 eye, float angularSizeDeg)`).
+- `EditorTools/M7Names.cs` 7B 구역: AI·Loot·Relics 폴더, `AI-SNP/MUT/BOS/BGD` id·경로, `LT-SNP/MUT/BOS` id·경로, `ITM-REL-01`(`Data/Items/Relics/`), `SniperGlintObject = "SniperGlint"`, `M7EnemyPrefix = "M7_"`,
+  `SniperGlintMaterialPath`(`Art/Materials/M_SniperGlint.mat`), 울음 WAV `Audio/Placeholder/Enemy/MUT_Alert.wav`·`MUT_Attack.wav`.
+
+**설계와 다른 점**
+- `EnemyMelee.PickStrikeHeight(Random, capsuleHeight)` 대신 `PickStrikeOffset(Random, capsuleHeight, capsuleRadius)`를 둔다. 반환값 Vector2 = (옆, 높이). PlayerHealth의 부위 판정은 팔을 옆 오프셋(|x| ≥ 반지름 × armZoneSideRatio)으로 가르므로 높이만으로는 팔을 맞힐 수 없다.
+- `SniperGlint.Face(eye)` 대신 `Face(eye, angularSizeDeg)`를 둔다. 컴포넌트가 AiConfig를 몰라도 된다.
+- 위의 `IEnemyTactics.TryTickRelaxed`·`TacticsContext.LookAround` 추가. 이게 없으면 저격수가 순찰·수색에서 움직이고, 2a가 EnemyBrain.cs를 고쳐야 한다.
+- 근접 시야 판정은 매 프레임 레이를 쏘지 않고 감각 주기의 시야 결과를 쓴다(`TODO(GDD-?) Q24`).
+- 엄폐 선택은 거점 반경을 모른다. 반경 밖 엄폐를 고르면 경계에서 멈춘다(`TODO(GDD-?) Q29`).
+
+**7B-1b·7B-2가 알아야 할 것**
+- 7B-1b: 기존 SCV·RDR은 `tactics`를 쓰지 않아도 Auto다. `weaponDurabilityRange`는 초기값이 (100,100)이라 35~85를 명시해서 넣어야 한다. 섬광은 저격수 자식 "SniperGlint"에 `SniperGlint` 컴포넌트로 붙인다(배치 2c).
+- 2a: `SniperTactics`는 `TryTickRelaxed`(Idle·Patrol·Search 훑기, 이동 없음)와 `Telegraph`를 채운다. 표적이 안 보이면 Telegraph는 EnemyBrain이 끈다. 사격 간격은 기존 EnemyWeapon(semiShotIntervalSec)이다.
+- 2b: `EnemyMelee.Tick`은 Strike/Whiff를 한 번만 돌려주고 간격을 직접 센다. `MutantTactics`는 `i.Melee = true`(사거리 판정은 Agent가 한다)를 쓰고, 둘레 오프셋에는 `c.Squad.IndexOf`·`Count`를 쓴다.
+  Agent는 `intent.Fire`일 때만 표적 쪽으로 돈다. 그러니 MutantTactics는 `LookAt(표적 중심)`을 꼭 넣어야 한다(시야 콘 140°).
+
+## 7B-1b 구현 메모 (data-designer, 2026-10-23)
+
+메뉴 `Ashfall/Setup/Create M7 AI Data`(배치 `Ashfall.EditorTools.M7AiDataSetup.CreateData`, 7B 몫만은 `WriteM7AiData()`). `CreateData`는 `M7WeaponDataSetup.CreateData()`(→ M6 → … M1)를 먼저 부른다.
+원본에서 2회 실행 → 두 번째 실행 후 `Data/`·`Audio/`·`Scenes/`·`Settings/`·`Prefabs/`·`Art/` 313개 파일 md5 동일(GUID·.meta 포함). EditMode 1524/1524(새 26). `M7SceneSetup.CreateAssets`의 7B 줄은 7B-3 몫이라 넣지 않았다.
+
+**만든 에셋 (없을 때만)**: `Data/Items/Relics/ITM-REL-01`(재의 군주 인장, Relic, 1×1, 0.2kg, 8000), `Data/Loot/LT-SNP`(1~2회: MAG-762-5 3)·`LT-MUT`(0~2회: JNK-01 2·JNK-03 2)·`LT-BOS`(3~4회: 첫 굴림 = 유물 고정, MAG-762-5 2),
+`Data/AI/AI-SNP`·`AI-MUT`·`AI-BOS`·`AI-BGD`(§3.4 표 값, 무장 SNP = DMR + 7.62 + MAG-762-5, MUT = 없음, BOS = LMG + 7.62 + MAG-762-100, BGD = RIF + 5.56 + MAG-556-30).
+**기존 에셋 (빈 필드만)**: AI-SCV·AI-RDR `weaponDurabilityRange` 35~85(파일에 없거나 (100,100)일 때만 — 이때 다른 M7 필드도 초기값으로 직렬화됨, `tactics` = Auto 그대로), AiConfig `glintAngularSizeDeg`·`vocalCooldownSec`(파일에 없을 때만 초기값 0.35·4 기록), ItemDatabase 재수집(29 → 30).
+
+**설계와 다른 점·정한 것**
+- **Core 변경(작음)**: Q31 "첫 굴림 고정"을 데이터만으로 할 수 없어 `LootTableSO.guaranteedFirstRoll`(ItemDefinitionSO, null = 없음)을 추가하고 `LootRoller.Roll`이 그것을 첫 굴림으로 넣게 했다.
+  굴림 1회를 대신하고, 굴림 0회·항목 없음·가중치 합 0이어도 정확히 1개(난수 안 씀). null이면 기존 동작·난수 순서 그대로(테스트로 확인). 시체·상자 모두 LootRoller를 쓰므로 `CorpseLootBuilder`(2b)는 따로 할 일이 없다.
+  보장 아이템은 `entries`에 넣지 않는다(넣으면 2개 이상 나올 수 있음 — 설계 §3.9의 "ITM-REL-01 1"은 보장분으로 해석).
+- §3.9의 해독제·물병·방독면(7C 아이템)은 아직 없어서 LT-SNP·MUT·BOS에 넣지 않았다. **7C가 이 세 표에 "없으면 끝에 추가"로 붙인다**(LT-SNP: 해독제 1·물병 1 / LT-MUT: 해독제 0.3 / LT-BOS: 방독면 1·해독제 1). `M7AiDataAssetTests`의 `AssertEntries` 정확 목록도 이어 붙일 것.
+  §3.9 "LT-SCV·LT-RDR에 물병 1·통조림 1·BOX-12GA-8 0.5(SCV)"도 같은 문장이라 7C 몫으로 남겼다(이번에 SCV에 탄 상자도 넣지 않음).
+- 표에 행이 없는 M3 필드(전부 TODO(GDD-?)): SNP 오차 배율(unsettled/selfMoving/targetMoving) = RDR 값, 점사 = 0(반자동), preferredRange = 0, 엄폐 시간·tacticalReload·strafe = 0.
+  BOS = 표에 없는 칸은 RDR 값(aimSettle·배율·burstErrorGrowth·semi 간격·preferredRange 15~40·peek/hide·tacticalReload 0.3·strafe 0), "RDR 오차 × 1.3"은 aimErrorBaseM·aimErrorPerMeterM에만(0.26·0.0325).
+  BGD = 생성 시 AI-RDR 에셋 값을 복사(수동 조정이 있으면 그 값). MUT의 사격·반응 칸("—") = 0(reactionTimeSec 0 → Alert에서 보이는 즉시 Combat). MUT·BOS `weaponDurabilityRange` = (100,100)(표 "—").
+- 내구도 미설정 규칙: (100,100)은 코드 초기값이라 미설정으로 본다(7A 마모 0 규칙과 같음). 기존 유형을 의도적으로 100~100으로 두려면 99.9~100처럼 쓸 것(`TODO(GDD-?) Q12`).
+- displayName: "저격수"·"변이체"·"재의 군주"·"호위병"(§7 + Q28).
+
+**`M7EnemyLayout` (EditorTools, 데이터 + 순수 검사, 씬 적용 없음)**
+- `Kind { Sniper, Mutant, Boss, Bodyguard }`·`ArchetypePath(kind)`. `SquadPlan { Name(M7_ 포함), PoiId, SquadId, Members[], StartsXZ[](대원별), RouteXZ(null = 정지), WatchXZ?(퍼치만), YawDeg, MemberName(i) = Name + (i+1), IsPerch }`.
+  M4 `SquadSlots`는 3자리라 4명 무리가 겹친다 — 그래서 시작 위치를 대원마다 명시했다(2c는 경로가 있어도 `StartsXZ`를 쓸 것). 장비 인덱스는 모두 0.
+- 배치(TODO(GDD-?) Q30): M7_SNP_PYL (240, 296) → 감시 (150, 210) / M7_SNP_HWY (120, −430)(맵 가장자리 상승 비탈) → 감시 (120, −330) /
+  M7_MUT_REF 시작 (232, 15) 주변, 배회 (232,15)–(275,15)–(275,45)–(232,45)(설계 (300, 40)은 SP-E에서 179m라 서쪽으로 옮김) / M7_MUT_HWY (142, −290) 주변, 배회 (142,−290)–(185,−290)–(185,−320)–(142,−320) /
+  M7_BOS_VIL 보스 (−270, 120), 호위 (−266, 116)·(−274, 116)·(−270, 125). 분대 번호 10~14(기존 1~9와 안 겹침, 보스·호위 한 분대 14).
+- 검사: `CheckCounts`(14 = SNP 2·MUT 8·BOS 1·BGD 3, `ExpectedTotalEnemyCount` = 20 + 14 = 34), `CheckSpawnDistances([sniperSight])`(모든 시작·순찰 점 ≥ 190m, 저격수 ≥ 시야 150 + 50), `CheckInsideMap`(경계 485m 안),
+  `CheckSquadIds`, `CheckBossGroup(anchor)`(호위 3명, 보스에서 25m 안), `CheckPerchHeights(ground)`(퍼치 지면 − 감시 지점 지면 ≥ 5m, TODO), `CheckAll(ground, sniperSight, anchor, out report)`, `GroundFromTerrainData(TerrainData)`.
+  현재 지형 에셋으로 전부 통과(스폰과 가장 가까운 점 = MUT_REF (275, 45) ↔ SP-E 약 200m).
+
+**7B-2가 알아야 할 것**
+- 2c `M7EnemySceneApply`: `M7EnemyLayout.CheckAll(xz => M4MapSetup.GroundY(terrain, xz.x, xz.y), 저격수 에셋 sightRange, 보스 에셋 anchorRadiusM, out report)`이 false면 예외. `M3SceneSetup.CreateEnemy`는 이름 앞에 `Enemy_`를 붙인다 — 오브젝트 이름은 `Enemy_M7_…`이 되므로 멱등 찾기 규칙을 그에 맞출 것.
+  `M3SceneSetup.SceneContext`·`CreateEnemy`는 SCV/RDR 머티리얼 두 개만 안다(`archetype == ctx.Rdr ? Rdr : Scv`) — 새 유형 머티리얼은 2c 몫. `NavMeshSnapDistanceM = 3`.
+- 2b: 시체 = `CorpseLootBuilder`가 `LootRoller.Roll`을 부르면 LT-BOS 유물이 자동으로 1개 들어간다. 보스 무기·탄띠 제외(enemyOnly)만 하면 된다. 스폰 내구도: SNP 50~90, BGD·SCV·RDR 35~85, MUT·BOS (100,100).
+- 2a: SNP `telegraphSec` 1.5, `scanArcDeg` 60, `semiShotIntervalSec` 2.0~3.5, `engageMaxRangeM` 200, `preferredRangeM` 0.
+
+## 7B-2c 구현 메모 (gameplay-programmer, 2026-10-23)
+
+사본(`scratchpad/copy_7B2c`)에서만 메뉴 실행·테스트. 원본에는 아래 코드·테스트 파일만 썼고 WAV·머티리얼·씬은 만들지 않았다(7B-3 통합이 원본에서 메뉴 실행).
+사본 격리: 복사 시점에 2b가 쓰던 `MutantTactics`·`EnemyMelee`(7B-1 껍데기로)·`CorpseLootBuilder`·`EnemyWeapon`(HEAD로)을 되돌리고, 2a·2b 새 테스트(SniperTactics·EnemyMelee·SniperFlow)는 사본에서 뺐다.
+2a의 `SniperTactics`·`SniperGlint`(07:42 판)는 껍데기 원본이 남아 있지 않아 그대로 두었다 — 섬광 연결이 실제 2a 컴포넌트(같은 오브젝트 `Renderer.enabled`로 켜고 끔)와 맞는지 이걸로 확인했다.
+
+**새 자리표시 에셋 (사본에서 생성, 원본은 통합이 만든다 — 전부 TODO(GDD-?))**
+- WAV 5개(22050Hz 모노 PCM16): `Audio/Placeholder/Gunshots/GS_Lmg_{Near,Mid,Far}.wav`(경기관총: 소총보다 낮고 짧게 — Pitch 0.78·길이 ×0.88·몸통 ×1.25·크랙 ×0.9),
+  `Audio/Placeholder/Enemy/MUT_Alert.wav`(1.2초, 180→70Hz 하강 톱니 성문 × 저역 공진 + 거친 노이즈, 시드 7001), `MUT_Attack.wav`(0.5초, 짧은 비명 + 휘두름 대역 노이즈, 시드 7002) + `Enemy/` 폴더 .meta.
+  경로는 계약 `M7Names.MutantAlertClipPath`·`MutantAttackClipPath`(종류마다 1개) — 설계 §2.2 표의 `Creatures/MUT_*_01~02`와 다르다(계약 우선). 합계 WAV 35 → 40.
+- 머티리얼 3개: `Art/Materials/Palette/M_Mutant.mat`(Lit, Ash_Grey, 매끄러움 0.02), `M_Boss.mat`(Lit, Ember, 0.35, 발광 ×0.3),
+  `Art/Materials/M_SniperGlint.mat`(URP Unlit, `_BaseColor` = Bone × 4 HDR — Bloom이 받는다. 경로는 계약 `M7Names.SniperGlintMaterialPath`, 팔레트 폴더 밖).
+- `Data/Audio/AudioConfig.asset`: `gunshots` 끝에 MachineGun 세트(근/중/원 = GS_Lmg_*), `mutantAlertClips`·`mutantAttackClips`(각 1개), 새 필드 `vocalAudibleM` 60·`mutantAlertVolume` 1·`mutantAttackVolume` 0.9.
+- `Scenes/Raid_CrimsonBasin.unity`: 최상위 적 14명 `Enemy_M7_{SNP_PYL1, SNP_HWY1, MUT_REF1~4, MUT_HWY1~4, BOS_VIL1~4}` + 순찰 경로 `PatrolRoute_M7_MUT_REF`·`PatrolRoute_M7_MUT_HWY`(루트 16개 추가).
+
+**구현**
+- 새 `EditorTools/M7EnemySceneApply.cs`: `ApplyRaid(Scene)`(true 또는 예외), 단독 메뉴 `Ashfall/Setup/M7/Apply Enemies (Raid Scene)`(배치 `Ashfall.EditorTools.M7EnemySceneApply.ApplyRaidSceneMenu` — 레이드 씬 열기·적용·바뀌었을 때만 저장), `EnsureMaterials()`, `Validate(...)`.
+  순서: 유형 에셋 4개·Terrain·AiDirector 확인 → `M7EnemyLayout.CheckAll(GroundY, AI-SNP sightRange, AI-BOS anchorRadiusM)` 실패 시 예외 → NavMeshSurface 데이터 확인(없으면 예외) → 머티리얼 → 분대별로
+  경로(있으면 웨이포인트 스냅만, 수·참조가 다르면 다시 만듦) → 대원마다 `StartsXZ` 지면 + NavMesh 스냅 3m(실패 시 예외) → `Enemy_` + 이름으로 찾아 없으면 `M3SceneSetup.CreateEnemy`(seed 21~34 = 기존 20명 다음 순번),
+  있으면 위치·회전·직렬화 참조(archetype·director·patrolRoute·eye·muzzle·bodyVisual·squadId·loadoutIndex 0·seed)만 값이 다를 때 다시 맞춤(구성이 깨졌으면 지우고 같은 이름으로 다시 만듦) → 몸 머티리얼 → 무장 없는 유형(변이체)은 `Muzzle/Gun` 큐브 제거 → 저격수 섬광.
+  섬광 = 자식 "SniperGlint" Quad(눈 앞 0.12m, 처음 크기 0.05m, 콜라이더 제거, 그림자·받기·프로브 끔, **렌더러 꺼 둠·오브젝트 켜 둠**) + `SniperGlint` 컴포넌트 + M_SniperGlint. 계약 껍데기에도 타입이 있어 "2a 없으면 빈 자식" 분기는 필요 없었다.
+  바뀐 것이 있을 때만 `MarkSceneDirty` — `M7SceneSetup.ApplyToSceneFile`의 "dirty일 때만 저장"과 맞물려 재실행 바이트 동일.
+- `PaletteMaterialMap`: `Key.Mutant`·`Key.Boss`(Materials 표 = `PaletteConsistencyTests`·`AtmosphereAssetTests`·M6 아트 메뉴에 자동 포함), 표 밖 `SniperGlint` Spec(경로가 팔레트 폴더 밖이라), `EnemyBodySpec(M7EnemyLayout.Kind)`(저격수·호위 = 기존 M3_EnemyRDR(Bone), 변이체·보스 = 새 키).
+  M_Mutant·M_Boss는 M6ArtSetup과 같은 생성(`new Material` + `ApplySpec`)이라 나중에 M6 아트 메뉴를 돌려도 바이트가 같다(사본 EditMode `AtmosphereAssetTests` 재실행 통과).
+- `M6AudioSetup`: `M7GunshotClasses`에 `MachineGun`(7A-2c 메모의 확장 방식 그대로), `M7Recipes()`에 MUT 2개(13개), `FillAudioConfig`가 울음 배열을 **비었을 때만**(null·길이 0·전부 null) 채움. `SfxSynth`: `ClassParams` MachineGun case, `MutantAlert()`·`MutantAttack()`(길이 상수 `MutantAlertSec` 1.2·`MutantAttackSec` 0.5). 기존 분류 합성은 비트 단위로 같다.
+- Audio: `AudioConfigSO` 울음 필드(위), 순수 `Logic/VocalMix`(게인 = 종류 음량 × (1 − d/vocalAudibleM) 선형, 밖·NaN·들리는 거리 ≤ 0 = 재생 없음, 종류별 배열), `FootstepMix.PriorityEnemyVocal = PriorityCollapse`(1: 총성 > 울음 = 금속 붕괴 > 적 발소리 = 무기 클릭 > 내 발소리, TODO(GDD-?)),
+  `AudioDirector`: `EnemyVocalized` 구독(기존 Subscribe/Unsubscribe 짝, 캐시 델리게이트), 종류별 `ClipPicker`(직전과 다르게)·피치 ± pitchJitter, 적 눈 위치 3D voice, 클립 없으면 무음, 밖이면 `CulledCount`. `PlayedSoundKind.EnemyVocal`(끝에 추가), 공개 읽기 `LastEnemyVocal`. 이벤트 경로 할당 0.
+
+**테스트**
+- 기존 단언 변경(이어 붙이기만, MachineGun 추가로 불가피): `M6DataAssetTests.AudioConfig_NumbersMatchDesign` 분류 목록 끝 MachineGun, `AudioConfigAssetTests`의 `M7Recipes_8Files_…` 개수 8 → 13(식 `3 * 3 + 2 + 2`)·`Fill_M6Config_…` 기대 목록 끝 MachineGun·세트 수 5 → 6. 그 밖 기존 단언 변경 없음.
+- EditMode 새 `VocalMixTests` 5(설계 기본값·선형 감쇠·종류 음량·밖/NaN/0/null·음량 자르기·종류별 배열), `AudioConfigAssetTests` +4(LMG 세트 = GS_Lmg_*·소총보다 짧음, 울음 연결·울음 > 공격, 레시피 경로, 빈 배열만 채움·사용자 배열 보존·두 번째 0),
+  `SfxSynthTests` +4(MUT 2 레시피 길이·피크·결정적, LMG가 소총보다 짧고 낮으며 다른 분류와 다름, 울음 > 공격·로드 방식 경계·울음이 더 낮음; LMG 근/중/원 레시피 3개는 기존 M7Recipes 케이스에 자동 포함).
+- PlayMode `AudioFlowTests` +8(울음·공격 → 클립·위치·선형 게인·피치 범위·3D·우선순위 < 적 발소리, 밖 = 버림·클립 없음 = 무음, 울음 2개 연속 같지 않음, 적 발소리로 찬 풀 빼앗기, 총성으로 찬 풀 버림(각각 따로), 비활성 → 해제·재구독, 300 이벤트 GC 0, LMG `ShotFired` → 세트 근/중/원).
+- PlayMode 새 `M7EnemySceneSmokeTests` 1(레이드 씬: 적 34·유형별 SCV 12/RDR 8/SNP 2/MUT 8/BOS 1/BGD 3·AiDirector 등록 34, `Enemy_M7_*` 14명 최상위·NavMesh 위·모든 스폰 ≥ 190m,
+  몸 머티리얼 = 유형별 에셋·`_BaseColor` = 팔레트 토큰, 변이체만 총 큐브 없음, 저격수 2명 섬광 자식(SniperGlint·콜라이더 없음·그림자 끔·처음 꺼짐·M_SniperGlint = Bone × 4 HDR), 3초 실행 후에도 NavMesh 위).
+  씬 적용 전 원본에서는 실패한다(의도 — 통합이 메뉴를 돌려야 통과).
+
+**사본 결과**
+- 메뉴: `M6AudioSetup.CreateAssets` 1회째 "WAV 새로 씀 5, 임포트 설정 변경 5, 빈 필드 채움 6"(MachineGun 세트 추가 1 + 클립 3 + 울음 배열 2), `M7EnemySceneApply.ApplyRaidSceneMenu` 1회째 "새로 14"·머티리얼 3개 생성·씬 저장(검사 6항목 통과, 스폰과 가장 가까운 M7 점 199.6m = `PatrolRoute_M7_MUT_REF/2` ↔ SP-E, 가장 가까운 M7 적 251m).
+  2회째 "0/0/0"·"새로 0, 다시 맞춤 0 — 변경 없음"(씬 저장 안 함) → `Assets`·`ProjectSettings` 1205 파일 md5 동일(WAV 바이트·.meta GUID·AudioConfig·머티리얼·씬, 씬 루트 57개 그대로). EditMode·PlayMode 실행 뒤에도 동일(테스트 파일 제외).
+- EditMode 1540/1540(2a·2b 새 테스트는 사본에서 뺀 상태, `PaletteConsistencyTests`가 M_Mutant·M_Boss를 자동으로 봄, `AtmosphereAssetTests` 재실행 통과).
+- PlayMode 전체 150 중 146 통과(608초). 실패 4 = **예상 3**(씬 적 20명 단언: `RaidSceneSmokeTests.RaidScene_Loads_…`·`RaidPerformanceTests.RaidScene_TwentyEnemies_…`·`M6PerformanceTests.RaidScene_StormPeak_…` — 34명이라 수 단언에서 바로 실패, 예산은 측정 전) +
+  내 테스트 1개(같은 프레임 빼앗기 규칙을 잘못 가정 — 둘로 나눠 고침). 고친 뒤 `AudioFlowTests`+`M7EnemySceneSmokeTests` 29/29.
+
+**7B-3 통합이 할 일 (원본)**
+- `M7SceneSetup`: `CreateAssets`의 7B 줄 `M7AiDataSetup.CreateData();`(M6AudioSetup 앞이든 뒤든 무관 — WAV·세트는 이미 `M6AudioSetup.CreateAssets`가 만든다), `ApplyRaid`의 주석 줄 `if (!M7EnemySceneApply.ApplyRaid(scene)) return false;` 살리기(실패는 예외로 나온다),
+  `RaidAssetsExist`에 `&& Exists<EnemyArchetypeSO>(M7Names.SniperArchetypePath)`(나머지 3개 유형도). 별도 머티리얼 단계는 필요 없다(`ApplyRaid`가 `EnsureMaterials`를 부른다).
+- 원본에서 `Ashfall/Setup/Apply M7 Content` 2회 → 위 사본 결과와 같은 새 파일(WAV 5 + `Audio/Placeholder/Enemy.meta`, 머티리얼 3)·변경(AudioConfig.asset, Raid_CrimsonBasin.unity), 2회째 바이트 동일 확인.
+- 기존 테스트 적 총수 단언 갱신(설계 §6 7B-3): `RaidSceneSmokeTests.ExpectedEnemies`, `RaidPerformanceTests.ExpectedEnemies`(+ "20명 생존" 문구), `M6PerformanceTests.ExpectedEnemies` → 34(= `CrimsonBasinLayout.ExpectedEnemyCount + M7EnemyLayout.Count`; PlayMode asmdef는 EditorTools를 안 보므로 상수 34 + 주석). 성능 예산 34명 재측정은 7B-4.
+- 메뉴 실행 전 원본에서는 `M7EnemySceneSmokeTests`·`AudioConfigAssetTests` 새 케이스·`PaletteConsistencyTests`(M_Mutant 없음)·`M6DataAssetTests.AudioConfig_NumbersMatchDesign`(세트 6개)·`M7Wavs_Exist_…`가 실패하는 것이 정상이다.
+- 2a `SniperGlint`와 맞춘 점: 섬광 오브젝트는 켜 두고 렌더러만 꺼 둔 채 저장한다(2a는 같은 오브젝트의 `Renderer.enabled`로 켜고 끈다). 2a가 이 방식을 바꾸면 `EnsureGlint`·스모크 테스트의 "처음 꺼짐" 단언을 같이 볼 것.
+- 사람 확인(에디터): §7.1 E1(섬광 크기·색 — HDR ×4·Bloom), E3(변이체 울음 60m·공격 소리로 접근을 알 수 있는지), E5(M_Mutant Ash_Grey가 SCV(같은 Ash_Grey 토큰)와 구분되는지 — 안 되면 토큰을 바꿀 것, TODO(GDD-?)), W6(LMG 근/중/원).
+
+## 7B-2b 구현 메모 (ai-programmer, 2026-10-23)
+
+변이체 + 시체·적 무기. 소유 파일만 고침(EnemyBrain·EnemyAgent·Core·M7Names·테스트 도우미·데이터 메뉴 무변경, 새 asmdef·참조 없음, 새 `.meta` 안 만듦). 커밋하지 않음.
+사본(2a·2c 진행 중 파일은 사본에서만 HEAD 또는 7B-1 껍데기로 격리) EditMode 1559/1559(새 35), PlayMode 전체 146/146(새 `MutantFlowTests` 4).
+
+**동작**
+- `Brain/MutantTactics.cs`: Idle·Patrol·Search = EnemyBrain 기본(분대 대형 순찰, 걷기 = patrolSpeed 1.2). Suspicious = investigatesNoise면 자극 위치로 걷고 도착 후 둘러봄(SCV와 같음).
+  Alert·Combat: `i.Melee = true`, `Fire = false`. 보이면 `LookAt(표적 중심)` + 질주(Sprint)로 둘레 자리, 수평 거리 ≤ 사거리 × 0.75면 Hold(밀고 들어가지 않음). 안 보이면 LKP로 질주, 도착하면 LKP 쪽을 봄. 엄폐·우회권 질의 없음.
+- 같은 파일 `public static MutantSurround.ApproachPoint(target, self, basePosition, index, count, surroundRadiusM, meleeRangeM)`: 기준 방향 = 표적 → 분대 리더(리더가 아직 Tick 전이면 자기), 순번 k 각도 = 360°/분대 수 × k.
+  멀면(수평 > surroundRadiusM + meleeRangeM) 반경 surroundRadiusM, 가까우면 meleeRangeM × 0.5. 단독·순번 없음 = 자기 쪽. 자리는 `TrySampleNavPoint`(실패 = 표적 위치).
+- `Combat/EnemyMelee.cs`: 사거리 ∧ 시야 ∧ 간격 지남 → `WindupStarted`. 준비 끝 첫 Tick에 사거리 ∧ 시야면 `Strike`, 아니면 `Whiff`(한 번만). 간격은 준비 시작 기준(`max(interval, windup)`) → 계속 붙어 있으면 타격 사이 = 1.1초. 헛침도 같은 간격 소모. `Reset` = 준비·간격 초기화.
+  `PickStrikeOffset`: 흉부·복부·팔 1/3씩(팔 좌우 반반). 높이 비율 흉부 0.66~0.83·복부 0.48~0.59·팔 0.50~0.83, 옆 = 몸통 |x| ≤ r × 0.35, 팔 r × 0.75~0.95(PlayerConfigSO 기본 구간 0.87/0.62/0.45/0.6 안쪽).
+- `Combat/CorpseLootBuilder.cs`: 무기 정의 `enemyOnly`면 무기·장착 탄창·예비 탄창을 넣지 않는다. 루트 굴림 결과에서도 enemyOnly 무기와 그 무기 탄창 정의를 뺀다. 루트 굴림 뒤 `weapon.RollSpawnDurability(random)`(enemyOnly 무기는 안 굴림).
+- `Combat/EnemyWeapon.cs`: `static PickSpawnDurability(range, random)`(0~100으로 자름, max < min = min, 폭 0·난수 없음 = min, NaN = 100), `RollSpawnDurability(random)`(한 번만), `SpawnDurabilityRolled`.
+
+**설계와 다른 점·정한 것 (전부 TODO(GDD-?))**
+- **스폰 내구도는 생성자가 아니라 시체가 될 때 정한다**(Q12·Q18): 생성자에서 공유 난수(EnemyAgent의 `random` = 전술과 같은 스트림)를 쓰면 SCV·RDR(35~85)의 전술 결정 순서가 밀려 기존 `EnemySoundEventTests.EngagedEnemy_ShotFiredPerRound_OtherEnemyNotAlerted`가 결정적으로 실패했다.
+  적 무기는 마모·고장이 없어 살아 있는 동안 값이 쓰이지 않으므로 `CorpseLootBuilder`가 루트 굴림 뒤에 굴린다(루트 시드 재현도 그대로). **살아 있는 적의 `Weapon.Item.Durability`는 100**이다.
+- 근접 간격 기준 = 준비 시작(Q24). 준비 중 시야를 잃어도 헛침.
+- 타격 지점 분포 비율은 `EnemyMelee` 내부 상수(AiConfigSO는 이번 소유 밖, AI는 PlayerConfigSO를 모름) — 필요하면 AiConfigSO로 옮긴다(Q24).
+- 2.5m 둘레에 서면 1.8m 사거리에 닿지 않아 가까우면 반경을 사거리 × 0.5로 좁히고 사거리 × 0.75 안쪽이면 멈춘다(`MutantSurround` 상수, Q25).
+- `PickStrikeHeight` 대신 7B-1의 `PickStrikeOffset` 그대로.
+
+**통합(7B-3 이후)이 할 일**
+- `EnemyAgent.Start`가 무장 없는 변이체마다 "쓸 수 있는 무장이 없다" 경고를 낸다(레이드 8회). `meleeDamage > 0`이면 경고를 생략할지 EnemyAgent 담당이 정할 것(이번엔 안 고침).
+- 7B-4 `M7AiRaidFlowTests`: 저격수 DMR 내구도(50~90)는 시체(`EnemyKilled.Items`·시체 컨테이너)에서 확인 — 살아 있는 적의 무기는 100.
+- 2c 오디오: `MutantAlert`(Alert/Combat 진입)와 `MutantAttack`(준비 시작)이 쿨다운 4초를 같이 쓰므로 경계 직후 4초 안의 첫 공격 울음은 나지 않는다(PlayMode에서 확인).
+- `MutantFlowTests`는 M3_AI 씬 + `Data/AI/AI-MUT.asset`(Create M7 AI Data) 복제본을 쓰고, 기존 적 하나를 틀로 `SerializedObject`로 아키타입·분대를 바꿔 복제한다(씬·에셋 무변경).
+
+## 7B-2a 구현 메모 (ai-programmer, 2026-10-23)
+
+저격수(AI-SNP) 전술·섬광. 원본에 쓴 파일 4개만: `AI/Brain/SniperTactics.cs`, `AI/Runtime/SniperGlint.cs`(7B-1 껍데기 채움, 시그니처 그대로), 새 테스트 `EditMode/SniperTacticsTests.cs`(10), `PlayMode/SniperFlowTests.cs`(3).
+EnemyBrain·EnemyAgent·Core·M7Names·테스트 도우미·데이터 메뉴는 고치지 않았다. 새 `.meta` 안 만듦. 커밋하지 않음.
+사본(2b·2c 진행 중 파일은 HEAD/7B-1 껍데기로 되돌려 격리): EditMode 1534/1534, PlayMode 145/145(첫 전체 실행에서 `ExtractionFlowTests.Ext04_…` 1회 실패 — 저격수 테스트보다 앞서 도는 테스트, 단독 재실행·전체 재실행 통과 → 기존 흔들림으로 봄).
+
+**SniperTactics**
+- 모든 상태에서 Hold(이동 의도·목적지 없음). `TryTickRelaxed`는 Idle·Patrol·Search 모두 true.
+- 훑기: `TacticsContext.LookAround`, 폭 = `scanArcDeg` 전체(좌우 각 `scanArcDeg/2`), 주기 = `AiConfigSO.searchLookSec`, 경과 = `Brain.TimeInState`.
+  Idle·Patrol 기준 = **첫 평시 Tick의 몸 방향**(배치 yaw = 감시 방향, 이후 고정 — `TODO(GDD-?) Q22`), Search 기준 = LKP(없으면 감시 방향).
+- Suspicious(발소리): 자극 쪽으로 돌기만. Alert·Combat 안 보임: 위협 눈(`ThreatEye` = LKP + 선 눈 높이) 쪽을 봄.
+- 경고: Alert·Combat에서 보이는 감각 Tick이 시작되면 그 시각을 기록하고 `Telegraph = true`(보이는 동안 계속, 사격 사이 포함).
+  `Fire` = Combat ∧ (now − 시작 ≥ `telegraphSec`) ∧ `TargetDistance ≤ engageMaxRangeM`. 안 보이는 Tick이 **한 번이라도** 있으면 경고를 처음부터(Combat 유지 중이어도).
+  경고 타이머는 `Reset()`에서 지우지 않는다 — Alert → Combat 전이에도 `Reset`이 불리기 때문(반응 1.0초 < 경고 1.5초라 Alert에서 시작한 경고가 Combat으로 이어진다). 평시·Suspicious·안 보이는 Tick이 끊는다.
+- 경고 시간 판정은 감각 주기(교전 0.1초) 단위라 실제 첫 사격은 1.5~1.6초 뒤(+ EnemyWeapon 반자동 간격, 첫 발은 즉시).
+
+**SniperGlint**
+- 켜기/끄기 = 같은 오브젝트의 `Renderer.enabled`(오브젝트는 켜 둠). `SetActive`는 같은 값이면 무시하되, EnemyAgent.Awake가 이 컴포넌트 Awake보다 먼저 `SetActive(false)`를 불러도 렌더러를 맞춘다.
+- 첫 사용 때 렌더러 그림자 드리우기·받기 끔, 같은 오브젝트의 콜라이더가 있으면 **끔**(파괴 안 함). 배치(2c)는 Quad의 MeshCollider를 지우는 것이 원칙.
+- `Face(eye, angularSizeDeg)`: `rotation = LookRotation(자기 위치 − 눈)`(Unity Quad의 보이는 면 −Z가 눈 쪽), 월드 한 변 = 거리 × tan(각), 부모 `lossyScale`로 나눠 localScale. 위치는 배치된 로컬 위치 그대로. `WorldSize`(디버그·테스트용 공개 읽기) 추가.
+
+**테스트**
+- EditMode `SniperTacticsTests`: 전 상태 이동 없음, 첫 발견 1.5초 전 사격 없음·경고 뒤 바로 사격, 사격 사이 섬광 유지, 한 번 놓친 뒤 다시 보면 경고 재시작(Combat 중·Search에서 T5 둘 다), Search = LKP 기준 ±30° 훑기, Idle = 시작 방향 ±30° 훑기, 발소리 → 돌아봄만, 총성 → Alert·LKP 쪽, 교전 Tick 할당 0.
+- PlayMode `SniperFlowTests`(코드 씬: 새 빈 씬을 만들고 다른 씬은 내림, 높이 3000m, 퍼치 상자 NavMesh 런타임 굽기, `AI-SNP`·`AiConfig` 에셋, `TestTarget`, 가짜 `IProjectileService`·`IAshStormInfo`, 자식 Quad "SniperGlint" + 기본 머티리얼):
+  120m 표적 → 섬광 켜짐(렌더러·그림자 끔·콜라이더 꺼짐, −Z가 표적 눈 쪽, 크기 = 거리 × tan 0.35°) → 첫 `ShotFired(Enemy)`까지 ≥ 1.5초(≤ 2.0초), 사격 사이 섬광 유지 /
+  폭풍 상한 30m → 5초 동안 Idle·게이지 0·섬광 꺼짐·사격 없음, 상한 해제 → 섬광 켜짐 / 교전 중 `AiDirector.Update` GC 0(AiPerformanceTests 방식). 세 테스트 모두 퍼치 위치 불변(0.05m).
+
+**설계와 다른 점·정한 것**
+- 훑기 폭 `scanArcDeg` = 전체 폭으로 해석(좌우 30°). 주기는 새 필드 없이 `searchLookSec` 재사용.
+- Alert(반응 시간 중)에도 섬광을 켠다(“처음 볼 때” = Alert 진입). 사격만 Combat.
+- 섬광 콜라이더는 끄기만 한다(런타임 파괴 없음).
+
+**통합(7B-2c·리뷰)이 할 일**
+- 2c 배치: 저격수 자식 "SniperGlint" = Quad(MeshCollider 제거) + `M_SniperGlint` + `SniperGlint` 컴포넌트, 로컬 위치 = 눈 높이 앞(예 (0, 1.6, 0.25)). 저격수 루트 yaw = 감시 방향(평시 훑기 기준이 된다).
+- 실제 레이드에서 저격수 퍼치가 NavMesh 위가 아니면 EnemyAgent가 경고 1회만 하고 제자리(이동 의도가 없으니 동작은 같다).
+
+## 7B-3 구현 메모 (gameplay-programmer, 2026-10-23)
+
+원본에서 통합. 커밋하지 않음. 새 `.meta` 안 만듦(메뉴가 만든 에셋의 `.meta`는 유니티 생성).
+
+**처음 함께 컴파일**: 7B-1·1b·2a·2b·2c 코드가 원본에서 충돌·컴파일 오류 없이 한 번에 컴파일됐다(`error CS` 0). 메뉴 실행 전 EditMode 1585 중 1572 통과, 실패 11 = 7B-2c 메모가 예고한 "메뉴 전 실패"(AudioConfig 세트·울음·LMG WAV, PaletteConsistency M_Mutant/M_Boss 없음, `M6DataAssetTests.AudioConfig_NumbersMatchDesign`, `AtmosphereAssetTests.CreateAssets_Rerun_KeepsGuidsAndBytes`) — 메뉴 뒤 전부 통과.
+
+**고친 것**
+- `EditorTools/M7SceneSetup.cs`: `CreateAssets`에 `M7AiDataSetup.CreateData();`(M6AudioSetup 뒤), `ApplyRaid`에 `if (!M7EnemySceneApply.ApplyRaid(scene)) return false;`, `RaidAssetsExist`에 AI-SNP·MUT·BOS·BGD 존재 조건(`using Ashfall.AI`).
+- `AI/Runtime/EnemyAgent.cs` Start: "쓸 수 있는 무장이 없다" 경고를 `meleeDamage > 0` **이고 무장 목록이 비었을 때만** 생략(근접 유형인데 목록이 있는데 못 쓰면 여전히 경고 — 데이터 오류는 드러나게).
+- 섬광 배치 조건(2a 메모) 확인 — `M7EnemySceneApply.EnsureGlint`에 빠진 것 없음: Quad 콜라이더 제거·M_SniperGlint·`SniperGlint` 컴포넌트·로컬 위치 = Eye 로컬 + 앞 0.12m(눈 높이 앞)·그림자/프로브 끔·렌더러 꺼 둠, 저격수 루트 yaw = `SquadPlan.YawDeg`(퍼치는 `YawTowards(StartsXZ[0], WatchXZ)` = 감시 방향). 고치지 않음.
+- 적 총수 단언 20 → 34: `RaidSceneSmokeTests`·`RaidPerformanceTests`·`M6PerformanceTests`의 `ExpectedEnemies`(= `CrimsonBasinLayout.ExpectedEnemyCount` 20 + `M7EnemyLayout.Count` 14, PlayMode는 EditorTools를 안 보므로 상수 + 주석). 실패 메시지의 "20명" 문구만 `{ExpectedEnemies}`로. 다른 단언·예산·테스트 이름 무변경.
+
+**메뉴 2회 (`-executeMethod Ashfall.EditorTools.M7SceneSetup.ApplyAll`)**
+- 1회째: WAV 5(`GS_Lmg_{Near,Mid,Far}`, `Enemy/MUT_Alert`·`MUT_Attack`) + `Audio/Placeholder/Enemy.meta`, 머티리얼 3(`Palette/M_Mutant`·`Palette/M_Boss`·`M_SniperGlint`), `AudioConfig.asset`(MachineGun 세트·울음 배열·빈 필드 6), `Raid_CrimsonBasin.unity`(M7 적 14명 새로·순찰 경로 2). AI 데이터(AI-SNP/MUT/BOS/BGD·LT-*·ITM-REL-01)는 이미 있어 변경 없음.
+- 2회째: "WAV 새로 씀 0·빈 필드 0", "새로 0, 다시 맞춤 0 — 변경 없음", 씬 저장 안 함 → `Assets`·`ProjectSettings` 1215 파일 md5 동일. EditMode·PlayMode 실행 뒤에도 동일.
+
+**테스트 결과 (원본)**
+- EditMode 1585/1585.
+- PlayMode 158 중 156 통과(785초). `ExtractionFlowTests.Ext04_…` 통과(이번 실행에서 흔들림 없음), `M7EnemySceneSmokeTests`·`MutantFlowTests`·`SniperFlowTests`·`AudioFlowTests` 통과.
+- **실패 2 = 성능 테스트 2개, 예산이 아니라 "전원 교전 진입" 단계에서**(예산 단언까지 가지 못함):
+  - `M6PerformanceTests.RaidScene_StormPeak_…`: "90초 안에 34명 교전 진입 안 됨 (31)".
+  - `RaidPerformanceTests.RaidScene_TwentyEnemies_…`: "90초 안에 34명 교전 진입 안 됨 (23)".
+- 원인 진단(테스트를 임시로 고쳐 시간 초과 시 실패 대신 측정을 계속하게 한 진단 실행 2회 — 끝나고 원래대로 되돌림, md5 확인):
+  - 한 번도 Combat에 안 든 적: M6 = `M7_SNP_PYL1`·`M7_BOS_VIL1`·`M7_BOS_VIL2`, Raid B = 위 + 변이체 일부·HWY 분대 등 11명. 공통으로 **움직이지 않는 저격수(Hold)와 거점 묶인 보스 무리(anchor 중심 = 첫 Tick 위치 = 마을, 표적 근처로 옮겨도 목적지가 마을 쪽 25m 안으로 잘린다)**가 남는다.
+  - 상태 요약에서 대부분의 적이 표적 위치(±2m)에 몰려 Alert로 서 있다. 시야 레이(`PhysicsLineOfSight`)는 다른 적 캡슐도 가림으로 본다 — 변이체가 표적 둘레 ~1.35m에 붙고 다른 적이 LKP(= 표적)로 몰리면 서로 시야를 가려 늦게 오는 적·제자리 적이 교전에 못 든다(변이체를 끄고 돌리면 M6는 비변이체 26 중 23명 Combat).
+  - 90초 대기 동안 적 탄이 떨어진 것으로 보이며(추정, 탄 수는 기록 안 함) 측정 구간에 `ShotFired` 0·투사체 0 → **아래 측정값은 최악 부하가 아니다.**
+- 34명 측정값(진단 실행, 참고): M6(폭풍 Peak) AI 평균 0.137ms·99% 0.372ms, 프레임 중앙값 1.76ms(변이체 끔: 0.146/0.392ms, 교전 평균 23명) / Raid A 자연 교전 AI 0.115/0.318ms(변이체 끔 0.105/0.280ms), B 0.127/0.334ms(교전 평균 1~3명) / 엄폐 질의 32.8~37.6µs. 20명 기준 이전 값(B 0.12~0.20ms·99% 0.33~0.82ms, 교전 20명)과 비교하면 예산(1.0ms·3ms) 여유는 크지만 34명 전원 사격 상태는 아직 못 쟀다.
+- **7B-4(또는 오케스트레이터)가 정할 것**: 성능 테스트의 전원 교전 조건이 M7 유형(Hold 저격수·거점 보스 무리·근접 변이체)과 맞지 않는다. 예산·단언은 바꾸지 않았다. 후보(오케스트레이터 결정 필요): (a) 옮길 때 거점·저격수 시선을 표적 기준으로 다시 잡는 테스트 도우미, (b) "교전 진입" 대상을 사격 유형으로 한정하고 변이체는 별도 계측, (c) 적끼리 시야를 가리지 않게 하는 AI 규칙(게임플레이 변경 — GDD 확인 필요, TODO(GDD-?)).
+
+**사람 확인(에디터)**: 7B-2c 메모의 E1(섬광)·E3(변이체 울음)·E5(M_Mutant 구분)·W6(LMG 소리). 레이드에서 변이체 무리가 플레이어에게 붙었을 때 다른 적이 몸에 가려 쏘지 못하는 장면이 자연스러운지도 같이 볼 것.
+
+## 7B-4 구현 메모 (test-engineer, 2026-10-23)
+
+원본에서 검증. 제품 코드·데이터·씬 무변경(테스트 파일만). 커밋하지 않음. 새 `.meta`는 유니티가 만든 `M7AiRaidFlowTests.cs.meta` 하나.
+
+**성능 테스트 전제 수정 (오케스트레이터 결정 (b)) — `RaidPerformanceTests`·`M6PerformanceTests`**
+- 씬 총수 34 단언·예산(AI 평균 ≤ 1.0ms·99% ≤ 3ms, 투사체 ≤ 1.0ms, 프레임 중앙값 ≤ 16.6ms, Audio+폭풍 ≤ 0.2ms, GC 0)·AI 규칙은 그대로.
+- "90초 안에 전원 교전 진입"은 M4 고정 배치 20명(이름이 `Enemy_M7_`로 시작하지 않는 SCV·RDR, `ExpectedM4Enemies = 20` 단언)에만 건다. 고리로 옮기는 것도 M4 적만. M7 14명은 씬에 남아 AI 틱(34명 등록)에 포함된다. M7 유형 최악 부하는 7D `M7PerformanceTests`.
+- 측정 직전 테스트 도우미 `RaidPerformanceTests.RefillAmmo`(장착·예비 탄창을 `Magazine.TryAddRound`로 가득)를 부른다.
+- 표적 근처(< 400m) 변이체(고속도로 무리 4)는 시작 때 `ParkNearbyMutants`로 표적에서 700m 넘게 떨어진 NavMesh로 옮긴다(씬·틱에는 남음, 변이체는 7D에서 따로 잰다).
+- `RaidPerformanceTests` Measure가 측정 구간의 적 `ShotFired`를 세고, B에 `Shots > 0` 단언을 더했다(M6은 기존 `ShotsSeen > 0` 그대로).
+
+**진단 — 측정 구간 사격**
+- M6 이후 7A 진행 중 로그(10-22, 적 20, AI 코드 = M6과 같음): M6 `ShotFired` 496~509(캡처 상한 512), Raid B 동시 탄 최대 12~19. 정확히 46857a7에서 다시 돌리지는 않았다. 그 커밋의 M6 테스트는 `ShotsSeen > 0`을 단언하고 통과했다.
+- 7B-3 진단(34명 전원 이동): `ShotFired` 0, 동시 탄 0. 이번에 원인을 두 가지로 나눴다.
+  1. **탄 소진**: 적 무기는 탄이 유한하다(예비 2~3). 90초 대기 동안 무적 표적에 쏘면 바닥난다. → 탄 보충.
+  2. **변이체가 표적과 겹침**: 변이체가 표적 위치까지 들어가 수평 0.0m에 선다(`M7AiRaidFlowTests` 무리 테스트의 최근접 0.0m에서도 재현). 표적 눈이 변이체 캡슐 안에 들어가 모든 적의 시야 레이가 막힌다. 그래서 M4 적이 교전하지 못하고 LKP(= 표적 발)로 걸어와 Alert로 몰린다.
+     - 변이체를 제자리에 두고 탄만 보충한 실행: Raid B는 M4 교전 0/20(90초). 고속도로 무리가 A의 총성(200m)을 듣고 와서 표적에 겹쳤다.
+     - 34명 전원을 고리로 옮긴 M6 실행(통과): `ShotFired` 29, 동시 탄 최대 3, 교전 평균 14.7, AI 0.190/0.517ms.
+     - 위 두 줄 때문에 변이체 옮기기를 넣었다.
+- 수정 후(PlayMode 2회):
+  - M6: M4 20명 교전 3.2~3.3초, 교전 평균 20, `ShotFired` 512(캡처 상한), 동시 탄 17~18, AI 0.149~0.152ms·99% 0.287~0.437ms, 프레임 중앙값 1.73~1.80ms, Audio+폭풍 0.0023ms, GC 0.
+  - Raid A: AI 0.118~0.124ms·99% 0.217~0.334ms, `ShotFired` 97~103.
+  - Raid B: M4 20명 14.6~15.7초, 교전 평균 20.7~21.0, `ShotFired` 493~517, 동시 탄 17~19, AI 0.148~0.155ms·99% 0.279~0.455ms, 투사체 0.030~0.035ms, 프레임 중앙값 1.50~1.54ms.
+  - 엄폐 질의 30~33µs.
+
+**새 PlayMode `M7AiRaidFlowTests` (4, 레이드 씬 `M4Raid.Load(SP-W)`)**
+- `Boss_Killed_CorpseHasRelic_NoLmgNoBelt_RelicLooted`
+  - 살아 있는 보스 = LMG(enemyOnly)·MAG-762-100.
+  - 처치(`IDamageable.ApplyDamage`) 뒤 시체 = ITM-REL-01 1개 + MAG-762-5 ×3. LMG·탄띠·enemyOnly는 없다.
+  - `LootContainer.Interact` → 검색 완료 → 유물 가져오기.
+- `BossGroup_TargetLuredOutsideAnchor_StaysWithinAnchorRadius`
+  - 거점 12m에서 총성 → 반응 → 표적을 거점 밖 55m로 옮기고 20초 동안 총성을 낸다.
+  - 4명 모두 각자 거점(첫 Tick 위치) 25m + 1m 안에 있었다(최대 16.4~24.3m). 반응 프레임은 100%였고, 가장 멀리 간 대원 > 10m(유인이 실제로 걸렸다는 근거).
+- `Sniper_Killed_DmrDurability50to90_LootedEquippedAndFires`
+  - 살아 있는 저격수 DMR 내구도 = 100.
+  - 시체 DMR 내구도는 2명 모두 50~90 안이다(관측 51.62·55.83).
+  - 루트에서 Primary2에 장착 → Tab으로 인벤토리를 닫음 → 2 → LMB → `ShotFired(Player, DMR)`, 탄 −1, 마모 −0.1, 고장 없음.
+  - 내구도 ≥ 50이면 고장 확률 0이라 첫 발만 단언한다.
+- `MutantPack_ApproachesTarget_EnemyVocalizedAlertThenAttack`
+  - MUT_REF 무리 20m 앞 무적 표적 + 총성 → `MutantAlert` 4개(0~0.1초, 무리 위치) → 접근(≤ 3m) → `MutantAttack`(4.6초, 쿨다운 4초 뒤) → 교전 → 표적에 근접 타격.
+
+**결과**
+- EditMode 1585/1585.
+- PlayMode 162/162 ×2 연속(688초·686초).
+- Mono `BuildWindows64` 성공.
+- `Assets`·`ProjectSettings`(테스트 제외) md5와 git status는 테스트·빌드 전후 동일.
+
+**발견 (제품 코드 — 고치지 않음, 7B-5 리뷰가 판단)**
+- 변이체가 표적과 수평 0m까지 겹친다. 기대는 `MutantSurround` "사거리 × 0.75 안쪽이면 Hold"(≈ 1.35m)였다.
+  - 추정 원인: 같은 무리에 시야가 막혀 안 보이는 Tick에는 `Engage`가 LKP(= 표적 발)로 질주한다. 또 Hold는 목적지만 지울 뿐 감속 중 미끄러짐이 남는다.
+  - 결과: 실제 플레이어에게도 몸이 겹친다. 무리에 둘러싸인 표적은 다른 적이 볼 수 없다(사격 압박이 사라짐).
+  - 7D `M7PerformanceTests`의 "변이체 근접 + 보스 LMG 연사"도 이 때문에 사격이 거의 없을 수 있다.
+  - 안 보일 때 LKP 대신 둘레 자리로 가거나, LKP를 사거리 × 0.75 앞에서 끊는 방안이 있다. TODO(GDD-?) Q25.
+
+## 7B 리뷰 수정 메모 (ai-programmer, 2026-10-23)
+
+`docs/design/M7_review.md` "7B AI" 1~15 처리. 원본에서 실행(Unity 한 번에 하나). 새 asmdef·기능 간 참조 없음, 새 `.meta` 안 만듦(새 파일 없음). 커밋하지 않음.
+결정 요약은 `docs/CHANGELOG_GDD.md` "M7 설계 결정 … — 7A 무기" 절 아래 "### 7B AI"(리뷰 14). §1.4 AI-MUT 피해 문장을 부위 힌트로 고쳤다.
+
+**높음**
+1. 변이체 타격이 머리로 감 — 수정(①안). Core `DamageInfo`에 `HasPartHint`·`PartHint`(+ 6인자 생성자, 기존 5인자 = 힌트 없음·동작 그대로). `PlayerHealth.ApplyDamage`는 힌트가 있으면 지점 판정 없이 그 부위에 `Body.ApplyHit`.
+   AI: `EnemyMelee.PickStrikePart(random, AiConfigSO)`(가중치 `meleePartWeightThorax/Stomach/LeftArm/RightArm` = 1/1/0.5/0.5, 음수·NaN = 0, 합 0 이하·null = 흉부, 난수 1회).
+   `EnemyAgent.Strike` = 지점 표적 중심 + 부위 힌트. `PickStrikeOffset`·분포 상수 7개·캡슐 높이/반지름 캐시·반지름 0.2배 추정 삭제(IDamageable 캐시만 유지).
+   테스트: EditMode `EnemyMeleeTests` 분포(머리·다리 0, 1/3·1/3·1/6·1/6)·사용자 가중치·전부 0·시드/할당 4개(옛 오프셋 테스트 3개 대체), PlayMode `MutantFlowTests.RealPlayer_StandCrouchProne_…`
+   (M3_AI 씬 실제 Player를 표적으로 다시 등록, 피해 5 = 굴림 최소 미만, 선·웅크림(C)·엎드림(Z) 각 3타 → 머리·다리 HP 매 프레임 불변, 흉부·복부·팔 HP 감소 = 5의 배수, 최근접 ≥ 1.0m). `Pack4`는 모든 타격에 힌트·허용 부위 단언 추가.
+
+**중간**
+2. 거점 반경 밖 엄폐 — 수정. `CoverQuery.HasAnchor·AnchorCenter·AnchorRadiusM`, `CoverSelector`는 숨는 자리·내다보는 자리 중 하나라도 반경 밖이면 후보 제외(`RaiderTactics.MakeQuery`가 채움). TacticsContext Q29 TODO 삭제.
+   `ScavengerTactics.TickCombat`: 거점 있으면 선호 거리 밖이어도 Hold + 보이고 `engageMaxRangeM` 안이면 사격(엄폐 없는 BOS·BGD 대체 행동). 거점 없는 SCV·RDR 경로는 그대로.
+   테스트: `CoverSelectorTests.Anchor_CandidatesOutsideRadius_Excluded`, `AnchorTests.Brain_AnchoredFallback_FarVisibleTarget_HoldsAndFires_UnanchoredStillApproaches`, `Brain_AnchoredRaider_CoverQueryCarriesAnchor`.
+3. 하드코딩 — 수정. `MutantSurround` 0.5·0.75 → `AiConfigSO.mutantCloseRadiusRatio`·`mutantHoldInsideRangeRatio`(`ApproachPoint`에 인자 추가), 타격 분포·반지름은 1에서 없어짐. 테스트 `MutantTacticsTests.SurroundRatios_ReadFromConfig`.
+   `M7AiDataSetup`이 AiConfig 새 필드 7개를 "하나라도 파일에 없을 때만" 기록(`AiConfigM7Fields`) — `AiConfig.asset`에 9필드가 직렬화됨(값 = 초기값). 테스트 `M7AiDataAssetTests.AiConfig_MeleeAndSurroundFields_Serialized`.
+4. 7B-4에서 처리됨 — 확인만(이번 PlayMode 2회 모두 성능 테스트 통과, 아래).
+15. 변이체 겹침 — 수정. `MutantTactics.Engage`가 안 보일 때도 LKP를 중심으로 같은 둘레 자리로 질주, LKP와 사거리 × 0.75 안이면 Hold(LKP 쪽 봄). `EnemyAgent.ApplyMovement`: 근접 유형은 Melee 의도 중 표적과
+   수평 사거리 × 0.75 안(높이 차 상한 안)이면 매 프레임 멈추고, 멈추는 순간 `nav.velocity = 0`(근접 유형만 — SCV·RDR 이동 불변). 테스트: EditMode `Combat_LostSight_SprintsToSurroundPointAroundLastKnown`(기존 LKP 단언 대체)·
+   `Combat_LostSight_NearLastKnown_HoldsInsideRatio_NeverDestinationAtLkp`, PlayMode `M7AiRaidFlowTests.MutantPack_…` 접근 뒤 5초 더 관찰 최근접 ≥ 1.0m(관측 1.20m), `MutantFlowTests.Pack4_…` 3초 관찰 ≥ 1.0m.
+
+**낮음**
+5. `AiConfigSO.meleeMaxHeightDiffM` 1.2(TODO) — `EnemyMelee.InReach(self, target, range, maxDy)`(≤ 0·NaN = 무제한). 테스트 `InReach_HorizontalRangeAndHeightLimit`.
+6. 거점 중심 = 분대 리더 거점 공유(`EnemyBrain.TryResolveAnchorCenter`: 리더 없음·자기·리더가 거점 유형 아님 = 자기 첫 Tick 위치, 리더가 아직 없으면 다음 Tick). 테스트 `Brain_SquadFollower_SharesLeaderAnchor_WaitsForLeader`.
+   `M7AiRaidFlowTests.BossGroup_…`의 "각자 거점 = 시작 위치" 단언 → "보스 거점 = 보스 시작 위치, 호위 거점 = 보스 거점"(관측 최대 20.8~24.7m ≤ 26m).
+7. `TacticsContext.ClampToAnchor`: 잘린 점을 `TrySampleNavPoint`로 바닥에 붙이고, 샘플이 반경 밖이면 그 높이로 다시 자름. 같은 입력은 캐시(MoveTo·Reached 일관). `AnchorRules.Clamp`(순수, y 유지)는 그대로. 테스트 `Brain_ClampedDestination_SampledToNavMesh_StaysInRadius`.
+8. `CorpseLootBuilder` 머리·굴림 정리 주석을 동작대로(루트 굴림에서 빼는 탄창 = 이 시체 무기가 적 전용일 때 그 탄창만).
+9. `M7EnemySceneApply.ApplyRaid`: 모든 대원 시작점·웨이포인트 NavMesh 스냅을 머티리얼·씬 변경 전에 계산(`EnsureRoute`는 계산된 점을 받음).
+10. 경계 울음 = 분대 단위(`Squad.TryClaimAlertVocal(now, vocalCooldownSec)` — 분대 2명 이상일 때 먼저 경계에 든 한 명만, 못 얻으면 자기 쿨다운 안 씀). 공격 울음은 대원마다.
+    테스트 `SquadTests.AlertVocal_OnePerSquadPerCooldown`, `MutantFlowTests.Pack4`의 "MutantAlert ≥ 4" → "= 1, 위치 = 대원 눈"(규칙 변경에 따른 단언 변경).
+11. 코드 변경 없음 — 테스트·빌드 전후 `Assets`·`Packages`·`ProjectSettings`의 .cs 제외 파일 md5·git status 확인(아래).
+12. `RaidPerformanceTests.RaidScene_TwentyEnemies_…` → `RaidScene_34Enemies_NaturalAndM4FullCombat_AiProjectileFrameWithinBudget_CoverQueryCost`(다른 문서에서 옛 이름은 과거 메모에만 남음). M6 `…TwentyEnemiesCombat…`은 교전 20명이 맞아 그대로.
+13. `AiDirector` 등록 목록 2개·`AiTickScheduler` 초기 용량 32 → `InitialAgentCapacity` 64.
+14. CHANGELOG "### 7B AI" 소절.
+
+**M3·M6 회귀**: SCV·RDR 경로 변경 없음(거점 0 → 새 분기 안 탐, `CoverQuery` 거점 기본값 false, 근접·울음 코드는 melee/Mutant만). 기존 테스트 단언 변경은 위 변이체·보스 3곳(규칙 변경)뿐.
+
+**결과**
+- `M7SceneSetup.ApplyAll` 2회: 1회째 `AiConfig.asset`만 바뀜(새 필드 직렬화, 씬 "새로 0, 다시 맞춤 0 — 변경 없음"), 2회째 .cs 제외 824파일 md5 동일 → 멱등.
+- EditMode 1596/1596(새 11). PlayMode 163/163 × 2회 연속(700초·701초, 새 `RealPlayer_StandCrouchProne_…` 1).
+  성능(1회째): M6 Peak AI 0.148ms·99% 0.272ms·ShotFired 512·GC 0 / Raid A 0.118·0.223ms / B 0.148·0.296ms, 교전 평균 21.0, ShotFired 518, 엄폐 질의 30.9~35.7µs.
+- Mono `BuildWindows64` 성공(오류 0·경고 0, 110,170,118 bytes, 31초). 테스트·빌드 뒤 .cs 제외 파일 md5 = ApplyAll 2회째와 동일.
+- 사람 확인: 변이체가 플레이어에게 붙을 때 1.35m 근처에서 멈추고 미끄러지지 않는지, 웅크림·엎드림에서 HUD 부위 상태가 흉부·복부·팔만 바뀌는지, 무리 경계 울음이 한 번만 들리는지(7.1 E3).

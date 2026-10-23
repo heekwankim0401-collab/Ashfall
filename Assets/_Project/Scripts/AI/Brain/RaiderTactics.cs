@@ -50,6 +50,9 @@ namespace Ashfall.AI
         // 숨는 자리에 실제로 있을 때만 (Peek 자리에서 돌아오는 중에는 보여도 무효화하지 않는다)
         public bool WantsHiddenCheck => hasCover && phase == Phase.Hide && hideSettled;
 
+        // 평시·수색은 EnemyBrain 기본 행동 (M7 훅, IEnemyTactics.TryTickRelaxed)
+        public bool TryTickRelaxed(EnemyState state, TacticsContext c, in EnemySenses s, ref EnemyIntent i) => false;
+
         // 테스트·디버그용
         internal bool HasCover => hasCover;
         internal CoverSpot Cover => cover;
@@ -342,6 +345,10 @@ namespace Ashfall.AI
                 FlankFrom = s.SelfPosition,
                 HasExcludedCover = exclude,
                 ExcludedCoverId = exclude ? excludedCoverId : -1,
+                // 거점 유형(보스·호위)은 반경 밖 엄폐를 고르지 않는다 (7B 리뷰 2, Q29)
+                HasAnchor = c.HasAnchor,
+                AnchorCenter = c.AnchorCenter,
+                AnchorRadiusM = c.AnchorRadiusM,
             };
         }
 

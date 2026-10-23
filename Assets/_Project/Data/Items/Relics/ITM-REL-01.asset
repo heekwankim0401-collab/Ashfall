@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3517eb58c15380549835e3bd581d0532, type: 3}
+  m_Name: ITM-REL-01
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.ItemDefinitionSO
+  id: ITM-REL-01
+  displayName: "\uC7AC\uC758 \uAD70\uC8FC \uC778\uC7A5"
+  size: {x: 1, y: 1}
+  weightKg: 0.2
+  rarity: 4
+  basePrice: 8000
+  icon: {fileID: 0}

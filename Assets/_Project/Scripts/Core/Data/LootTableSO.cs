@@ -22,5 +22,9 @@ namespace Ashfall.Core
         public List<LootEntry> entries = new List<LootEntry>();
         [Tooltip("굴림 횟수 최소~최대 (포함)")]
         public Vector2Int rollCount = Vector2Int.one;
+        // ★ M7 Q31 (설계 §3.9 "첫 굴림 고정"): 보스 유물처럼 정확히 1개 보장할 아이템. 굴림 1회를 대신하고(굴림 0회여도 1개),
+        // 나머지 굴림은 entries에서 뽑는다. 보장 아이템은 entries에 넣지 않는다(넣으면 더 나올 수 있다). null = 없음(기존 동작).
+        [Tooltip("★ M7 첫 굴림 고정 — 정확히 1개 보장 (null = 없음). entries에는 넣지 않는다")]
+        public ItemDefinitionSO guaranteedFirstRoll;
     }
 }

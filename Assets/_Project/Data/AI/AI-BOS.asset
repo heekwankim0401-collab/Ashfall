@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8cdc2289023ba5b489233634bc10aadd, type: 3}
+  m_Name: AI-BOS
+  m_EditorClassIdentifier: Ashfall.AI::Ashfall.AI.EnemyArchetypeSO
+  id: AI-BOS
+  displayName: "\uC7AC\uC758 \uAD70\uC8FC"
+  corpseDisplayName: "\uC7AC\uC758 \uAD70\uC8FC\uC758 \uC2DC\uCCB4"
+  hp: 160
+  headHp: 50
+  legsHp: 110
+  sightRange: 70
+  sightAngle: 110
+  hearingMultiplier: 1
+  loot: {fileID: 11400000, guid: 9c2002f350fb3c64dbda6959bff3162e, type: 2}
+  loadouts:
+  - weapon: {fileID: 11400000, guid: 10cd023ed4f3f5047b84d3f9a697fdf0, type: 2}
+    ammo: {fileID: 11400000, guid: 0850db641fac12f4cb44011c328d6088, type: 2}
+    magazine: {fileID: 11400000, guid: 8a428e0f6eb02ad48a760c59e6fa2477, type: 2}
+    weight: 1
+  spareMagazines: 2
+  patrolSpeed: 1.2
+  moveSpeed: 2.5
+  sprintSpeed: 3
+  reactionTimeSec: 0.6
+  aimErrorBaseM: 0.26
+  aimErrorPerMeterM: 0.0325
+  aimSettleSec: 1
+  unsettledErrorMultiplier: 2
+  selfMovingErrorMultiplier: 2
+  targetMovingErrorMultiplier: 1.3
+  burstErrorGrowthM: 0.05
+  burstRounds: {x: 8, y: 15}
+  burstPauseSec: {x: 0.6, y: 1.2}
+  semiShotIntervalSec: {x: 0.35, y: 0.6}
+  preferredRangeM: {x: 15, y: 40}
+  engageMaxRangeM: 90
+  usesCover: 1
+  flanks: 0
+  investigatesNoise: 0
+  peekSec: {x: 1.5, y: 3}
+  hideSec: {x: 1, y: 2.5}
+  tacticalReloadBelow: 0.3
+  strafeIntervalSec: {x: 0, y: 0}
+  tactics: 2
+  anchorRadiusM: 25
+  weaponDurabilityRange: {x: 100, y: 100}
+  meleeDamage: 0
+  meleeRangeM: 0
+  meleeIntervalSec: 0
+  meleeWindupSec: 0
+  surroundRadiusM: 0
+  telegraphSec: 0
+  scanArcDeg: 0

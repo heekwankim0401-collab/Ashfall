@@ -9,25 +9,41 @@ namespace Ashfall.Core
         // 뽑힌 정의마다 ItemFactory.Create로 새 인스턴스를 into에 더한다. 더한 개수를 돌려준다.
         // table null·항목 없음·가중치 합 0 → 0. 정의가 null인 항목은 가중치와 상관없이 뽑히지 않는다.
         // random은 테스트에서 고정 시드.
+        // M7 Q31: guaranteedFirstRoll이 있으면 첫 굴림을 그 아이템으로 고정한다(굴림 0회·항목 없음이어도 정확히 1개, 난수를 쓰지 않음).
+        // 없으면(null) 기존 동작·난수 순서 그대로.
         public static int Roll(LootTableSO table, System.Random random, List<ItemInstance> into)
         {
-            if (table == null || table.entries == null || random == null || into == null)
+            if (table == null || random == null || into == null)
                 return 0;
 
+            ItemDefinitionSO guaranteed = table.guaranteedFirstRoll;
             float total = 0f;
             List<LootEntry> entries = table.entries;
-            for (int i = 0; i < entries.Count; i++)
-                if (IsEligible(entries[i]))
-                    total += entries[i].weight;
+            if (entries != null)
+                for (int i = 0; i < entries.Count; i++)
+                    if (IsEligible(entries[i]))
+                        total += entries[i].weight;
             if (total <= 0f)
-                return 0;
+            {
+                if (guaranteed == null)
+                    return 0;
+                into.Add(ItemFactory.Create(guaranteed));
+                return 1;
+            }
 
             int min = table.rollCount.x < 0 ? 0 : table.rollCount.x;
             int max = table.rollCount.y < min ? min : table.rollCount.y;
             int rolls = random.Next(min, max + 1);
 
             int added = 0;
-            for (int r = 0; r < rolls; r++)
+            int first = 0;
+            if (guaranteed != null)
+            {
+                into.Add(ItemFactory.Create(guaranteed));
+                added++;
+                first = 1;   // 굴림 1회를 대신한다
+            }
+            for (int r = first; r < rolls; r++)
             {
                 ItemDefinitionSO picked = Pick(entries, total, random);
                 if (picked == null)

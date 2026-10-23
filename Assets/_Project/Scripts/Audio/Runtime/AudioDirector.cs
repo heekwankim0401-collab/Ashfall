@@ -13,6 +13,7 @@ namespace Ashfall.Audio
         Gunshot,
         Collapse,
         WeaponClick,   // M7 WeaponClicked (헛격발·고장·해제)
+        EnemyVocal,    // M7 EnemyVocalized (변이체 울음·공격)
     }
 
     // 마지막 재생 요청 (§7 AC2 R3: 배치모드에 오디오 장치가 없을 수 있어 isPlaying 대신 이것으로 확인한다). 할당 없음.
@@ -53,6 +54,7 @@ namespace Ashfall.Audio
     // - ShotFired: 거리 → 근/중/원 레이어 하나(Q15) → 무기 분류 세트 → 3D voice. 지연·차폐 없음(Q16·Q17).
     // - AshStormChanged + IAshStormInfo: 바람·폭풍 루프·가이거(Q22). 금속 붕괴는 무작위 간격.
     // - WeaponClicked(M7): 헛격발·고장 = dryFireClip, 해제 = jamClearClip → 이벤트 위치 3D voice(우선순위 = 내 발소리보다 높음).
+    // - EnemyVocalized(M7): 변이체 울음·공격 → 들리는 거리 밖이면 버림 → 종류별 클립(직전과 다르게) → 적 위치 3D voice(우선순위 = 적 발소리보다 높음).
     // - 일시정지(Q19): GameFlow.IsWorldPaused를 AudioListener.pause에 반영(timeScale은 건드리지 않는다). 파괴 시 false로 되돌린다.
     // 이벤트 경로는 할당 없음(설계 §1.7). 청취자 = IPlayerTarget.EyePosition(카메라의 AudioListener와 같은 위치).
     public sealed class AudioDirector : MonoBehaviour
@@ -85,6 +87,8 @@ namespace Ashfall.Audio
         private Action<ShotFired> onShot;
         private Action<AshStormChanged> onStorm;
         private Action<WeaponClicked> onWeaponClick;
+        private Action<EnemyVocalized> onVocal;
+        private ClipPicker[] vocalPickers;   // EnemyVocalKind마다 (직전 기억이 종류별)
 
         public AudioConfigSO Config => config;
         public AudioVoicePool Voices => voices;
@@ -93,6 +97,8 @@ namespace Ashfall.Audio
         public PlayedSound LastPlayed { get; private set; }
         // 마지막으로 재생한 무기 클릭 종류 (LastPlayed.Kind == WeaponClick일 때 의미, 테스트용)
         public WeaponClickKind LastWeaponClick { get; private set; }
+        // 마지막으로 재생한 적 울음 종류 (LastPlayed.Kind == EnemyVocal일 때 의미, 테스트용)
+        public EnemyVocalKind LastEnemyVocal { get; private set; }
         // 누적: 재생 요청 성공 수 / 들리는 거리 밖이라 버린 수
         public int PlayedCount { get; private set; }
         public int CulledCount { get; private set; }
@@ -118,6 +124,7 @@ namespace Ashfall.Audio
             onShot = HandleShot;
             onStorm = HandleStormChanged;
             onWeaponClick = HandleWeaponClicked;
+            onVocal = HandleVocalized;
             Initialize();
         }
 
@@ -140,6 +147,10 @@ namespace Ashfall.Audio
             for (int i = 0; i < surfaceCount; i++)
                 footstepPickers[i] = new ClipPicker(random);
             collapsePicker = new ClipPicker(random);
+            int vocalKinds = Enum.GetValues(typeof(EnemyVocalKind)).Length;
+            vocalPickers = new ClipPicker[vocalKinds];
+            for (int i = 0; i < vocalKinds; i++)
+                vocalPickers[i] = new ClipPicker(random);
             initialized = true;
         }
 
@@ -185,6 +196,7 @@ namespace Ashfall.Audio
             subscribedBus.Subscribe(onShot);
             subscribedBus.Subscribe(onStorm);
             subscribedBus.Subscribe(onWeaponClick);
+            subscribedBus.Subscribe(onVocal);
             subscribed = true;
         }
 
@@ -198,6 +210,7 @@ namespace Ashfall.Audio
                 subscribedBus.Unsubscribe(onShot);
                 subscribedBus.Unsubscribe(onStorm);
                 subscribedBus.Unsubscribe(onWeaponClick);
+                subscribedBus.Unsubscribe(onVocal);
             }
             subscribedBus = null;
             subscribed = false;
@@ -330,6 +343,32 @@ namespace Ashfall.Audio
             float gain = Mathf.Clamp01(clear ? config.jamClearVolume : config.dryFireVolume);
             if (Play(PlayedSoundKind.WeaponClick, clip, e.Position, gain, 1f, FootstepMix.PriorityWeaponClick, SoundSource.Player, default, default))
                 LastWeaponClick = e.Kind;
+        }
+
+        // M7 7B-2c: 변이체 울음·공격(설계 §1.2·§4.9, Q26). 들리는 거리(vocalAudibleM) 밖이면 버림 → 종류 배열에서 직전과 다른 클립 →
+        // 적 눈 위치 3D voice, 피치 ± pitchJitter, 우선순위 = 적 발소리보다 높음(PriorityEnemyVocal). 클립이 비면 소리 없음.
+        private void HandleVocalized(EnemyVocalized e)
+        {
+            if (!initialized)
+                return;
+            float d = Vector3.Distance(e.Position, ResolveListenerPosition());
+            if (!VocalMix.Evaluate(d, e.Kind, config, out float gain))
+            {
+                CulledCount++;
+                return;
+            }
+            AudioClip[] clips = VocalMix.Clips(config, e.Kind);
+            int kind = (int)e.Kind;
+            if (clips == null || clips.Length == 0 || kind < 0 || kind >= vocalPickers.Length)
+                return;
+            ClipPicker picker = vocalPickers[kind];
+            int index = picker.Next(clips.Length);
+            AudioClip clip = index >= 0 ? clips[index] : null;
+            if (clip == null)
+                return;
+            float pitch = picker.Pitch(config.pitchJitter);
+            if (Play(PlayedSoundKind.EnemyVocal, clip, e.Position, gain, pitch, FootstepMix.PriorityEnemyVocal, SoundSource.Enemy, default, default))
+                LastEnemyVocal = e.Kind;
         }
 
         private void HandleStormChanged(AshStormChanged e)

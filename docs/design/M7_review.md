@@ -40,3 +40,49 @@
 
 ### 7A 처리 결과
 지적 11개 모두 수정(보류 없음) — 처리 내용은 M7_design.md "7A 리뷰 수정 메모". 수정 후 원본 EditMode 1472/1472, PlayMode 142/142 × 2, Mono 빌드 성공(경고 0).
+
+## 7B AI — 높음 1, 중간 3, 낮음 10
+
+범위: 7ad3d1a 대비 작업 트리(7B-1·1b·2a·2b·2c·3 메모의 파일).
+
+### 높음
+1. 변이체 타격 지점이 플레이어 부위 판정과 어긋나 선 자세에서도 약 10%가 머리, 웅크림·엎드림에서는 대부분 머리 — Q24("흉부·복부·팔")와 다름. AI/Runtime/EnemyAgent.cs:340-360, AI/Combat/EnemyMelee.cs:18-22, Player/PlayerHealth.cs:21·79-81.
+   [확인] (a) PlayerHealth가 지점을 액터 배율 0.8로 환산 → 흉부 상단이 headZoneFrom 0.87을 넘음. (b) 표적 캡슐 높이·반지름을 Root가 바뀔 때만 캐시 → 자세 변화(1.8/1.2/0.6m) 무시. 테스트는 배율 없는 원시 비율·가짜 표적만 확인.
+   고칠 방향: ① Core `DamageInfo`에 부위 힌트를 두고 PlayerHealth가 그 부위를 쓴다(오케스트레이터 선택) — 분포는 부위 가중치(SO). 테스트: 실제 Player(선·웅크림·엎드림)를 쳐서 머리·다리 0회.
+
+### 중간
+2. 거점 반경 밖 엄폐를 골라 경계에서 엄폐 아닌 곳에 숨기·A↔B 반복 가능, 엄폐 없음 대체 행동에서 40m 밖 표적을 쏘지 않음 — AI/Brain/TacticsContext.cs:86-137, RaiderTactics.cs:108-113·258-266·285-310, ScavengerTactics.cs:64-71.
+   고칠 방향: `CoverQuery`에 거점 중심·반경 → 반경 밖 후보 제외(Q29 TODO 해소), 거점 있는 적은 대체 행동에서 다가가지 않고 사거리 안이면 제자리 사격. 테스트 2개.
+3. 수치 하드코딩: EnemyMelee.cs:18-22 타격 분포 7개(PlayerConfig 구간 사본 — 높음 1 원인), MutantTactics.cs:103-104 비율 0.5·0.75, EnemyAgent.cs:353 반지름 0.2. SO로(①이면 분포 상수는 부위 가중치로 바뀜).
+4. PlayMode 전체 미통과·34명 성능 미측정(커밋 차단) — RaidPerformanceTests·M6PerformanceTests. 7B-4에서 (b) 사격 유형만 교전 전제 + 실제 사격 확인으로 처리 중.
+
+### 낮음
+5. EnemyAgent.cs:315-320 근접 사거리 수평만 — 높이 차 상한(SO) 추가 또는 의도 기록.
+6. EnemyBrain.cs:153-154 거점 중심이 대원마다 자기 첫 위치 — 분대 리더(보스) 위치 공유 또는 기록.
+7. AnchorRules.cs:20 자른 점 y = 원래 목적지 높이 — NavMesh 샘플로 바닥에 붙임.
+8. CorpseLootBuilder.cs:8·33 주석이 동작보다 넓음 — 주석 수정.
+9. M7EnemySceneApply.cs:210-254 실패 시 씬이 반쯤 바뀜(에디터) — 검사·스냅 계산 먼저, 그다음 씬 변경.
+10. EnemyAgent.cs:382-391 무리 4명 MutantAlert 동시 재생 — 분대 단위 쿨다운 또는 합치기.
+11. M7AiDataAssetTests.cs:497-524 커밋 에셋 재실행 테스트(7A 낮음 3과 같은 위험, 범위 좁힘·주석 있음) — 커밋 전 git status 확인 절차.
+12. `RaidPerformanceTests.RaidScene_TwentyEnemies_…` 이름이 낡음(34명).
+13. AiDirector.cs:106·25-26 초기 용량 32 < 34 — 64로.
+14. CHANGELOG에 7B 결정 없음 — Q22~Q31, `LootTableSO.guaranteedFirstRoll`, 스폰 내구도 = 시체가 될 때(살아 있는 적 무기 100), `PickStrikeOffset`·`TryTickRelaxed`·`LookAround`, 울음 WAV 경로, 근접 시야 = 감각 주기, 훑기 폭·주기, Alert에서 섬광, (100,100) = 미설정.
+
+### 시야 가림 진단 의견
+적끼리 시야 가림은 탄도와 일관된 규칙(아군 오사 방지)이라 실제 플레이 결함으로 보지 않는다. 34명이 한 점에 모이는 것은 테스트가 전원을 끌어들일 때만 생긴다. (c) AI 규칙 변경은 하지 않는다. 변이체가 붙은 플레이어 옆에서 SCV가 멍하니 서는 장면은 사람 확인 항목.
+
+### 확인한 것 (문제 없음)
+- §13.3: AI·Audio → Core만, 새 asmdef 없음, 정적 인스턴스 없음, 옛 Input 없음.
+- 저격수: Hold, Alert부터 섬광·Combat ∧ 1.5초 ∧ ≤ 200m에서만 사격, 안 보이면 경고 재시작, 폭풍 cap, 섬광 할당 없음·사망 시 끔.
+- 변이체: 준비 → 타격/헛침 1회, 간격, 둘레 각도·좁힘, 표적·자기 사망 처리.
+- 루트·내구도: guaranteedFirstRoll null이면 기존 난수 순서, enemyOnly 시체 제외, 유형별 범위.
+- 오디오 구독 짝·할당 없음, 씬 적용 멱등·실패 시 예외, M4 메뉴 재생성 시 유지.
+- M3·M6 회귀: SCV·RDR Auto·필드 0 → 기존 경로, 생성자 난수 없음.
+- 7C 선행 없음.
+
+### 7B-4 검증에서 추가 (test-engineer)
+15. (중간) 변이체가 표적과 수평 0m까지 겹친다(기대: 사거리 × 0.75 ≈ 1.35m에서 멈춤) — AI/Brain/MutantTactics.cs Engage. [확인] 무리 테스트 최근접 0.0m 재현. [추정] 같은 무리에 시야가 막힌 Tick에 LKP(표적 발)로 질주, 멈춤 처리가 목적지만 지워 감속 미끄러짐. 영향: 몸 겹침, 다른 적 시야 차단으로 사격 압박 소실.
+    고칠 방향: 안 보일 때도 LKP 대신 둘레 자리로, 또는 LKP를 사거리 × 0.75 앞에서 끊고 멈출 때 속도 정지.
+
+### 7B 처리 결과
+지적 15개 모두 수정(11은 커밋 전 git status 확인으로 처리) — 처리 내용은 M7_design.md "7B 리뷰 수정 메모". 수정 후 원본 EditMode 1596/1596, PlayMode 163/163 × 2, Mono 빌드 성공(경고 0), ApplyAll 2회 멱등.

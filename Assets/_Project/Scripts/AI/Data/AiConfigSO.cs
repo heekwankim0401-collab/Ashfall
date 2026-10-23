@@ -129,6 +129,30 @@ namespace Ashfall.AI
         [Tooltip("이 속도(m/s)보다 느리면 걸음 없음")]
         public float footstepMinSpeedMps = 0.3f;
 
+        // M7 설계 §3.4 (Q23·Q26). TODO(GDD-?) 임시값.
+        [Header("M7 저격 섬광·울음 (TODO(GDD-?))")]
+        [Tooltip("저격 섬광 쿼드의 보이는 각 크기 (도). 크기 = 거리 × tan(이 값)")]
+        public float glintAngularSizeDeg = 0.35f;
+        [Tooltip("같은 적의 울음(EnemyVocalized) 최소 간격 (초)")]
+        public float vocalCooldownSec = 4f;
+
+        // M7 7B 리뷰 수정 (1·3·5·15). 기존 에셋에 필드가 없으면 아래 초기값으로 읽힌다. 전부 TODO(GDD-?) 임시값.
+        [Header("M7 변이체 근접 (TODO(GDD-?) Q24·Q25)")]
+        [Tooltip("근접 타격 부위 가중치: 흉부 (머리·다리는 맞히지 않는다 — Q24 '흉부·복부·팔')")]
+        public float meleePartWeightThorax = 1f;
+        [Tooltip("근접 타격 부위 가중치: 복부")]
+        public float meleePartWeightStomach = 1f;
+        [Tooltip("근접 타격 부위 가중치: 왼팔")]
+        public float meleePartWeightLeftArm = 0.5f;
+        [Tooltip("근접 타격 부위 가중치: 오른팔")]
+        public float meleePartWeightRightArm = 0.5f;
+        [Tooltip("근접 사거리 판정의 높이 차 상한 (발 기준 |Δy|, m). 지붕 위·아래 표적은 못 친다")]
+        public float meleeMaxHeightDiffM = 1.2f;
+        [Tooltip("표적에 가까울 때(수평 ≤ 둘레 반경 + 사거리) 둘레 자리 반경 = 사거리 × 이 값")]
+        public float mutantCloseRadiusRatio = 0.5f;
+        [Tooltip("표적(또는 LKP)과 수평 거리 ≤ 사거리 × 이 값이면 멈춘다 (밀고 들어가 몸이 겹치지 않게)")]
+        public float mutantHoldInsideRangeRatio = 0.75f;
+
         [Header("디버그")]
         [Tooltip("머리 위 상태 색 표시 (그레이박스 확인용). M6 Q8에서 끔 — 기본값도 false(새로 만든 AiConfig·테스트 인스턴스)")]
         public bool showStateIndicator = false;

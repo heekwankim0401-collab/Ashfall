@@ -106,5 +106,36 @@ namespace Ashfall.AI
         public float tacticalReloadBelow;
         [Tooltip("교전 중 옆으로 움직이는 간격 최소~최대 (초, 0 = 안 함)")]
         public Vector2 strafeIntervalSec;
+
+        // ── M7 (설계 §3.4, Q20~Q29) ── 기존 에셋(AI-SCV·RDR)은 이 필드가 없어 아래 초기값으로 읽힌다 = M3~M6 동작 그대로.
+        // 그래서 M7 필드만은 "기존 동작" 초기값을 둔다(위 M3 필드의 "초기값 없음" 규칙의 예외). 수치는 전부 TODO(GDD-?).
+
+        [Header("★ M7 전술 (TODO(GDD-?) Q20·Q28)")]
+        [Tooltip("전술 종류. Auto = 기존 규칙(usesCover ? Raider : Scavenger)")]
+        public EnemyTacticsKind tactics = EnemyTacticsKind.Auto;
+        [Tooltip("시작 위치에서 이 수평 반경(m) 밖으로 이동 목적지를 잡지 않는다 (보스·호위 거점). 0 = 무제한")]
+        public float anchorRadiusM;
+
+        [Header("★ M7 무기 내구도 (TODO(GDD-?) Q12·Q18)")]
+        [Tooltip("스폰 무기 내구도 최소~최대 (%, 0~100). 적 무기는 마모·고장이 없고 시체에서 주운 무기에만 의미가 있다")]
+        public Vector2 weaponDurabilityRange = new Vector2(100f, 100f);
+
+        [Header("★ M7 근접 (AI-MUT, TODO(GDD-?) Q24·Q25)")]
+        [Tooltip("근접 타격 피해 (0 = 근접 없음)")]
+        public float meleeDamage;
+        [Tooltip("근접 사거리 (표적까지 수평 거리, m)")]
+        public float meleeRangeM;
+        [Tooltip("타격 사이 간격 (초)")]
+        public float meleeIntervalSec;
+        [Tooltip("준비 시간 (초) — 이 시간 뒤 사거리 안이면 타격, 밖이면 헛침")]
+        public float meleeWindupSec;
+        [Tooltip("무리 둘레 분산 접근 반경 (m, 분대 순번별 각도)")]
+        public float surroundRadiusM;
+
+        [Header("★ M7 저격 (AI-SNP, TODO(GDD-?) Q22·Q23)")]
+        [Tooltip("처음·다시 볼 때 사격 전 섬광 경고 시간 (초)")]
+        public float telegraphSec;
+        [Tooltip("평시·수색 중 시선을 좌우로 훑는 전체 각 (도)")]
+        public float scanArcDeg;
     }
 }

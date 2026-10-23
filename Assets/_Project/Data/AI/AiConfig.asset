@@ -77,4 +77,13 @@ MonoBehaviour:
   footstepStrideRunM: 2.2
   footstepRunSpeedMps: 3.5
   footstepMinSpeedMps: 0.3
+  glintAngularSizeDeg: 0.35
+  vocalCooldownSec: 4
+  meleePartWeightThorax: 1
+  meleePartWeightStomach: 1
+  meleePartWeightLeftArm: 0.5
+  meleePartWeightRightArm: 0.5
+  meleeMaxHeightDiffM: 1.2
+  mutantCloseRadiusRatio: 0.5
+  mutantHoldInsideRangeRatio: 0.75
   showStateIndicator: 0

@@ -292,3 +292,48 @@
   M1 씬 튜브 무기 시작 탄(튜브 가득 + 탄 상자), 펌프·볼트 = 반자동, 상인 목록·LT-CRATE 가중치, 무기 클릭 음량 0.8·우선순위(= 적 발소리), 모든 자리표시 소리·프리팹(크기·위치는 hip/ads 공용 값).
 - **리뷰 수정 (M7_review.md "7A 무기"):** 튜브 장전 중 방아쇠가 발사로 이어지지 않으면(누른 채 R, 연사 간격 안 클릭) 장전을 끊지 않는다(Q7).
   고장 난 채 탈출한 무기는 은신처 장비가 되면서 해제된다(Q14 — 같은 실행의 다음 레이드에 남지 않음). 좌클릭을 누른 채 교체가 끝나도 반자동 무기는 새로 당겨야 쏜다.
+
+### 7B AI (2026-10-23, §7, §4.2, §13.3, §14 — Q22~Q31)
+문서 본문은 바꾸지 않았다(설계 문서 §1.4 근접 부위 문장만 이번 리뷰 수정에 맞춰 고침 — 아래 "리뷰 수정" 1). 결정 지점에는 `TODO(GDD-?) Qn` 주석이 있다.
+- **§7 결정 (Q22~Q31, 전부 추천안 A):**
+  - Q22 AI-SNP = 고지대 퍼치 고정(이동 없음), 시야 150m·사거리 200m, 소리 → 돌아보기만, 놓치면 자리에서 LKP 쪽 훑기.
+  - Q23 "레이저 반사 신호" = 조준 중에만 켜지는 렌즈 섬광 쿼드(Unlit 발광 Bone × 4 HDR, 크기 = 거리 × tan 0.35°, 표적 눈 쪽), 처음·다시 볼 때 1.5초 경고 뒤 사격. 한 번이라도 놓치면 경고를 처음부터.
+  - Q24 AI-MUT 근접 = 사거리 1.8m·준비 0.3초·간격 1.1초(준비 시작 기준)·피해 14, 기존 `IDamageable`, 부위 = 흉부·복부·팔(머리·다리 없음). 준비 중 사거리·시야를 잃으면 헛침(간격 소모).
+  - Q25 무리 = 분대 연락(기존 50m) + 표적 둘레 분산 접근(순번 k 각도 = 360°/분대 수 × k, 반경 2.5m, 가까우면 사거리 × 0.5로 좁힘, 사거리 × 0.75 안쪽이면 멈춤).
+  - Q26 변이체 소리 = `EnemyVocalized`(첫 경계·근접 준비, 같은 적 쿨다운 4초 — 두 종류 공용, 경계 울음은 분대에서 한 명만) + 자리표시 울음·공격 WAV(들리는 거리 60m 선형).
+  - Q27 경기관총 = 적 전용 WPN-LMG-01(`enemyOnly`, `WeaponClass.MachineGun`) — 시체·상인·루트 표에 없음. Q28 호위 3명 = 새 유형 AI-BGD(RDR 값 + 거점, 우회 끔).
+  - Q29 고정 거점 = 보스·호위 `anchorRadiusM` 25m, 매몰된 마을 외곽 기존 구조물·CoverPoint(NavMesh 재굽기 없음). 모든 이동 목적지를 거점 반경 안으로 자른다(LKP 자체는 자르지 않음).
+  - Q30 배치 = 기존 20명 유지 + SNP 2 + MUT 4 × 2 + BOS 1 + BGD 3 = **적 34명**(SCV 12, RDR 8, SNP 2, MUT 8, BOS 1, BGD 3), 모든 시작·순찰 점이 스폰에서 190m 이상(저격수는 시야 150 + 50m 밖).
+  - Q31 보스 시체 = LT-BOS(유물 ITM-REL-01 1개 보장 + MAG-762-5). 해독제·물병·방독면은 7C 아이템이라 7C가 LT-SNP·MUT·BOS 끝에 붙인다.
+- **§13.3 경계:** Core 추가 — 이벤트 `EnemyVocalized`(`EnemyVocalKind`), `LootTableSO.guaranteedFirstRoll`(null = 기존 난수 순서 그대로), `DamageInfo` 부위 힌트(아래). AI·Audio는 Core만 참조, 새 asmdef 없음.
+- **§14 스키마에 없는 추가:** `EnemyArchetypeSO`(tactics, anchorRadiusM, weaponDurabilityRange, melee*, surroundRadiusM, telegraphSec, scanArcDeg — 기존 SCV·RDR 에셋은 필드가 없어 초기값 = 기존 동작),
+  `AiConfigSO`(glintAngularSizeDeg 0.35, vocalCooldownSec 4, 근접 부위 가중치 흉부 1·복부 1·왼팔 0.5·오른팔 0.5, meleeMaxHeightDiffM 1.2, mutantCloseRadiusRatio 0.5, mutantHoldInsideRangeRatio 0.75),
+  `AudioConfigSO`(mutantAlertClips·mutantAttackClips, vocalAudibleM 60, mutantAlertVolume 1, mutantAttackVolume 0.9, MachineGun 총성 세트).
+- **7B 구현 중 설계와 달라진 점·정한 것:**
+  - 근접 부위: 설계의 "캡슐 높이 무작위 지점 → PlayerHealth 기존 판정"은 액터 배율·자세 변화로 머리에 맞아 **Core `DamageInfo` 부위 힌트**(`HasPartHint`·`PartHint`, 새 6인자 생성자 — 기존 5인자 호출은 그대로)로 바꿨다.
+    PlayerHealth는 힌트가 있으면 지점 판정 대신 그 부위에 `ApplyHit`(출혈·골절 굴림·복부 파괴 배율 등 기존 규칙 그대로, 방어구 없음). 적·과녁은 힌트를 무시한다. 부위는 `EnemyMelee.PickStrikePart`(AiConfigSO 가중치).
+  - 전술 훅 `IEnemyTactics.TryTickRelaxed`(Idle·Patrol·Search를 전술이 대신 채움 — 저격수는 이동 없음)·`TacticsContext.LookAround`(수색 둘러보기를 옮김, 동작 동일)를 더했다. SCV·RDR은 기본 행동 그대로.
+  - 저격 훑기 폭 `scanArcDeg` = 전체 폭(좌우 각 30°), 주기 = 기존 `searchLookSec` 재사용, 평시 기준 방향 = 첫 평시 Tick의 몸 방향(배치 yaw). 섬광은 Alert(반응 시간 중)에도 켜고 사격만 Combat.
+  - 근접 시야 = 감각 주기의 시야 결과(매 프레임 레이 없음). 근접 사거리는 수평 + 발 높이 차 ≤ 1.2m(리뷰 5).
+  - 스폰 무기 내구도(Q12)는 생성자가 아니라 **시체가 될 때**(`CorpseLootBuilder`, 루트 굴림 뒤) 굴린다 — 생성자에서 공유 난수를 쓰면 SCV·RDR 전술 난수 순서가 밀린다. 살아 있는 적의 무기 내구도는 100.
+  - `weaponDurabilityRange` (100,100) = 코드 초기값 = 미설정으로 본다(데이터 메뉴가 그때만 기록). 의도적으로 100~100이면 99.9~100처럼 쓴다.
+  - 울음 WAV 경로 = `Audio/Placeholder/Enemy/MUT_Alert.wav`·`MUT_Attack.wav`(종류마다 1개 — 설계 §2.2 `Creatures/MUT_*_01~02`와 다름). MUT_REF 배회 경로는 스폰 거리 때문에 설계 (300, 40)에서 서쪽 (232~275, 15~45)으로 옮겼다.
+  - 적끼리 시야 가림(탄도와 같은 규칙)은 바꾸지 않았다.
+- **자리표시 에셋 (사용자 지시 — 외부 에셋 없음):** 새 WAV **5개**(`Audio/Placeholder/Gunshots/GS_Lmg_{Near,Mid,Far}`, `Audio/Placeholder/Enemy/MUT_Alert`·`MUT_Attack`, 22kHz 모노 PCM16 — 합계 WAV 35 → 40),
+  머티리얼 **3개**(`Art/Materials/Palette/M_Mutant`(Ash_Grey)·`M_Boss`(Ember, 발광 ×0.3), `Art/Materials/M_SniperGlint`(URP Unlit, Bone × 4 HDR)). 레이드 씬에 M7 적 14명(`Enemy_M7_*`)·순찰 경로 2개.
+  메뉴 `Ashfall/Setup/Apply M7 Content`(배치 `M7SceneSetup.ApplyAll`) — 재실행 바이트 동일.
+- **성능 테스트 교전 전제 (7B-4, 오케스트레이터 결정 (b)):** 예산·단언은 그대로. "90초 안에 전원 교전 진입"은 M4 고정 배치 20명(SCV·RDR)에만 건다. M7 14명은 씬·AI 틱(34명)에 남는다.
+  측정 직전 모든 적 탄을 테스트 도우미로 보충하고(무적 표적에 쏘아 탄이 바닥나는 문제), 표적 근처 변이체 무리는 시작 때 표적에서 멀리 옮긴다. M7 유형의 최악 부하는 7D `M7PerformanceTests`.
+  `RaidPerformanceTests`의 테스트 이름을 `RaidScene_34Enemies_NaturalAndM4FullCombat_…`으로 바꿨다(리뷰 12).
+- **GDD에 수치가 없어 임시값을 넣은 항목 (TODO(GDD-?)):** 설계 §3.4 표 전체(SNP·MUT·BOS·BGD HP·시야·청각·이동·반응·오차·연사·사거리·내구도 범위·근접·둘레 반경·경고·훑기), 표에 없는 칸(SNP 오차 배율 = RDR, BOS "RDR 오차 × 1.3"은 기본·거리 오차에만),
+  섬광 각 크기 0.35°·HDR ×4·눈 앞 0.12m, 울음 쿨다운 4초·들리는 거리 60m·음량 1/0.9·우선순위(= 금속 붕괴), 근접 부위 가중치 1/1/0.5/0.5·높이 차 1.2m·둘레 비율 0.5/0.75, 배치 좌표·분대 번호 10~14·퍼치 높이 차 ≥ 5m,
+  LT-SNP/MUT/BOS 내용·굴림 수, ITM-REL-01 값(1×1·0.2kg·8000), M_Mutant·M_Boss 색 토큰, 모든 자리표시 소리.
+- **리뷰 수정 (M7_review.md "7B AI" 1~15):**
+  1. (높음) 변이체 타격이 선 자세 약 10%, 웅크림·엎드림 대부분 머리 — `DamageInfo` 부위 힌트 + `PickStrikePart`로 바꿨다(위). 타격 분포 상수·표적 캡슐 높이 캐시·반지름 0.2배 추정은 없앴다. 지점 = 표적 중심.
+  2. 거점 반경 밖 엄폐 선택 — `CoverQuery`에 거점 중심·반경(숨는 자리·내다보는 자리 둘 다 반경 안만, Q29 TODO 해소). 거점 유형이 엄폐를 못 찾은 대체 행동(약탈자 Combat)은 선호 거리 밖이어도 다가가지 않고 보이고 사거리 안이면 제자리 사격.
+  3. 남은 하드코딩(변이체 둘레 0.5·0.75, 타격 분포·반지름)을 AiConfigSO로 옮기거나 없앴다. 4. PlayMode 성능 — 7B-4에서 처리(위 교전 전제).
+  5. 근접 사거리 높이 차 상한 `meleeMaxHeightDiffM`. 6. 거점 중심 = 분대 리더(보스) 거점 공유(리더가 거점 유형이 아니거나 없으면 자기 첫 Tick 위치, 리더가 정하기 전에는 기다림).
+  7. 거점 경계에서 자른 목적지를 NavMesh에 붙인다(샘플이 반경 밖이면 다시 자름, 같은 입력은 캐시). 8. `CorpseLootBuilder` 주석을 동작에 맞춤(루트 굴림에서 빼는 탄창 = 이 시체의 적 전용 무기 탄창만).
+  9. `M7EnemySceneApply`가 모든 NavMesh 스냅을 씬 변경 전에 계산(중간 실패로 씬이 반쯤 바뀌지 않음). 10. 경계 울음 = 분대에서 먼저 경계에 든 한 명만(`Squad.TryClaimAlertVocal`, 같은 쿨다운). 공격 울음은 대원마다.
+  11. 커밋 에셋 재실행 테스트 — 커밋 전 git status·md5 확인 절차로 처리(코드 변경 없음). 12. 테스트 이름 34명 반영. 13. `AiDirector` 등록 목록·스케줄러 초기 용량 32 → 64.
+  14. 이 소절. 15. 변이체가 표적과 0m까지 겹침 — 안 보일 때도 LKP로 곧장 가지 않고 LKP 둘레 자리로 가며 LKP와 사거리 × 0.75 안쪽이면 멈춘다. EnemyAgent는 근접 유형이 표적과 수평 사거리 × 0.75 안이면 매 프레임 멈추고 멈추는 순간 NavMeshAgent 속도를 0으로(감속 미끄러짐 방지).

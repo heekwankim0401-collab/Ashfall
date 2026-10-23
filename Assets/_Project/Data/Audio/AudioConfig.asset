@@ -82,6 +82,11 @@ MonoBehaviour:
     mid: {fileID: 8300000, guid: da957dc42f24f8141b10290e8e8b4aa2, type: 3}
     far: {fileID: 8300000, guid: 4a3e3b1527635554f836ce1af858a38e, type: 3}
     volume: 1
+  - weaponClass: 5
+    near: {fileID: 8300000, guid: a1b1c4d05460406489c35677b87cee49, type: 3}
+    mid: {fileID: 8300000, guid: b59e77c9853ee784c8453023b495788f, type: 3}
+    far: {fileID: 8300000, guid: e78930d5dfe2e3341a5328950180fe2f, type: 3}
+    volume: 1
   fallbackGunshotClass: 2
   nearMaxM: 50
   midMaxM: 250
@@ -94,6 +99,13 @@ MonoBehaviour:
   jamClearClip: {fileID: 8300000, guid: 3a171a9c02c6ac345868591cc0767265, type: 3}
   dryFireVolume: 0.8
   jamClearVolume: 0.8
+  mutantAlertClips:
+  - {fileID: 8300000, guid: 8245bd52a963fdb49b5c86c0690721ad, type: 3}
+  mutantAttackClips:
+  - {fileID: 8300000, guid: a1c5c516f280481489c32a3698867bf5, type: 3}
+  vocalAudibleM: 60
+  mutantAlertVolume: 1
+  mutantAttackVolume: 0.9
   voiceCount: 24
   serviceRetrySec: 0.5
   listenerSearchRetrySec: 5

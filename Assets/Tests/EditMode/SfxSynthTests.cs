@@ -168,6 +168,44 @@ namespace Ashfall.Tests.EditMode
             return energy > 0 ? diff / energy : 0;
         }
 
+        // ---------- M7 7B-2c (설계 §2.2): 경기관총 음색, 변이체 울음·공격 ----------
+        // 경기관총 근/중/원은 M7Recipes(M7GunshotClasses)로 위 길이·피크·결정적 케이스에 자동 포함된다.
+
+        private static IEnumerable<TestCaseData> MutantRecipes()
+        {
+            yield return new TestCaseData((Func<float[]>)(() => SfxSynth.MutantAlert(Rate)), SfxSynth.MutantAlertSec).SetName("M7B_MutantAlert");
+            yield return new TestCaseData((Func<float[]>)(() => SfxSynth.MutantAttack(Rate)), SfxSynth.MutantAttackSec).SetName("M7B_MutantAttack");
+        }
+
+        [TestCaseSource(nameof(MutantRecipes))]
+        public void MutantRecipe_Length_Peak_Deterministic_NotSilent(Func<float[]> synth, float expectedSec) =>
+            Recipe_Length_Peak_Deterministic_NotSilent(synth, expectedSec);
+
+        [Test]
+        public void MachineGun_LowerAndShorterThanRifle_DiffersFromOthers()
+        {
+            foreach (GunshotLayer l in M6AudioSetup.GunshotLayers)
+            {
+                Assert.Less(SfxSynth.GunshotLengthSec(WeaponClass.MachineGun, l), SfxSynth.GunshotLengthSec(WeaponClass.AssaultRifle, l), $"{l}: 소총보다 짧다");
+                float[] lmg = SfxSynth.Gunshot(WeaponClass.MachineGun, l, Rate);
+                foreach (WeaponClass other in new[] { WeaponClass.AssaultRifle, WeaponClass.Shotgun, WeaponClass.Sniper })
+                    CollectionAssert.AreNotEqual(SfxSynth.Gunshot(other, l, Rate), lmg, $"{l}: {other}와 같은 소리");
+            }
+            // 소총보다 낮다: 근거리 고역 비율이 작다
+            Assert.Less(HighFrequencyRatio(SfxSynth.Gunshot(WeaponClass.MachineGun, GunshotLayer.Near, Rate)),
+                HighFrequencyRatio(SfxSynth.Gunshot(WeaponClass.AssaultRifle, GunshotLayer.Near, Rate)), "경기관총이 소총보다 낮다");
+        }
+
+        [Test]
+        public void MutantAlert_LongerThanAttack_AndDifferent()
+        {
+            Assert.Greater(SfxSynth.MutantAlertSec, SfxSynth.MutantAttackSec);
+            Assert.GreaterOrEqual(SfxSynth.MutantAlertSec, M6AudioSetup.ShortClipSec, "울음은 CompressedInMemory 쪽");
+            Assert.Less(SfxSynth.MutantAttackSec, M6AudioSetup.ShortClipSec, "공격은 DecompressOnLoad 쪽");
+            // 울음 = 저역 그르렁: 고역 비율이 공격(비명 + 휘두름)보다 작다
+            Assert.Less(HighFrequencyRatio(SfxSynth.MutantAlert(Rate)), HighFrequencyRatio(SfxSynth.MutantAttack(Rate)), "울음이 공격보다 낮다");
+        }
+
         [Test]
         public void Normalize_SilenceUnchanged()
         {

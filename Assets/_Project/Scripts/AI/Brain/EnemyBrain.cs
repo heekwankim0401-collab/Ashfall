@@ -64,7 +64,8 @@ namespace Ashfall.AI
             this.squad = squad;
             this.random = random ?? new System.Random();
             awareness = new AwarenessModel(config);
-            tactics = archetype.usesCover ? new RaiderTactics() : (IEnemyTactics)new ScavengerTactics();
+            TacticsKind = ResolveTacticsKind(archetype);
+            tactics = CreateTactics(TacticsKind);
             ctx = new TacticsContext(this, archetype, config, world, this.random, squad);
             State = EnemyState.Idle;
             intent.Posture = EnemyPosture.Stand;
@@ -100,6 +101,58 @@ namespace Ashfall.AI
 
         internal IEnemyTactics Tactics => tactics;
 
+        // ── M7 전술 팩토리·거점 (설계 §1.4, Q20·Q28) ─────────────
+
+        // 실제로 쓰는 전술 (Auto를 푼 값 — Scavenger·Raider·Sniper·Mutant 중 하나)
+        public EnemyTacticsKind TacticsKind { get; }
+
+        // 거점 중심 (anchorRadiusM > 0이면 분대 리더의 거점 또는 자기 첫 Tick 위치). 없으면 HasAnchor = false
+        public bool HasAnchor => ctx.HasAnchor;
+        public Vector3 AnchorCenter => ctx.AnchorCenter;
+
+        // 거점 중심 고르기 (리뷰 6). false = 리더(거점 유형)가 아직 거점을 정하지 않았다 → 이번 Tick은 거점 없음.
+        private bool TryResolveAnchorCenter(Vector3 self, out Vector3 center)
+        {
+            center = self;
+            EnemyBrain leader = squad?.Leader;
+            if (leader == null || leader == this || !(leader.archetype.anchorRadiusM > 0f))
+                return true;
+            if (!leader.HasAnchor)
+                return false;
+            center = leader.AnchorCenter;
+            return true;
+        }
+
+        // Auto = 기존 규칙(usesCover ? Raider : Scavenger). 정의되지 않은 값도 Auto와 같게 본다.
+        public static EnemyTacticsKind ResolveTacticsKind(EnemyArchetypeSO archetype)
+        {
+            if (archetype == null)
+                throw new ArgumentNullException(nameof(archetype));
+            switch (archetype.tactics)
+            {
+                case EnemyTacticsKind.Scavenger:
+                case EnemyTacticsKind.Raider:
+                case EnemyTacticsKind.Sniper:
+                case EnemyTacticsKind.Mutant:
+                    return archetype.tactics;
+                default:
+                    return archetype.usesCover ? EnemyTacticsKind.Raider : EnemyTacticsKind.Scavenger;
+            }
+        }
+
+        internal static IEnemyTactics CreateTactics(EnemyArchetypeSO archetype) => CreateTactics(ResolveTacticsKind(archetype));
+
+        private static IEnemyTactics CreateTactics(EnemyTacticsKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyTacticsKind.Raider: return new RaiderTactics();
+                case EnemyTacticsKind.Sniper: return new SniperTactics();
+                case EnemyTacticsKind.Mutant: return new MutantTactics();
+                default: return new ScavengerTactics();
+            }
+        }
+
         // 감각 주기마다 (dt = 직전 Tick 이후 시간)
         public void Tick(in EnemySenses senses, float dt)
         {
@@ -109,6 +162,10 @@ namespace Ashfall.AI
             ctx.Now = senses.Now;
             ctx.Dt = dt;
             Position = senses.SelfPosition;
+            // 거점 (M7 Q28, 7B 리뷰 6): 분대 리더의 거점 중심을 같이 쓴다(보스 무리 = 보스 스폰 위치). 리더가 없거나 자기가 리더이거나
+            // 리더가 거점 유형이 아니면 자기 첫 Tick 위치(= 스폰). 리더가 아직 거점을 못 정했으면 다음 Tick에 다시 본다.
+            if (!ctx.HasAnchor && archetype.anchorRadiusM > 0f && TryResolveAnchorCenter(senses.SelfPosition, out Vector3 anchor))
+                ctx.SetAnchor(anchor);
             HasTicked = true;
             if (senses.SelfForward.sqrMagnitude > 1e-6f)
                 Forward = senses.SelfForward;
@@ -417,10 +474,12 @@ namespace Ashfall.AI
             switch (State)
             {
                 case EnemyState.Idle:
-                    TickIdle(s);
+                    if (!tactics.TryTickRelaxed(State, ctx, s, ref intent))
+                        TickIdle(s);
                     break;
                 case EnemyState.Patrol:
-                    TickPatrol(s);
+                    if (!tactics.TryTickRelaxed(State, ctx, s, ref intent))
+                        TickPatrol(s);
                     break;
                 case EnemyState.Suspicious:
                     tactics.TickSuspicious(ctx, s, ref intent);
@@ -434,13 +493,17 @@ namespace Ashfall.AI
                         squad?.ReportContact(AgentId, Position, s.TargetPosition, s.Now);
                     break;
                 case EnemyState.Search:
-                    TickSearch(s);
+                    if (!tactics.TryTickRelaxed(State, ctx, s, ref intent))
+                        TickSearch(s);
                     break;
             }
 
-            // 사격은 표적이 보일 때만 (설계 §1.4 사격 허용 조건의 brain 쪽 몫)
+            // 사격은 표적이 보일 때만 (설계 §1.4 사격 허용 조건의 brain 쪽 몫). 저격 섬광도 같다(M7 — 못 보면 꺼짐).
             if (!visible)
+            {
                 intent.Fire = false;
+                intent.Telegraph = false;
+            }
         }
 
         private void TickIdle(in EnemySenses s)
@@ -568,16 +631,9 @@ namespace Ashfall.AI
         }
 
         // 기준 방향에서 좌우 searchLookYawDeg를 searchLookSec 주기로 훑는다.
-        private void LookAround(in EnemySenses s, Vector3 focus)
-        {
-            Vector3 dir = focus - s.SelfPosition;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 1e-4f)
-                dir = Forward;
-            float period = config.searchLookSec > 0f ? config.searchLookSec : 1f;
-            float yaw = config.searchLookYawDeg * Mathf.Sin((TimeInState / period) * Mathf.PI);
-            TacticsContext.LookAt(ref intent, s.SelfPosition + Quaternion.Euler(0f, yaw, 0f) * dir.normalized * config.lookAheadDistanceM);
-        }
+        private void LookAround(in EnemySenses s, Vector3 focus) =>
+            TacticsContext.LookAround(ref intent, s, focus, Forward, config.searchLookYawDeg, config.searchLookSec,
+                TimeInState, config.lookAheadDistanceM);
 
         [Conditional("ASHFALL_DEBUG_AI")]
         private void LogTransition(EnemyState from, EnemyState to)

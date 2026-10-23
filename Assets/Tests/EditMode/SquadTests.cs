@@ -174,5 +174,18 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(expected.y, actual.y, 1e-4f);
             Assert.AreEqual(expected.z, actual.z, 1e-4f);
         }
+
+        // M7 7B 리뷰 10 (Q26): 분대 경계 울음권 — 쿨다운 안에서는 한 명만
+        [Test]
+        public void AlertVocal_OnePerSquadPerCooldown()
+        {
+            var squad = new Squad(10, config);
+            Assert.IsTrue(squad.TryClaimAlertVocal(1f, 4f), "첫 대원");
+            Assert.IsFalse(squad.TryClaimAlertVocal(1f, 4f), "같은 순간 둘째");
+            Assert.IsFalse(squad.TryClaimAlertVocal(4.9f, 4f), "쿨다운 안");
+            Assert.IsTrue(squad.TryClaimAlertVocal(5f, 4f), "쿨다운 뒤");
+            var other = new Squad(11, config);
+            Assert.IsTrue(other.TryClaimAlertVocal(5f, 4f), "다른 분대는 따로");
+        }
     }
 }

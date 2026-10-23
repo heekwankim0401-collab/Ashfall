@@ -11,5 +11,9 @@ namespace Ashfall.AI
         public EnemyPosture Posture;
         public bool Fire; public Vector3 FireAt;             // FireAt = 표적 중심(오차는 EnemyWeapon이 더함)
         public bool Reload;
+
+        // M7 (설계 §1.4). EnemyAgent.ApplyMelee·ApplyTelegraph가 읽는다.
+        public bool Melee;       // 근접 공격 의사 (AI-MUT). 실제 타격 = EnemyMelee(사거리·준비·간격) + 시야
+        public bool Telegraph;   // 저격 섬광 켜기 (AI-SNP). 표적이 안 보이면 EnemyBrain이 끈다
     }
 }

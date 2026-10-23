@@ -18,13 +18,24 @@ namespace Ashfall.Tests.PlayMode
     // M4 성능 (M4 설계 §2.5·§7 RaidPerformanceTests): 실제 Raid_CrimsonBasin(1km Terrain, 블록아웃, 엄폐 494, 적 20)에서
     // AiDirector 틱("Ashfall.AI.Tick")·투사체 스텝·프레임 시간을 M3 AiPerformanceTests와 같은 방식·예산으로 잰다.
     //  A) 자연 교전: 무적 TestTarget을 고속도로(POI-HWY) 남쪽 도로에 두고 총성 → 그 POI 적이 교전, 나머지는 순찰 (10초)
-    //  B) 최악: 나머지 적을 표적 주변 35~55m로 옮겨 20명 모두 교전 (10초)
+    //  B) 최악: 나머지 적을 표적 주변 35~55m로 옮겨 M4 고정 배치 20명 모두 교전 (10초)
+    //  M7(7B-4, 오케스트레이터 결정 (b)): 씬은 34명(M4 20 + M7 14). M7 적(이름 Enemy_M7_*: 움직이지 않는 저격수·거점 묶인 보스 무리·근접 변이체)도
+    //  씬 제자리에 두어 부하(AI 틱 34명·총성에 스스로 반응)에 포함하고, B에서 고리로 옮기는 것과 "전원 교전 진입" 전제는 M4 20명(SCV·RDR)에만 건다.
+    //  (M7까지 고리로 옮기면 변이체가 표적 1.35m 둘레를 감싸 다른 적의 시야를 가려 M4가 90초 안에 교전에 들지 못한다 — 7B-3·7B-4 진단, AI 규칙은 그대로.)
+    //  M7 유형의 최악 부하(변이체 근접 반복·보스 LMG 연사·저격수 경고)는 7D M7PerformanceTests가 잰다.
+    //  표적 근처 변이체는 시작 때 ParkNearbyMutants로 표적에서 500m+ 떨어진 NavMesh로 옮긴다(씬·AI 틱에는 남음, 변이체는 7D에서 별도 계측).
+    //  측정 직전 모든 적의 탄을 테스트에서 가득 채우고(교전 대기 동안 무적 표적에 쏘아 탄이 바닥나면 측정 구간 사격 0 — 7B-3 진단),
+    //  측정 구간의 적 ShotFired를 세어 B에 실제 사격 부하가 있었는지 단언한다.
     //  + 엄폐 질의(CoverSelector.TrySelect)를 494개 지점 전체에 직접 2000회 — 선형 탐색 비용.
     // 예산: AI 평균 ≤ 1.0ms, 99% ≤ 3ms, 투사체 평균 ≤ 1.0ms, 프레임 중앙값 ≤ 16.6ms(참고).
     // 한계: 배치모드는 화면을 그리지 않는다(GPU·Terrain 렌더·URP 후처리 비용 없음). 1080p 60fps는 사람이 Profiler/Stats로 확인.
     public class RaidPerformanceTests
     {
-        private const int ExpectedEnemies = 20;
+        // M4 고정 배치 20(CrimsonBasinLayout.ExpectedEnemyCount) + M7 배치 14(M7EnemyLayout.Count). PlayMode는 EditorTools를 안 보므로 상수(M7 설계 §6 7B-3).
+        private const int ExpectedEnemies = 34;
+        // 교전 진입 전제를 거는 M4 고정 배치 수(CrimsonBasinLayout.ExpectedEnemyCount). M7 적은 이름이 이 접두사로 시작한다(M3SceneSetup "Enemy_" + M7Names.M7EnemyPrefix).
+        internal const int ExpectedM4Enemies = 20;
+        internal const string M7EnemyNamePrefix = "Enemy_M7_";
         private const float NaturalNoiseRadiusM = 200f;
         private const float StressNoiseRadiusM = 300f;
         private const float NoiseIntervalSec = 2f;
@@ -63,9 +74,9 @@ namespace Ashfall.Tests.PlayMode
 
         [UnityTest]
         [Timeout(420000)]
-        public IEnumerator RaidScene_TwentyEnemies_NaturalAndFullCombat_AiProjectileFrameWithinBudget_CoverQueryCost()
+        public IEnumerator RaidScene_34Enemies_NaturalAndM4FullCombat_AiProjectileFrameWithinBudget_CoverQueryCost()
         {
-            Assert.AreEqual(ExpectedEnemies, raid.Enemies.Count, "적 20명");
+            Assert.AreEqual(ExpectedEnemies, raid.Enemies.Count, $"적 {ExpectedEnemies}명");
             AiDirector director = raid.Director;
             int coverCount = director.Covers.Count;
             Assert.Greater(coverCount, 0);
@@ -79,6 +90,7 @@ namespace Ashfall.Tests.PlayMode
                 foreach (EnemyAgent e in raid.Enemies)
                     MakeImmortal(e, clones);
                 // 플레이어 대신 무적 표적. 플레이어는 서쪽 스폰에 그대로 (표적에서 약 520m).
+                string parked = ParkNearbyMutants(raid.Enemies, center);   // 변이체 = 7D에서 별도 계측
                 raid.Gm.Services.Unregister<IPlayerTarget>(raid.Motor);
                 target.Register();
                 yield return M2Scene.WaitUntil(() => ReferenceEquals(director.Target, target), 3f);
@@ -103,24 +115,27 @@ namespace Ashfall.Tests.PlayMode
                 for (int i = 0; i < raid.Enemies.Count; i++)
                 {
                     EnemyAgent e = raid.Enemies[i];
-                    if (e.State == EnemyState.Combat)
+                    if (e.State == EnemyState.Combat || IsM7(e))   // M7 적은 제자리(부하에는 포함)
                         continue;
                     Vector3 spot = ring[i % ring.Count];
                     Vector3 face = center - spot;
                     M3Scene.WarpEnemy(e, spot, Mathf.Atan2(face.x, face.z) * Mathf.Rad2Deg);
                     warped++;
                 }
+                List<EnemyAgent> m4 = raid.Enemies.Where(e => !IsM7(e)).ToList();
+                Assert.AreEqual(ExpectedM4Enemies, m4.Count, $"M4 고정 배치 {ExpectedM4Enemies}명 (나머지 {ExpectedEnemies - ExpectedM4Enemies}명 = {M7EnemyNamePrefix}*)");
                 var everCombat = new HashSet<EnemyAgent>();
+                var m7EverCombat = new HashSet<EnemyAgent>();
                 start = Time.realtimeSinceStartup;
-                while (everCombat.Count < ExpectedEnemies)
+                while (everCombat.Count < ExpectedM4Enemies)
                 {
                     if (Time.realtimeSinceStartup - start > CombatTimeoutSec)
-                        Assert.Fail($"{CombatTimeoutSec}초 안에 20명 교전 진입 안 됨 ({everCombat.Count}): {StateSummary()}");
+                        Assert.Fail($"{CombatTimeoutSec}초 안에 M4 {ExpectedM4Enemies}명 교전 진입 안 됨 ({everCombat.Count}): {StateSummary()}");
                     next = MaybeNoise(center, StressNoiseRadiusM, next);
                     yield return null;
                     foreach (EnemyAgent e in raid.Enemies)
                         if (e.State == EnemyState.Combat)
-                            everCombat.Add(e);
+                            (IsM7(e) ? m7EverCombat : everCombat).Add(e);
                 }
                 float toAll = Time.realtimeSinceStartup - start;
                 Measurement stress = null;
@@ -130,16 +145,16 @@ namespace Ashfall.Tests.PlayMode
                 var cover = MeasureCoverQueries(director, target);
 
                 string report =
-                    $"[RaidPerformanceTests] 엄폐 지점 {coverCount}, Terrain {terrain.terrainData.size}, 적 {ExpectedEnemies} | " +
+                    $"[RaidPerformanceTests] 엄폐 지점 {coverCount}, Terrain {terrain.terrainData.size}, 적 {ExpectedEnemies}({parked}) | " +
                     $"A) 자연 교전({toNatural:0.0}초 만에 {NaturalMinCombat}명+): {natural} | " +
-                    $"B) 전원 교전(옮긴 적 {warped}, {toAll:0.0}초): {stress} | " +
+                    $"B) M4 전원 교전(옮긴 적 {warped}, M4 {ExpectedM4Enemies}명 {toAll:0.0}초, 그동안 교전한 M7 {m7EverCombat.Count}/{ExpectedEnemies - ExpectedM4Enemies}): {stress} | " +
                     $"엄폐 질의 {CoverQueries}회: 교전 위치 평균 {cover.combatUs:0.0}µs(선택 {cover.combatSelected}), 후보 많은 경우 평균 {cover.richUs:0.0}µs(선택 {cover.richSelected}) | " +
                     $"화면 {Screen.width}x{Screen.height}, 배치모드 렌더 없음";
                 Debug.Log(report);
 
                 foreach ((string label, Measurement m) in new[] { ("A", natural), ("B", stress) })
                 {
-                    Assert.AreEqual(ExpectedEnemies, m.MinAlive, $"{label}: 측정 중 20명 생존");
+                    Assert.AreEqual(ExpectedEnemies, m.MinAlive, $"{label}: 측정 중 {ExpectedEnemies}명 생존");
                     Assert.LessOrEqual(m.AiAvg, AiAverageBudgetMs, $"{label}: AI 틱 평균 예산");
                     Assert.LessOrEqual(m.AiP99, AiP99BudgetMs, $"{label}: AI 틱 99% 예산");
                     Assert.LessOrEqual(m.ProjAvg, ProjectileAverageBudgetMs, $"{label}: 투사체 평균 예산");
@@ -147,6 +162,7 @@ namespace Ashfall.Tests.PlayMode
                 }
                 Assert.GreaterOrEqual(natural.CombatAvg, 1.0, "A: 측정 중 교전");
                 Assert.GreaterOrEqual(stress.CombatAvg, 10.0, "B: 측정 중 다수 교전");
+                Assert.Greater(stress.Shots, 0, "B: 측정 중 적 사격(ShotFired) — 사격 부하가 실제로 측정에 들어갔다");
                 Assert.Less(cover.combatUs, 200.0, "엄폐 질의 1회 0.2ms 미만 (494개 선형 탐색)");
                 Assert.Less(cover.richUs, 200.0, "엄폐 질의(후보 많음) 1회 0.2ms 미만");
             }
@@ -162,12 +178,12 @@ namespace Ashfall.Tests.PlayMode
         private sealed class Measurement
         {
             public double AiAvg, AiP99, AiMax, ProjAvg, ProjMax, FrameMedian, FrameP99, CombatAvg;
-            public int Frames, AiSamples, ProjSteps, MaxLive, MinAlive, MinCombat;
+            public int Frames, AiSamples, ProjSteps, MaxLive, MinAlive, MinCombat, Shots, Refilled;
 
             public override string ToString() =>
                 $"{Frames}프레임, 교전 평균 {CombatAvg:0.0}명(최소 {MinCombat}), AI 평균 {AiAvg:0.000}ms·99% {AiP99:0.000}ms·최대 {AiMax:0.000}ms ({AiSamples}샘플), " +
                 $"투사체 평균 {ProjAvg:0.000}ms·최대 {ProjMax:0.000}ms ({ProjSteps}스텝, 동시 탄 최대 {MaxLive}), " +
-                $"프레임 중앙값 {FrameMedian:0.00}ms·99% {FrameP99:0.00}ms, 생존 최소 {MinAlive}";
+                $"프레임 중앙값 {FrameMedian:0.00}ms·99% {FrameP99:0.00}ms, 생존 최소 {MinAlive}, 측정 중 적 ShotFired {Shots}(측정 전 탄 보충 {Refilled}명)";
         }
 
         private IEnumerator Measure(Vector3 center, float noiseRadius, Action<Measurement> result)
@@ -179,14 +195,24 @@ namespace Ashfall.Tests.PlayMode
                 next = MaybeNoise(center, noiseRadius, next);
                 yield return null;
             }
+            int refilled = RefillAmmo(raid.Enemies);
             AiDirector director = raid.Director;
             director.Stats.Reset();
             raid.Projectiles.ResetStats();
+            int shots = 0;
+            bool counting = false;
+            Action<ShotFired> onShot = e =>
+            {
+                if (counting && e.Source == SoundSource.Enemy)
+                    shots++;
+            };
+            raid.Events.Subscribe(onShot);
             var ai = new List<double>(20000);
             var frames = new List<double>(20000);
             var m = new Measurement { MinAlive = int.MaxValue, MinCombat = int.MaxValue };
             int combatSum = 0;
             yield return null;
+            counting = true;
             float end = Time.realtimeSinceStartup + MeasureSec;
             while (Time.realtimeSinceStartup < end)
             {
@@ -212,6 +238,10 @@ namespace Ashfall.Tests.PlayMode
             m.FrameMedian = Percentile(frames, 0.5);
             m.FrameP99 = Percentile(frames, 0.99);
             m.CombatAvg = (double)combatSum / Math.Max(1, m.Frames);
+            counting = false;
+            raid.Events.Unsubscribe(onShot);
+            m.Shots = shots;
+            m.Refilled = refilled;
             result(m);
         }
 
@@ -297,6 +327,78 @@ namespace Ashfall.Tests.PlayMode
             }
             Assert.GreaterOrEqual(spots.Count, count / 2, "고리 지점 부족");
             return spots;
+        }
+
+        // 변이체 "별도 계측"(오케스트레이터 결정 (b)): 표적 근처(< ParkIfWithinM) 변이체를 표적에서 ParkMinDistanceM 넘게 떨어진 NavMesh로 옮긴다.
+        // 씬에는 그대로 남아 AI 틱(순찰로 제 경로를 향해 걷기)에 포함되지만 총성(반경 ≤ 300m)을 듣지 못한다.
+        // 이유: 고속도로 변이체 무리(표적에서 약 170m)가 A의 총성을 듣고 와서 표적에 겹쳐 서면(수평 0~1m) 다른 적의 시야 레이가
+        // 변이체 캡슐에 막혀 M4 20명이 90초 동안 한 명도 교전에 들지 못했다(7B-4 진단 — AI 규칙 "적끼리 시야 가림"은 그대로).
+        private const float ParkIfWithinM = 400f;
+        private const float ParkMinDistanceM = 500f;
+        private static readonly Vector2[] ParkCandidatesXZ =
+        {
+            new Vector2(-300f, 250f), new Vector2(-250f, 300f), new Vector2(-350f, 150f), new Vector2(-200f, 350f), new Vector2(-380f, 300f),
+        };
+
+        internal static string ParkNearbyMutants(IReadOnlyList<EnemyAgent> enemies, Vector3 center)
+        {
+            List<EnemyAgent> mutants = enemies.Where(e => e != null && !e.IsDead && e.Brain != null &&
+                                                          e.Brain.TacticsKind == EnemyTacticsKind.Mutant &&
+                                                          FlatDistance(e.transform.position, center) < ParkIfWithinM).ToList();
+            if (mutants.Count == 0)
+                return "옮긴 변이체 0";
+            var spots = new List<Vector3>();
+            foreach (Vector2 xz in ParkCandidatesXZ)
+            {
+                if (!NavMesh.SamplePosition(new Vector3(xz.x, 100f, xz.y), out NavMeshHit hit, 150f, NavMesh.AllAreas))
+                    continue;
+                if (FlatDistance(hit.position, center) < ParkMinDistanceM)
+                    continue;
+                for (int k = 0; k < 6 && spots.Count < mutants.Count; k++)
+                {
+                    Vector3 p = hit.position + new Vector3((k % 3) * 2.5f, 0f, (k / 3) * 2.5f);
+                    if (NavMesh.SamplePosition(p, out NavMeshHit h2, 2f, NavMesh.AllAreas) &&
+                        FlatDistance(h2.position, center) >= ParkMinDistanceM &&
+                        spots.All(s => Vector3.Distance(s, h2.position) > 1.5f))
+                        spots.Add(h2.position);
+                }
+                if (spots.Count >= mutants.Count)
+                    break;
+            }
+            Assert.GreaterOrEqual(spots.Count, mutants.Count, "변이체를 옮길 먼 NavMesh 자리 부족");
+            for (int i = 0; i < mutants.Count; i++)
+                M3Scene.WarpEnemy(mutants[i], spots[i], 0f);
+            return $"옮긴 변이체 {mutants.Count}({string.Join(",", mutants.Select(m => m.name))}) → 표적에서 {spots.Take(mutants.Count).Min(s => FlatDistance(s, center)):0}m+";
+        }
+
+        private static float FlatDistance(Vector3 a, Vector3 b) => new Vector2(a.x - b.x, a.z - b.z).magnitude;
+
+        internal static bool IsM7(EnemyAgent e) => e != null && e.name.StartsWith(M7EnemyNamePrefix, StringComparison.Ordinal);
+
+        // 테스트 도우미: 무장 있는 적의 장착·예비 탄창을 가득 채운다(제품 코드 무변경, Magazine.TryAddRound). 채운 적 수.
+        // 교전 대기(최대 90초) 동안 무적 표적에 쏘아 탄이 바닥나면 측정 구간에 사격이 없다(7B-3 진단: ShotFired 0) — 측정 직전에 부른다.
+        internal static int RefillAmmo(IReadOnlyList<EnemyAgent> enemies)
+        {
+            int count = 0;
+            foreach (EnemyAgent e in enemies)
+            {
+                EnemyWeapon w = e != null ? e.Weapon : null;
+                if (w == null)
+                    continue;
+                Fill(w.Item.LoadedMagazine);
+                IReadOnlyList<Magazine> spares = w.Spares.Magazines;
+                for (int i = 0; i < spares.Count; i++)
+                    Fill(spares[i]);
+                count++;
+            }
+            return count;
+        }
+
+        private static void Fill(Magazine m)
+        {
+            if (m == null)
+                return;
+            while (!m.IsFull && m.TryAddRound()) { }
         }
 
         private int InCombat() => raid.Enemies.Count(e => e != null && !e.IsDead && e.State == EnemyState.Combat);

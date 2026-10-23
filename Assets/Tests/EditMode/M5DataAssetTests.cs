@@ -142,11 +142,12 @@ namespace Ashfall.Tests.EditMode
         }
 
         // 가격 표가 프로젝트의 탄약 외 아이템 정의를 전부 덮는다 (새 아이템을 추가하면 가격도 정할 것).
-        // M7 7A 아이템 가격은 M7WeaponDataAssetTests.PriceTable(설계 §3.1·§3.2)이 갖는다.
+        // M7 7A 아이템 가격은 M7WeaponDataAssetTests.PriceTable(설계 §3.1·§3.2), 7B 유물은 M7AiDataAssetTests.PriceTable(§3.7)이 갖는다.
         [Test]
         public void Prices_CoverEveryNonAmmoItemDefinition()
         {
-            var tableIds = new HashSet<string>(PriceTable.Select(p => p.id).Concat(M7WeaponDataAssetTests.PriceTable.Select(p => p.id)));
+            var tableIds = new HashSet<string>(PriceTable.Select(p => p.id).Concat(M7WeaponDataAssetTests.PriceTable.Select(p => p.id))
+                .Concat(M7AiDataAssetTests.PriceTable.Select(p => p.id)));
             var missing = AllItemDefinitionsInProject()
                 .Where(i => !(i is AmmoDefinitionSO) && !tableIds.Contains(i.id))
                 .Select(i => i.id).ToArray();

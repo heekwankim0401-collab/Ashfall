@@ -1,4 +1,5 @@
 using System;
+using Ashfall.AI;
 using Ashfall.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -51,7 +52,8 @@ namespace Ashfall.EditorTools
                 throw new InvalidOperationException($"{Tag} 무기 뷰모델 생성 실패 — 위 오류 로그 확인");
             M6AudioSetup.CreateAssets();
 
-            // 7B AI: (7B가 여기 한 줄)
+            // 7B AI: 유형 4개·루트 표·유물(SYS-AI). LMG 세트·울음 WAV는 위 M6AudioSetup이 만든다.
+            M7AiDataSetup.CreateData();
             // 7C 생존·제작: (7C가 여기 한 줄)
             AssetDatabase.SaveAssets();
         }
@@ -63,7 +65,9 @@ namespace Ashfall.EditorTools
             if (!scene.IsValid())
                 return false;
             // 7A: 씬 적용 없음 (위 주석)
-            // 7B: if (!M7EnemySceneApply.ApplyRaid(scene)) return false;
+            // 7B: 적 14명·순찰 경로·몸 머티리얼·저격수 섬광 (실패는 예외)
+            if (!M7EnemySceneApply.ApplyRaid(scene))
+                return false;
             // 7C: if (!M7HazardSceneApply.ApplyRaid(scene)) return false;
             return true;
         }
@@ -80,7 +84,11 @@ namespace Ashfall.EditorTools
         // 레이드 적용에 필요한 M7 데이터가 있는가 (M7 메뉴를 한 번이라도 돌렸는가). 하위 단계가 자기 조건을 && 로 더한다.
         public static bool RaidAssetsExist() =>
             Exists<WeaponDefinitionSO>(M7Names.ShotgunPath)
-            && Exists<WeaponDefinitionSO>(M7Names.DmrPath);
+            && Exists<WeaponDefinitionSO>(M7Names.DmrPath)
+            && Exists<EnemyArchetypeSO>(M7Names.SniperArchetypePath)
+            && Exists<EnemyArchetypeSO>(M7Names.MutantArchetypePath)
+            && Exists<EnemyArchetypeSO>(M7Names.BossArchetypePath)
+            && Exists<EnemyArchetypeSO>(M7Names.BodyguardArchetypePath);
 
         private static void Require(bool applied, Scene scene)
         {

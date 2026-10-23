@@ -6,6 +6,7 @@ namespace Ashfall.AI
     // - Suspicious: investigatesNoise면 자극 위치로 걷고 도착 후 둘러봄, 아니면 제자리에서 자극 쪽을 봄
     // - Alert(안 보임): LKP로 달린다. 보이면 멈춰서 표적을 본다(반응 시간)
     // - Combat: 선호 거리 밖이면 표적 쪽으로 달림(사격 안 함), 안이면 정지 사격 + strafeIntervalSec마다 옆으로 걸으며 사격
+    //   (M7 거점 유형은 선호 거리 밖이어도 다가가지 않고 제자리 사격 — 7B 리뷰 2)
     internal sealed class ScavengerTactics : IEnemyTactics
     {
         private float nextStrafeAt = -1f;
@@ -14,6 +15,9 @@ namespace Ashfall.AI
 
         public bool DefersLoseSight => false;
         public bool WantsHiddenCheck => false;
+
+        // 평시·수색은 EnemyBrain 기본 행동 (M7 훅, IEnemyTactics.TryTickRelaxed)
+        public bool TryTickRelaxed(EnemyState state, TacticsContext c, in EnemySenses s, ref EnemyIntent i) => false;
 
         public void Reset()
         {
@@ -57,6 +61,16 @@ namespace Ashfall.AI
 
             TacticsContext.LookAt(ref i, s.TargetCenter);
             i.FireAt = s.TargetCenter;
+
+            if (s.TargetDistance > c.Archetype.preferredRangeM.y && c.HasAnchor)
+            {
+                // 거점 유형(보스·호위가 엄폐를 못 찾았을 때, 7B 리뷰 2): 거리를 좁히러 나가지 않는다(거점 경계에서 멈춰 쏘지 않던 문제).
+                // 제자리에서 보이고 사거리 안이면 쏜다.
+                strafing = false;
+                TacticsContext.Hold(ref i);
+                i.Fire = s.TargetDistance <= c.Archetype.engageMaxRangeM;
+                return;
+            }
 
             if (s.TargetDistance > c.Archetype.preferredRangeM.y)
             {

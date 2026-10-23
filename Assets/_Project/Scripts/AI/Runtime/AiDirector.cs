@@ -19,11 +19,13 @@ namespace Ashfall.AI
     public sealed class AiDirector : MonoBehaviour
     {
         private static readonly ProfilerMarker TickMarker = new ProfilerMarker("Ashfall.AI.Tick");
+        // 등록 목록 초기 용량 (7B 리뷰 13): 레이드 적 34명(M4 20 + M7 14)보다 크게 잡아 레이드 중 재할당이 없게. 넘으면 List가 늘린다.
+        private const int InitialAgentCapacity = 64;
 
         [SerializeField] private AiConfigSO config;
 
-        private readonly List<EnemyAgent> agents = new List<EnemyAgent>(32);
-        private readonly List<EnemyAgent> slotAgents = new List<EnemyAgent>(32);
+        private readonly List<EnemyAgent> agents = new List<EnemyAgent>(InitialAgentCapacity);
+        private readonly List<EnemyAgent> slotAgents = new List<EnemyAgent>(InitialAgentCapacity);
         private readonly Dictionary<int, Squad> squads = new Dictionary<int, Squad>();
 
         private AiTickScheduler scheduler;
@@ -103,7 +105,7 @@ namespace Ashfall.AI
 
             lineOfSight = new PhysicsLineOfSight();
             world = new EnemyWorld(config, Covers, lineOfSight);
-            scheduler = new AiTickScheduler(32);
+            scheduler = new AiTickScheduler(InitialAgentCapacity);
             dueSlots = new int[Mathf.Max(1, config.maxSenseUpdatesPerFrame)];
             initialized = true;
         }

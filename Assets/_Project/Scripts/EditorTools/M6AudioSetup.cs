@@ -9,7 +9,7 @@ using UnityEngine;
 namespace Ashfall.EditorTools
 {
     // M6 자리표시 오디오 (M6 설계 §2.1·§2.2, Q18·Q21). 전부 TODO(GDD-?) 자리표시 — 실제 에셋 교체 위치는 설계 §2.3.
-    // ① WAV 27개(M6 Recipes) + M7 8개(M7Recipes: 산탄·저격 총성 근/중/원, 헛격발·고장 해제)를 SfxSynth로 합성해 Audio/Placeholder/...에 쓴다
+    // ① WAV 27개(M6 Recipes) + M7 13개(M7Recipes: 산탄·저격·경기관총 총성 근/중/원, 헛격발·고장 해제, 변이체 울음·공격)를 SfxSynth로 합성해 Audio/Placeholder/...에 쓴다
     //    — **파일이 없을 때만**(Q21: 사용자가 같은 경로에 덮어쓴 WAV 보존).
     // ② 임포트 설정: 모노 강제, 1초 미만 = DecompressOnLoad, 루프·긴 소리 = CompressedInMemory(Vorbis 0.7), preload.
     //    **이번에 새로 쓴 파일에만** 적용한다(리뷰 낮음 3 — 덮어쓴 사용자 WAV의 임포트 설정, 예: 스테레오 루프를 보존). 값이 다를 때만 다시 임포트.
@@ -30,9 +30,9 @@ namespace Ashfall.EditorTools
         public static readonly SurfaceKind[] Surfaces = { SurfaceKind.Dirt, SurfaceKind.Metal, SurfaceKind.Debris, SurfaceKind.Water };
         // M6 세트 (기존 에셋에 세트가 없으면 경고만 — 사용자 구성 보존)
         public static readonly WeaponClass[] GunshotClasses = { WeaponClass.Pistol, WeaponClass.Smg, WeaponClass.AssaultRifle };
-        // M7 확장 세트 (7A-2c). 기존 AudioConfig에 세트가 없으면 gunshots 끝에 추가한 뒤 빈 클립을 채운다(M7 설계 §2.1).
+        // M7 확장 세트 (7A-2c 산탄·저격, 7B-2c 경기관총 WPN-LMG-01). 기존 AudioConfig에 세트가 없으면 gunshots 끝에 추가한 뒤 빈 클립을 채운다(M7 설계 §2.1).
         // 새 분류(7B MachineGun)는 이 배열에 한 항목을 더하면 WAV 3개·세트·클립 연결이 함께 생긴다(음색은 SfxSynth.ClassParams, 없으면 기본).
-        public static readonly WeaponClass[] M7GunshotClasses = { WeaponClass.Shotgun, WeaponClass.Sniper };
+        public static readonly WeaponClass[] M7GunshotClasses = { WeaponClass.Shotgun, WeaponClass.Sniper, WeaponClass.MachineGun };
         public static readonly GunshotLayer[] GunshotLayers = { GunshotLayer.Near, GunshotLayer.Mid, GunshotLayer.Far };
 
         public const string WindLoopPath = M6Names.AmbienceAudioFolder + "/AMB_Wind_Loop.wav";
@@ -72,13 +72,16 @@ namespace Ashfall.EditorTools
             return all;
         }
 
-        // M7 자리표시 WAV (7A-2c): 확장 총성 세트 + 무기 클릭 2개(M7Names 경로)
+        // M7 자리표시 WAV (7A-2c·7B-2c): 확장 총성 세트(산탄·저격·경기관총) + 무기 클릭 2개 + 변이체 울음·공격 2개(M7Names 경로)
         public static IReadOnlyList<(string path, Func<float[]> synth)> M7Recipes()
         {
             var list = new List<(string, Func<float[]>)>();
             AddGunshotRecipes(list, M7GunshotClasses);
             list.Add((M7Names.DryFireClipPath, () => SfxSynth.DryFireClick(SampleRate)));
             list.Add((M7Names.JamClearClipPath, () => SfxSynth.JamClear(SampleRate)));
+            // 7B-2c 변이체 울음·공격 (EnemyVocalized, Q26). 계약 경로는 종류마다 1개(설계 §2.2 표의 _01~02 대신 M7Names 우선)
+            list.Add((M7Names.MutantAlertClipPath, () => SfxSynth.MutantAlert(SampleRate)));
+            list.Add((M7Names.MutantAttackClipPath, () => SfxSynth.MutantAttack(SampleRate)));
             return list;
         }
 
@@ -326,6 +329,10 @@ namespace Ashfall.EditorTools
             if (config.dryFireClip == null) { config.dryFireClip = SetupUtil.Load<AudioClip>(M7Names.DryFireClipPath); filled++; }
             if (config.jamClearClip == null) { config.jamClearClip = SetupUtil.Load<AudioClip>(M7Names.JamClearClipPath); filled++; }
 
+            // M7 7B-2c 변이체 울음 (EnemyVocalized): 배열이 비었을 때만(사용자가 넣은 울음 여러 개 보존)
+            if (IsEmpty(config.mutantAlertClips)) { config.mutantAlertClips = new[] { SetupUtil.Load<AudioClip>(M7Names.MutantAlertClipPath) }; filled++; }
+            if (IsEmpty(config.mutantAttackClips)) { config.mutantAttackClips = new[] { SetupUtil.Load<AudioClip>(M7Names.MutantAttackClipPath) }; filled++; }
+
             if (config.windLoop == null) { config.windLoop = SetupUtil.Load<AudioClip>(WindLoopPath); filled++; }
             if (config.stormLoop == null) { config.stormLoop = SetupUtil.Load<AudioClip>(StormLoopPath); filled++; }
             if (config.collapseClips == null || config.collapseClips.Length == 0)
@@ -345,6 +352,17 @@ namespace Ashfall.EditorTools
                 Debug.Log($"{Tag} AudioConfig 빈 클립 필드 {filled}개 채움");
             }
             return filled;
+        }
+
+        // 비었다 = null, 길이 0, 또는 전부 null (빈 칸만 있는 배열도 채운다)
+        private static bool IsEmpty(AudioClip[] clips)
+        {
+            if (clips == null)
+                return true;
+            foreach (AudioClip clip in clips)
+                if (clip != null)
+                    return false;
+            return true;
         }
 
         // 세트의 빈 근/중/원 클립만 자리표시로. 채운 수.

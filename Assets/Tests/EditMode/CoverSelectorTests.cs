@@ -187,11 +187,11 @@ namespace Ashfall.Tests.EditMode
             index.Add(new Vector3(0f, 0f, 10f), Vector3.forward, CoverHeight.Low, Vector3.zero);
             // ≈127°: 너무 돌아감(제외)
             index.Add(new Vector3(-8f, 0f, 26f), new Vector3(8f, 0f, -6f), CoverHeight.Low, Vector3.zero);
-            Assert.IsFalse(Select(new FakeLineOfSight(LowWallRule), out _, q));
+            Assert.IsFalse(Select(new FakeLineOfSight(AnchorRule), out _, q));
 
             // 90°: 허용
             int side = index.Add(new Vector3(15f, 0f, 20f), Vector3.left, CoverHeight.Low, Vector3.zero);
-            Assert.IsTrue(Select(new FakeLineOfSight(LowWallRule), out CoverSpot spot, q));
+            Assert.IsTrue(Select(new FakeLineOfSight(AnchorRule), out CoverSpot spot, q));
             Assert.AreEqual(side, spot.Id);
         }
 
@@ -200,6 +200,37 @@ namespace Ashfall.Tests.EditMode
         {
             Assert.IsFalse(Select(new FakeLineOfSight(), out CoverSpot spot));
             Assert.AreEqual(0, spot.Id);
+        }
+
+        // 낮은 벽 + x = 3 근처(High 지점의 숨는 눈)는 막힘
+        private static readonly System.Func<Vector3, Vector3, bool> AnchorRule =
+            (from, to) => Mathf.Min(from.y, to.y) < 1.2f || Mathf.Abs(from.x - 3f) < 0.5f || Mathf.Abs(to.x - 3f) < 0.5f;
+
+        // M7 7B 리뷰 2 (Q29): 거점 질의 — 숨는 자리나 내다보는 자리가 반경 밖이면 점수가 더 좋아도 고르지 않는다. 거점 없으면 기존대로.
+        [Test]
+        public void Anchor_CandidatesOutsideRadius_Excluded()
+        {
+            int outside = index.Add(new Vector3(0f, 0f, 5f), Vector3.forward, CoverHeight.Low, Vector3.zero);       // 더 가까움(점수 좋음), 거점 밖
+            int peekOut = index.Add(new Vector3(3f, 0f, 1f), Vector3.forward, CoverHeight.High, new Vector3(-2f, 0f, 1f)); // 숨는 자리 안(가장 가까움), 내다보는 자리 밖
+            int inside = index.Add(new Vector3(6f, 0f, 2f), Vector3.forward, CoverHeight.Low, Vector3.zero);        // 거점 안
+            CoverQuery q = Query();
+            q.HasAnchor = true;
+            q.AnchorCenter = new Vector3(5f, 0f, 0f);
+            q.AnchorRadiusM = 3.5f;
+            Assert.IsTrue(Select(new FakeLineOfSight(AnchorRule), out CoverSpot spot, q));
+            Assert.AreEqual(inside, spot.Id, "반경 안 지점만");
+            Assert.AreEqual(-1, index.OccupantOf(outside));
+            Assert.AreEqual(-1, index.OccupantOf(peekOut));
+
+            // 반경 안 후보가 없으면 실패(None) → 대체 행동
+            index.ReleaseAll(1);
+            q.AnchorCenter = new Vector3(40f, 0f, 0f);
+            Assert.IsFalse(Select(new FakeLineOfSight(AnchorRule), out _, q));
+
+            // 거점 없음 = 기존 선택(가장 가까운 지점)
+            Assert.IsTrue(Select(new FakeLineOfSight(AnchorRule), out CoverSpot free));
+            Assert.AreEqual(peekOut, free.Id, "거점 없으면 가장 가까운 High 지점");
+            Assert.AreNotEqual(inside, free.Id);
         }
     }
 }

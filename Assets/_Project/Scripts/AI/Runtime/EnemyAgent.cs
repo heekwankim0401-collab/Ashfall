@@ -11,6 +11,8 @@ namespace Ashfall.AI
     // - 사망: 시체로 눕히고 EnemyKilled 발행 → Inventory가 루트 컨테이너를 붙인다 (§1.9)
     // - M6 (§11, Q13·Q14·Q26): 보폭마다 FootstepTaken(Enemy), 발사마다 ShotFired(Enemy) — Audio 전용.
     //   AI 청각용 NoiseEmitted는 내지 않는다(적 총성·발소리를 다른 적이 듣지 않는 M3 규칙 유지). 시야는 재 폭풍 상한을 받는다.
+    // - M7 (§1.4): 근접(EnemyIntent.Melee → EnemyMelee → 표적 IDamageable), 저격 섬광(EnemyIntent.Telegraph → 자식 SniperGlint),
+    //   변이체 울음(EnemyVocalized, Audio 전용).
     // Update 경로 할당 없음.
     [RequireComponent(typeof(NavMeshAgent), typeof(CapsuleCollider), typeof(Rigidbody))]
     [DisallowMultipleComponent]
@@ -62,6 +64,18 @@ namespace Ashfall.AI
 
         // 발소리 리듬 (M6 Q12·Q13, Core 공용 규칙)
         private readonly StrideCadence footstepCadence = new StrideCadence();
+
+        // M7 훅 (설계 §1.4·§4.4): 근접(AI-MUT)·섬광(AI-SNP)·울음.
+        // 동작은 EnemyMelee·SniperGlint·각 전술(EnemyIntent.Melee·Telegraph)이 정한다.
+        private EnemyMelee melee;                 // archetype.meleeDamage > 0일 때만
+        private SniperGlint glint;                // 자식에 있으면 (저격수)
+        private bool vocalizes;                   // 전술 = Mutant
+        private bool wasEngagedForVocal;
+        private float nextVocalAt = float.NegativeInfinity;
+        private Transform meleeTargetRoot;        // 근접 표적 IDamageable 캐시 (Root가 바뀔 때만 다시 찾는다)
+        private IDamageable meleeTargetDamageable;
+        private bool meleeClosingHeld;            // 근접 유형: 표적 바로 앞이라 이동을 멈춘 상태 (리뷰 15)
+        private Squad squadForVocal;              // 분대 경계 울음권 (리뷰 10). 단독 = null
 
         public int AgentId { get; private set; } = -1;
         public EnemyArchetypeSO Archetype => archetype;
@@ -119,6 +133,13 @@ namespace Ashfall.AI
 
             nav.updateRotation = false;   // 회전은 직접 (turnSpeedDegPerSec)
             nav.speed = archetype.patrolSpeed;
+
+            // M7: 섬광 자식은 Awake에서 한 번만 찾는다 (매 프레임 검색 없음)
+            glint = GetComponentInChildren<SniperGlint>(true);
+            if (glint != null)
+                glint.SetActive(false);
+            if (archetype.meleeDamage > 0f)
+                melee = new EnemyMelee(archetype.meleeWindupSec, archetype.meleeIntervalSec);
         }
 
         private void Start()
@@ -138,6 +159,8 @@ namespace Ashfall.AI
             // 분대 순서 = 씬 계층 순서 (적 루트는 최상위라 루트 순서. Start 순서와 달리 실행마다 같다, 리뷰 12)
             Brain = new EnemyBrain(AgentId, archetype, config, director.World,
                 patrolRoute != null ? patrolRoute.Points : null, squad, random, transform.GetSiblingIndex());
+            vocalizes = Brain.TacticsKind == EnemyTacticsKind.Mutant;
+            squadForVocal = squad;
 
             int index = EnemyWeapon.PickLoadout(archetype.loadouts, loadoutIndex, random);
             string problem = "무장 목록이 비었다";
@@ -146,8 +169,9 @@ namespace Ashfall.AI
                 loadout = archetype.loadouts[index];
                 hasLoadout = true;
             }
-            else
+            else if (!(archetype.meleeDamage > 0f && (archetype.loadouts == null || archetype.loadouts.Count == 0)))
             {
+                // 근접 유형(변이체 AI-MUT, SYS-AI §7)은 무장 목록이 비어 있는 것이 정상 — 경고 생략. 목록이 있는데 못 쓰면 여전히 경고.
                 Debug.LogWarning($"[EnemyAgent] {name}: 쓸 수 있는 무장이 없다 (비무장): {problem}", this);
             }
 
@@ -273,6 +297,97 @@ namespace Ashfall.AI
             TickFootsteps(dt);
             ApplyRotation(intent, dt);
             ApplyWeapon(intent, now, dt);
+            ApplyMelee(intent, now);
+            ApplyTelegraph(intent);
+            TickVocal(now);
+        }
+
+        // ── M7 훅: 근접·섬광·울음 (설계 §1.4, Q23·Q24·Q26) ──────────
+
+        // 의도(Melee) + 표적 수평 거리 ≤ meleeRangeM ∧ 발 높이 차 ≤ meleeMaxHeightDiffM → inRange, 시야 = 마지막 감각 갱신에서 보였음.
+        // TODO(GDD-?) Q24: "눈 → 표적 중심 시야"는 감각 주기의 시야 판정(lastVisible)으로 대신한다(매 프레임 레이 없음).
+        private void ApplyMelee(in EnemyIntent intent, float now)
+        {
+            if (melee == null)
+                return;
+            IPlayerTarget target = currentTarget;
+            bool alive = target != null && !target.IsDead;
+            bool inRange = intent.Melee && alive &&
+                           EnemyMelee.InReach(transform.position, target.Position, archetype.meleeRangeM, config.meleeMaxHeightDiffM);
+
+            switch (melee.Tick(now, inRange, alive && lastVisible))
+            {
+                case MeleeEvent.WindupStarted:
+                    TryVocalize(EnemyVocalKind.MutantAttack, now);
+                    break;
+                case MeleeEvent.Strike:
+                    if (alive)
+                        Strike(target);
+                    break;
+            }
+        }
+
+        // 피해 = IDamageable(표적 루트) + DamageInfo(meleeDamage, 관통 0, 표적 중심, 방향, 거리, 부위 힌트).
+        // 부위는 EnemyMelee.PickStrikePart(AiConfigSO 가중치: 흉부·복부·팔)가 정하고 PlayerHealth는 힌트를 그대로 쓴다(리뷰 1).
+        private void Strike(IPlayerTarget target)
+        {
+            Transform root = target.Root;
+            if (root == null)
+                return;
+            if (root != meleeTargetRoot)
+            {
+                meleeTargetRoot = root;
+                meleeTargetDamageable = root.TryGetComponent(out IDamageable damageable) ? damageable : null;
+            }
+            if (meleeTargetDamageable == null)
+                return;
+
+            BodyPart part = EnemyMelee.PickStrikePart(random, config);
+            Vector3 point = target.CenterPosition;
+            Vector3 from = eye.position;
+            Vector3 dir = point - from;
+            float distance = dir.magnitude;
+            dir = distance > 1e-4f ? dir / distance : transform.forward;
+            meleeTargetDamageable.ApplyDamage(new DamageInfo(archetype.meleeDamage, 0, point, dir, distance, part));
+        }
+
+        // 섬광: 의도(Telegraph)가 있고 표적이 보일 때만 켜고 표적 눈 쪽으로.
+        private void ApplyTelegraph(in EnemyIntent intent)
+        {
+            if (glint == null)
+                return;
+            IPlayerTarget target = currentTarget;
+            bool on = intent.Telegraph && lastVisible && target != null && !target.IsDead;
+            glint.SetActive(on);
+            if (on)
+                glint.Face(target.EyePosition, config.glintAngularSizeDeg);
+        }
+
+        // 울음(Mutant 전술만): 평시 → Alert/Combat 진입 순간 MutantAlert, 근접 준비 시작마다 MutantAttack.
+        // 같은 적은 vocalCooldownSec 간격으로만 (두 종류 공용 쿨다운, TODO(GDD-?) Q26).
+        // 경계 울음은 분대 단위(리뷰 10): 같은 분대에서 먼저 경계에 든 한 명만 운다(Squad.TryClaimAlertVocal, 같은 쿨다운).
+        private void TickVocal(float now)
+        {
+            if (!vocalizes)
+                return;
+            EnemyState state = Brain.State;
+            bool engaged = state == EnemyState.Alert || state == EnemyState.Combat;
+            if (engaged && !wasEngagedForVocal)
+                TryVocalize(EnemyVocalKind.MutantAlert, now);
+            wasEngagedForVocal = engaged;
+        }
+
+        private void TryVocalize(EnemyVocalKind kind, float now)
+        {
+            if (!vocalizes || now < nextVocalAt)
+                return;
+            if (kind == EnemyVocalKind.MutantAlert && squadForVocal != null && squadForVocal.Count > 1 &&
+                !squadForVocal.TryClaimAlertVocal(now, config.vocalCooldownSec))
+                return;   // 분대의 다른 대원이 방금 울었다 — 내 쿨다운은 쓰지 않는다
+            nextVocalAt = now + config.vocalCooldownSec;
+            GameManager gm = GameManager.Instance;
+            if (gm != null)
+                gm.Events.Publish(new EnemyVocalized(eye.position, kind));
         }
 
         // ── 발소리 (M6 §11, Q12·Q13) ─────────────────────────
@@ -362,6 +477,20 @@ namespace Ashfall.AI
             nav.speed = speed * Body.MoveSpeedMultiplier;
 
             bool hold = intent.Move == EnemyMoveMode.Hold || !intent.HasDestination;
+            if (melee != null)
+            {
+                // 근접 유형(리뷰 15): 표적 바로 앞(수평 ≤ 사거리 × mutantHoldInsideRangeRatio)이면 감각 주기를 기다리지 않고 매 프레임 멈춘다
+                // — 질주 중 감각 주기 사이에 표적 몸 안까지 밀고 들어가 겹치지 않게(몸 겹침 = 다른 적 시야 차단). 표적 위치는 몸 충돌용이라
+                // 보이지 않아도 쓴다. 멈추는 순간 속도도 0(감속 미끄러짐 방지).
+                IPlayerTarget target = currentTarget;
+                if (!hold && intent.Melee && target != null && !target.IsDead &&
+                    EnemyMelee.InReach(transform.position, target.Position,
+                        archetype.meleeRangeM * config.mutantHoldInsideRangeRatio, config.meleeMaxHeightDiffM))
+                    hold = true;
+                if (hold && !meleeClosingHeld)
+                    nav.velocity = Vector3.zero;
+                meleeClosingHeld = hold;
+            }
             nav.isStopped = hold;
             if (hold)
                 return;
@@ -493,6 +622,9 @@ namespace Ashfall.AI
                 return;
             IsDead = true;
             footstepCadence.Reset();
+            if (glint != null)
+                glint.SetActive(false);
+            melee?.Reset();
 
             Brain?.OnDied();
             if (nav.enabled)

@@ -624,6 +624,182 @@ namespace Ashfall.Tests.PlayMode
             yield return null;
         }
 
+        // ---------- M7 7B-2c: 변이체 울음 (EnemyVocalized)·경기관총 총성 ----------
+
+        private void GiveVocalClips()
+        {
+            cfg.mutantAlertClips = new[] { Clip("MutAlert_0", 1.2f), Clip("MutAlert_1", 1.2f) };
+            cfg.mutantAttackClips = new[] { Clip("MutAttack_0", 0.5f) };
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyVocalized_EachKind_PlaysClip_At3DPosition_LinearGain_PriorityAboveEnemyFootstep()
+        {
+            GiveVocalClips();
+            Vector3 mouth = target.Eye + new Vector3(0f, 0f, 20f);
+            float t = 1f - 20f / cfg.vocalAudibleM;
+            var cases = new (EnemyVocalKind kind, AudioClip[] clips, float volume)[]
+            {
+                (EnemyVocalKind.MutantAlert, cfg.mutantAlertClips, cfg.mutantAlertVolume),
+                (EnemyVocalKind.MutantAttack, cfg.mutantAttackClips, cfg.mutantAttackVolume),
+            };
+            foreach (var c in cases)
+            {
+                int before = director.PlayedCount;
+                Publish(new EnemyVocalized(mouth, c.kind));
+                Assert.AreEqual(before + 1, director.PlayedCount, $"{c.kind}");
+                PlayedSound p = director.LastPlayed;
+                Assert.AreEqual(PlayedSoundKind.EnemyVocal, p.Kind, $"{c.kind}");
+                Assert.AreEqual(c.kind, director.LastEnemyVocal);
+                CollectionAssert.Contains(c.clips, p.Clip, $"{c.kind}: 그 종류의 클립");
+                Assert.AreEqual(mouth, p.Position);
+                Assert.AreEqual(c.volume * t, p.Gain, 1e-4f, $"{c.kind}: 음량 × (1 − d/들리는 거리)");
+                Assert.That(p.Pitch, Is.InRange(1f - cfg.pitchJitter - 1e-4f, 1f + cfg.pitchJitter + 1e-4f));
+                Assert.AreEqual(SoundSource.Enemy, p.Source);
+                Assert.AreEqual(FootstepMix.PriorityEnemyVocal, p.Priority);
+                Assert.Less(p.Priority, FootstepMix.PriorityEnemyFootstep, "적 발소리보다 높다(작을수록 높음)");
+                Assert.IsFalse(p.HasLayer);
+                Assert.IsFalse(p.HasSurface);
+
+                AudioSource voice = director.Voices.Source(p.Voice);
+                Assert.AreSame(p.Clip, voice.clip);
+                Assert.AreEqual(1f, voice.spatialBlend, "3D");
+                Assert.AreEqual(mouth, voice.transform.position);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyVocalized_BeyondAudible_Culled_NoClip_Silent()
+        {
+            GiveVocalClips();
+            int played = director.PlayedCount;
+            int culled = director.CulledCount;
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * (cfg.vocalAudibleM + 1f), EnemyVocalKind.MutantAlert));
+            Assert.AreEqual(played, director.PlayedCount, "들리는 거리 밖 → 재생 없음");
+            Assert.AreEqual(culled + 1, director.CulledCount);
+
+            cfg.mutantAttackClips = new AudioClip[0];
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * 5f, EnemyVocalKind.MutantAttack));
+            cfg.mutantAttackClips = new AudioClip[] { null };
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * 5f, EnemyVocalKind.MutantAttack));
+            Assert.AreEqual(played, director.PlayedCount, "클립이 없으면 소리 없음(예외 없음)");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyVocalized_TwoAlertClips_NeverSameTwiceInRow()
+        {
+            GiveVocalClips();
+            AudioClip last = null;
+            for (int i = 0; i < 12; i++)
+            {
+                Publish(new EnemyVocalized(target.Eye + Vector3.forward * 10f, EnemyVocalKind.MutantAlert));
+                AudioClip clip = director.LastPlayed.Clip;
+                Assert.AreNotSame(last, clip, $"{i}: 직전과 같은 울음");
+                last = clip;
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyVocalized_StealsEnemyFootstep_WhenPoolFull()
+        {
+            GiveVocalClips();
+            Box("MetalFloor", Origin + new Vector3(0f, -0.5f, 0f), new Vector3(20f, 1f, 20f), SurfaceKind.Metal);
+            int voices = director.Voices.Count;
+            for (int i = 0; i < voices; i++)
+                Publish(new FootstepTaken(Origin + Vector3.right * 2f, FootstepGait.Sprint, SoundSource.Enemy));
+            Assert.AreEqual(voices, director.Voices.Allocator.BusyCount(Time.time), "적 발소리로 가득");
+            int steals = director.Voices.StealCount;
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * 10f, EnemyVocalKind.MutantAlert));
+            Assert.AreEqual(PlayedSoundKind.EnemyVocal, director.LastPlayed.Kind);
+            Assert.AreEqual(steals + 1, director.Voices.StealCount, "울음이 적 발소리를 빼앗는다");
+            yield return null;
+        }
+
+        // 빈 풀에서 총성으로 채운 뒤(같은 프레임 빼앗기는 가장 오래된 첫 칸만 돌기 때문에 빈 풀에서 시작 — WeaponClicked 테스트와 같음)
+        [UnityTest]
+        public IEnumerator EnemyVocalized_DroppedWhenGunshotsFillPool()
+        {
+            GiveVocalClips();
+            int voices = director.Voices.Count;
+            for (int i = 0; i < voices; i++)
+                Publish(new ShotFired(target.Eye + Vector3.right * (10f + i), null, SoundSource.Enemy));
+            Assert.AreEqual(voices, director.Voices.Allocator.BusyCount(Time.time), "총성으로 가득");
+            int dropped = director.Voices.DroppedCount;
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * 10f, EnemyVocalKind.MutantAttack));
+            Assert.AreEqual(dropped + 1, director.Voices.DroppedCount, "총성으로 가득 차면 울음은 버린다(총성 > 울음)");
+            Assert.AreEqual(PlayedSoundKind.Gunshot, director.LastPlayed.Kind);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyVocalized_Disabled_Unsubscribed_ReenableResubscribes()
+        {
+            GiveVocalClips();
+            director.enabled = false;
+            int before = director.PlayedCount;
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * 10f, EnemyVocalKind.MutantAlert));
+            Assert.AreEqual(before, director.PlayedCount, "OnDisable → 구독 해제");
+            director.enabled = true;
+            Publish(new EnemyVocalized(target.Eye + Vector3.forward * 10f, EnemyVocalKind.MutantAlert));
+            Assert.AreEqual(before + 1, director.PlayedCount, "OnEnable → 다시 구독");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyVocalized_300Events_NoGcAlloc()
+        {
+            GiveVocalClips();
+            EventBus bus = Gm.Events;
+            var alert = new EnemyVocalized(target.Eye + Vector3.forward * 15f, EnemyVocalKind.MutantAlert);
+            var attack = new EnemyVocalized(target.Eye + Vector3.left * 3f, EnemyVocalKind.MutantAttack);
+            var far = new EnemyVocalized(target.Eye + Vector3.forward * 500f, EnemyVocalKind.MutantAlert);
+            int before = director.PlayedCount;
+            AssertNoAlloc(() =>
+            {
+                for (int i = 0; i < 100; i++)
+                {
+                    bus.Publish(alert);
+                    bus.Publish(attack);
+                    bus.Publish(far);
+                }
+            });
+            Assert.Greater(director.PlayedCount, before);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Gunshot_MachineGun_UsesOwnSet()
+        {
+            var lmg = ScriptableObject.CreateInstance<WeaponDefinitionSO>();
+            lmg.cls = WeaponClass.MachineGun;
+            owned.Add(lmg);
+            // 실제 에셋은 M6 오디오 메뉴가 M7GunshotClasses(MachineGun 포함)로 세트를 끝에 추가한다(AudioConfigAssetTests). 여기서는 같은 모양으로.
+            Assert.IsNull(GunshotMix.FindSet(cfg, WeaponClass.MachineGun), "기본 인스턴스에는 경기관총 세트가 없다(대체 규칙 유지)");
+            var lmgSet = new GunshotSet(WeaponClass.MachineGun, 1f)
+                { near = Clip("Lmg_Near", 1f), mid = Clip("Lmg_Mid", 1.5f), far = Clip("Lmg_Far", 3f) };
+            cfg.gunshots = cfg.gunshots.Concat(new[] { lmgSet }).ToArray();
+
+            var cases = new (float d, GunshotLayer layer, AudioClip clip)[]
+            {
+                (20f, GunshotLayer.Near, lmgSet.near),
+                (150f, GunshotLayer.Mid, lmgSet.mid),
+                (600f, GunshotLayer.Far, lmgSet.far),
+            };
+            foreach (var c in cases)
+            {
+                Publish(new ShotFired(target.Eye + Vector3.forward * c.d, lmg, SoundSource.Enemy));
+                PlayedSound p = director.LastPlayed;
+                Assert.AreEqual(PlayedSoundKind.Gunshot, p.Kind, $"{c.d}m");
+                Assert.AreEqual(c.layer, p.Layer, $"{c.d}m");
+                Assert.AreSame(c.clip, p.Clip, $"{c.d}m");
+                Assert.AreEqual(SoundSource.Enemy, p.Source);
+            }
+            yield return null;
+        }
+
         // ---------- 가짜 서비스 ----------
 
         private sealed class FakeTarget : IPlayerTarget

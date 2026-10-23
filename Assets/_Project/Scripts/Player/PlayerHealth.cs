@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Ashfall.Player
 {
     // SYS-HP-01 플레이어 체력의 얇은 브리지. 규칙은 BodyHealthModel·MedicalUseModel에 있다.
-    // - IDamageable: 캡슐 피격 지점으로 부위를 판정해 ApplyHit (설계 D3)
+    // - IDamageable: 캡슐 피격 지점으로 부위를 판정해 ApplyHit (설계 D3). DamageInfo에 부위 힌트가 있으면 그 부위(M7 변이체 근접)
     // - IBodyStatusView 등록 (RULE-05 H 화면), 모델 변화 → 버스 이벤트
     // - MedicalUseRequested → 사용 시간 → MedicalUseCompleted
     // - M4: RaidEnded → 진행 중 의약품 사용 취소, 이후 사용 요청 거부
@@ -76,9 +76,18 @@ namespace Ashfall.Player
             // 발 = y 0 기준 로컬 좌표로 바꿔 캡슐 높이 비율로 부위를 고른다.
             // 레이캐스트가 맞히는 것은 PhysX 캐릭터 컨트롤러의 kinematic actor이고, 이 캡슐은 컨트롤러 크기의
             // PhysicsActorScale배다. 중심 기준으로 되돌려 컨트롤러 크기(height·radius) 기준 좌표로 판정한다.
-            Vector3 local = (transform.InverseTransformPoint(info.Point) - controller.center) / PhysicsActorScale;
-            local.y += controller.height * 0.5f;
-            BodyPart part = BodyPartResolver.Resolve(local, controller.height, controller.radius, config);
+            // M7 (7B 리뷰 1): 부위 힌트가 있으면(변이체 근접) 지점 판정 대신 그 부위. 피해·굴림 규칙은 같다(ApplyHit).
+            BodyPart part;
+            if (info.HasPartHint)
+            {
+                part = info.PartHint;
+            }
+            else
+            {
+                Vector3 local = (transform.InverseTransformPoint(info.Point) - controller.center) / PhysicsActorScale;
+                local.y += controller.height * 0.5f;
+                part = BodyPartResolver.Resolve(local, controller.height, controller.radius, config);
+            }
             Body.ApplyHit(part, info.Amount);
             LogHit(part, info.Amount);
         }
