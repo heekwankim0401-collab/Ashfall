@@ -66,6 +66,26 @@ namespace Ashfall.Tests.PlayMode
             yield return null;
         }
 
+        // M7 7D 리뷰 낮음 7: Core 이벤트 AshStormStartRequested(개발 빌드 스모크의 "폭풍 강제 시작" 경로)가 Pending을 벗어나게 한다.
+        // 에디터 Play는 Debug.isDebugBuild = true라 처리된다(릴리스는 무시 — 빌드 확인 7D-1 메모). 두 번째 요청은 이미 시작이라 단계가 그대로.
+        [UnityTest]
+        public IEnumerator StartRequestedEvent_LeavesPending_SecondRequestIgnored()
+        {
+            Assert.AreEqual(AshStormPhase.Pending, storm.Phase);
+            Assert.IsTrue(Debug.isDebugBuild, "에디터 Play = 디버그 빌드");
+            using var phases = new EventLog<AshStormChanged>(raid.Events);
+            raid.Events.Publish(new AshStormStartRequested());
+            yield return M3Scene.WaitUntil(() => storm.Phase != AshStormPhase.Pending, 2f, () => "이벤트 → Pending 벗어남");
+            Assert.AreEqual(AshStormPhase.Rising, storm.Phase, "시작 = Rising");
+            Assert.LessOrEqual(storm.StartSec, raid.Controller.ElapsedSec + 1e-3f, "시작 시각을 지금으로 당김");
+            Assert.IsTrue(phases.Received.Any(e => e.Phase == AshStormPhase.Rising), "AshStormChanged(Rising) 발행");
+
+            raid.Events.Publish(new AshStormStartRequested());
+            yield return null;
+            Assert.AreEqual(AshStormPhase.Rising, storm.Phase, "두 번째 요청은 무시(이미 시작)");
+            Assert.IsFalse(storm.ForceStartNow(), "이미 시작");
+        }
+
         [UnityTest]
         public IEnumerator ForceStart_PhasesInOrder_FogSkyAshSun_ThenRestored()
         {

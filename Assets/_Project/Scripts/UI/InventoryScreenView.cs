@@ -302,6 +302,7 @@ namespace Ashfall.UI
             var name = new Label(UiText.ItemLabel(item)) { pickingMode = PickingMode.Ignore };
             name.AddToClassList(QuickItemClass);
             element.Add(name);
+            RarityStyle.Apply(element, item);   // §6 희귀도 테두리 (Q49). 빈 퀵슬롯(null)은 클래스 없음
             return element;
         }
 
@@ -345,6 +346,7 @@ namespace Ashfall.UI
         {
             var element = new Label(UiText.ItemLabel(item)) { userData = new ItemTag(item) };
             element.AddToClassList(ItemClass);
+            RarityStyle.Apply(element, item);   // §6 희귀도 테두리 (Q49). 장비 슬롯·그리드·보관함 공통
             if (drag != null && ReferenceEquals(drag.Dragging, item))
                 element.AddToClassList(DragSourceClass);
             element.RegisterCallback<PointerDownEvent>(OnItemPointerDown);
@@ -578,6 +580,7 @@ namespace Ashfall.UI
             ghost = new Label(UiText.ItemLabel(drag.Dragging)) { pickingMode = PickingMode.Ignore };
             ghost.AddToClassList(ItemClass);
             ghost.AddToClassList(GhostClass);
+            RarityStyle.Apply(ghost, drag.Dragging);
             ghost.style.position = Position.Absolute;
             dragLayer.Add(ghost);
             UpdateGhostSize();

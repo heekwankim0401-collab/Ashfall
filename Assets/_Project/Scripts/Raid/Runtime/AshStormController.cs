@@ -51,6 +51,7 @@ namespace Ashfall.Raid
             if (config == null || GameManager.Instance == null)
                 return;
             GameManager.Instance.Services.Register<IAshStormInfo>(this);
+            GameManager.Instance.Events.Subscribe<AshStormStartRequested>(OnStartRequested);
         }
 
         private void OnDisable()
@@ -58,6 +59,16 @@ namespace Ashfall.Raid
             if (GameManager.Instance == null)
                 return;
             GameManager.Instance.Services.Unregister<IAshStormInfo>(this);
+            GameManager.Instance.Events.Unsubscribe<AshStormStartRequested>(OnStartRequested);
+        }
+
+        // M7 7D 스모크(Core SmokeRunner, Q51): 개발 빌드·에디터에서만 강제 시작. 릴리스는 무시한다.
+        private void OnStartRequested(AshStormStartRequested evt)
+        {
+            if (!Debug.isDebugBuild)
+                return;
+            if (!ForceStartNow())
+                Debug.Log($"[AshStormController] 강제 시작 요청 — 이미 시작했다 ({Phase}).", this);
         }
 
         private void Update()

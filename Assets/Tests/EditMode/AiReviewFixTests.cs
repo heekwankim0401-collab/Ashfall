@@ -284,7 +284,8 @@ namespace Ashfall.Tests.EditMode
             brain.OnHeard(new Vector3(20f, 0f, 20f), NoiseKind.Gunshot, 0f);
             brain.Tick(AiTest.Unseen(0f, Self), 0.1f);
             Assert.AreEqual(EnemyMoveMode.Run, brain.Intent.Move, "None: 약탈자처럼 LKP로");
-            Assert.AreEqual(new Vector3(20f, 0f, 20f), brain.Intent.Destination);
+            // 7D-4(7D-3 발견 1): LKP에서 approachStopDistanceM 앞
+            Assert.AreEqual(ApproachRules.StopShort(Self, new Vector3(20f, 0f, 20f), config.approachStopDistanceM), brain.Intent.Destination);
         }
 
         // ── R4: 무효화한 지점은 잠시 후보에서 뺀다 ──

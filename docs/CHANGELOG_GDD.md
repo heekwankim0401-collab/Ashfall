@@ -375,3 +375,36 @@
 - **리뷰 수정 (M7_review.md "7C 생존·제작" 1~9):** 1. 탈수에서 머리 제외(위). 2. 이 소절. 3. 읽기 전용 제작 Unavailable 유지·사유 기록(위). 4. 재료 칸 충족 = 정의 합계 기준.
   5. 탈수 피해는 사망하면 남은 부위를 깎지 않는다. 6. 생존 필드 `[Min]`/`[Range]`. 7. `GeigerClickModel` 주석(폭풍 + 구역). 8. 커밋 에셋 재실행 테스트 — 커밋 전 git status·md5 확인 절차로 처리(코드 변경 없음).
   9. 희귀도 Common 유지(위). CLAUDE.md "구조"의 7C 타입은 마일스톤 끝에 갱신한다.
+
+### 7D 성능·빌드·폴리시 (2026-10-23, §6, §10.1, §13.1, §13.3, §14, §15 M7 AC3 — Q49~Q53)
+문서 본문은 바꾸지 않았다. 결정 지점에는 `TODO(GDD-?) Qn` 주석이 있다.
+- **결정 (Q49~Q53, 전부 추천안 A):**
+  - Q49 §6 희귀도 색 = 칸 테두리 USS(`UI/RarityStyle` + `Ashfall.uss`): 고철 Ash_Grey·일반 Bone·우수(녹) = **Toxic 토큰 재사용**·희귀(청) = `--rarity-rare-blue: #4E6C8A`(**§10.1 팔레트 밖 유일한 색**)·유물 = Ember.
+    인벤토리·보관함 칸·장비 슬롯·퀵슬롯·드래그 고스트·상인 줄 이름 칸(왼쪽 테두리). 검색 전 "?" 아이템에는 붙이지 않는다(§6 검색 연출).
+    **설계와 다른 점:** UI Toolkit에 box-shadow가 없어 유물 "발광"은 **Ember 2px 테두리 + Rust_Red 바탕**(발광 없음)으로 근사. 우수 Toxic 재사용으로 "Toxic = 유일한 비적색 강조"(§10.1)가 인벤토리에서 약해진다 — 기획 확인 대상(§10 목록).
+  - Q50 성능 판정 = 배치모드 자동(CPU 예산 그대로: AI 평균 ≤ 1.0ms·99% ≤ 3ms, 투사체 ≤ 1.0ms, 프레임 중앙값 ≤ 16.6ms(렌더 제외), Audio + 폭풍 + 방사능 ≤ 0.3ms, 정상 상태 GC 0) + **1080p 60fps는 사람이 개발 빌드로 측정**(§7.1 P1, `Player.log`의 `[DevDiagnostics]`).
+  - Q51 개발 빌드 진단 = Core `DevDiagnostics`(개발 빌드 플레이어에만, 릴리스·에디터 Play에 없음): 10초마다 프레임 시간 한 줄(링 4096), `-ashfallSmoke <폴더>` 스모크(8단계, 60초, 종료 코드 0/1).
+    기술 상수(게임 수치 아님): 로그 간격 10초·링 4096·스모크 제한 60초·레이드 10초. 진단 코드는 릴리스 바이너리에도 컴파일되지만 `ShouldAttach`·`Debug.isDebugBuild` 가드로 실행되지 않는다(릴리스 exe에 `-ashfallSmoke`를 줘도 로그 0줄·폴더 없음 — 7D-1 확인, 리뷰 11 유지).
+  - Q52 IL2CPP = 지금은 Mono 검증 + `BuildWindows64Il2Cpp(Development)` 메서드(모듈 없으면 "IL2CPP 모듈 설치 필요" 예외 = 종료 1, 백엔드는 빌드 동안만 바꾸고 finally에서 되돌림). **이 PC = 모듈·C++ 툴체인 없음 → 사용자 설치 대기**,
+    설치 확인 뒤 7D-IL2CPP에서 ProjectSettings를 IL2CPP로 영구 전환·커밋. 임시 전환 뒤 ProjectSettings.asset에 새 키가 남을 수 있어 빌드 전후 `git status ProjectSettings`·md5를 확인하고 임시 diff는 되돌린다(M7 설계 §6 7D-IL2CPP 절차, 리뷰 중간 2).
+  - Q53 스트리핑 = `Assets/_Project/link.xml`이 런타임 Ashfall 어셈블리 9개 `preserve="all"`(EditorTools 제외), Managed Stripping Level 기본 유지. `BuildToolsTests`가 asmdef(includePlatforms) ↔ link.xml 양방향 확인.
+- **§13.3 경계 (7D):** Core 추가 — `Diagnostics/`(`FrameTimeStats`·`SmokeRunner`·`SmokeScenario`·`DevDiagnostics`), 이벤트 **`AshStormStartRequested`**(스모크 "폭풍 강제 시작" — Core에 폭풍 명령 경로가 없어서. Raid `AshStormController`가 구독, 개발 빌드·에디터에서만 `ForceStartNow`).
+  `GameManager` Awake 한 줄(진단 부착). Diagnostics는 Core 서비스·이벤트·GameFlow만 쓴다. 새 asmdef·정적 인스턴스 없음.
+- **스모크 명령과 정책:** `Builds/Windows64Dev/Ashfall.exe -batchmode -nographics -ashfallSmoke <폴더> -logFile <로그>` → Boot → MainMenu → Hideout(저장·다시 읽기, version 2) → Raid(raidInProgress 파일 확인, 폭풍 강제 시작, 10초) → 포기 → Hideout(결과 Abandoned, 저장) → 종료 0.
+  실패·예외 로그(다른 스레드 포함 — `logMessageReceivedThreaded`)·60초 초과·값 없는 인자 = 종료 1. **세이브 폴더 정책(리뷰 낮음 4):** 폴더가 실제 `persistentDataPath`와 같으면 종료 1, 시작 때 그 폴더의 `save.json`·`.bak`·`.tmp`·`save.corrupt.json`을 지우고 빈 프로필로 시작(다른 파일은 그대로).
+  실행하는 쪽은 바깥 제한 시간(180초)을 둔다 — 메인 스레드가 멈추면 플레이어 안의 60초 판정이 돌지 않는다(리뷰 낮음 5).
+- **7D-3 측정 (PlayMode `M7PerformanceTests`, 실제 레이드 씬):** 34명 무적, 폭풍 Peak(시야 30m), 표적 = 보스 거점 5m(지면), 변이체 8명 2~6m 둘레, 저격수 2명 22m, M4 20명 12~24m 고리, 플레이어 펌프 샷건 연사.
+  7D-3(표적 0.8m 띄움): AI 평균 0.175~0.187ms·99% 0.46~0.56ms, 투사체 0.05ms, 프레임 중앙값 1.9~2.1ms(렌더 제외), Audio + 폭풍 + 방사능 0.005ms, GC 0(6경로, 2400여 프레임), 동시 탄 최대 30 / 상한 624 — 전부 예산 안.
+  7D-4(발견 1 수정 뒤, 표적 0.8m): 결과는 M7 설계 "7D 리뷰 수정 메모".
+- **7D-3 발견 1 수정 — 적 접근 정지 거리:** 변이체 무리가 표적을 감싸 시야가 막히면 SCV·RDR·호위가 LKP(= 표적 발)까지 걸어 들어와 표적과 0~2m로 겹쳤다(NavMeshAgent는 플레이어 CharacterController와 부딪히지 않음).
+  약탈자 경로(SCV, 엄폐를 못 찾은 RDR·보스·호위)가 LKP·보이는 표적으로 다가갈 때 그 점에서 자기 쪽으로 **`AiConfigSO.approachStopDistanceM` 2.0m**(TODO(GDD-?)) 앞 점(NavMesh 샘플, 같은 LKP는 캐시)을 목적지·도착 판정으로 쓴다. 이미 그 안이면 제자리.
+  변이체는 기존 둘레 규칙, 수색 지점·엄폐 이동은 그대로. 기존 EditMode 단언 3개(목적지 = LKP)를 정지 점으로 고쳤다. `M7PerformanceTests`에 "사수 최근접 ≥ 1.0m" 단언을 더했다.
+  표적 0.8m 띄움은 유지: 지면으로 되돌리면 3회 중 1회 보스가 90초 안에 교전하지 못했다 — 테스트의 300m 소음으로 사수 20여 명이 LKP 둘레 2m 고리에 한꺼번에 모여(회피로 일부 0.6~1.1m까지 밀림) 변이체와 함께 보스 시선을 막는다(적끼리 시야 가림은 7B 규칙 그대로). 실제 플레이의 군집 밀도·시야 가림은 §10 목록.
+- **GC 판정 (7D-3 발견 2, 유지):** 탄·시야 레이가 처음 맞힌 콜라이더의 관리 래퍼를 엔진이 만드는 1회 할당(예열 전 6회 중 3회 1블록, 예열 뒤 0)은 정상 상태 프레임 할당이 아니므로 GC 구간 전에 씬 콜라이더 래퍼를 미리 만든다(`WarmColliderWrappers`).
+  `GC.GetAllocatedBytesForCurrentThread`는 이 Mono에서 0을 돌려줘 바이트 판정은 쓰지 않는다. 재발행 이벤트 기록 상한 512 → 1024(발견 3).
+- **리뷰 수정 (M7_review.md "7D" 1~11):** 1. 드래그 고스트 "패널 밖 = 버리기" Ember 테두리가 희귀도 색에 덮이던 M2 회귀 — `.inv-item.inv-ghost.inv-ghost--outside`(클래스 3개, 희귀도 규칙 뒤) + USS 우선순위 검사 테스트. 유물 고스트는 안/밖 색이 같다(Ember).
+  2. IL2CPP 임시 전환 뒤 ProjectSettings 확인 절차를 설계 §6 7D-IL2CPP에 기록. 3. 프레임 로그에 전체 표본 수(`TotalAdded`)·버퍼 용량, 링 버퍼 주석(약 410fps 이상이면 최근 구간만). 4. 스모크 폴더 정책(위).
+  5. 바깥 제한 시간 기록, 값 없는 `-ashfallSmoke` → 종료 1 실제 확인. 6. `logMessageReceivedThreaded` + Interlocked 카운터·첫 예외 플래그(메인 스레드가 읽어 실패 처리). 7. `AshStormFlowTests`에 이벤트 → Pending 벗어남 케이스.
+  8. `RarityStyle.ClassFor` 범위 밖 = null(기본 테두리, 예외 없음). 9. 이 소절. 10. `BuildToolsTests` — 설치 확인을 구현과 다른 계산(고정 경로 + 파일 패턴 + 빌드 대상 지원)으로, link.xml 역방향·중복 검사, 에디터 전용 = includePlatforms만.
+  11. 진단 코드가 릴리스에 남는 것은 유지(가드로 실행 안 됨, 위 Q51).
+- **GDD에 수치가 없어 임시값을 넣은 항목 (TODO(GDD-?), 7D):** 희귀 청색 `#4E6C8A`, 유물 2px·상인 줄 왼쪽 테두리 3px/4px, 적 접근 정지 거리 2.0m, Q51 기술 상수(10초·4096·60초·10초), 스모크 바깥 제한 180초.

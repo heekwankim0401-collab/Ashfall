@@ -98,7 +98,8 @@ namespace Ashfall.Tests.EditMode
             brain.OnHeard(new Vector3(0f, 0f, 50f), NoiseKind.Gunshot, 0f);
             brain.Tick(AiTest.Unseen(0.1f, Vector3.zero), 0.1f);
             Assert.IsFalse(brain.HasAnchor);
-            Assert.AreEqual(new Vector3(0f, 0f, 50f), brain.Intent.Destination);
+            // 7D-4(7D-3 발견 1): 자르지 않음 — LKP에서 approachStopDistanceM 앞까지
+            Assert.AreEqual(new Vector3(0f, 0f, 50f - config.approachStopDistanceM), brain.Intent.Destination);
         }
 
         // 중심은 첫 Tick 위치로 고정 — 움직인 뒤에도 바뀌지 않는다.

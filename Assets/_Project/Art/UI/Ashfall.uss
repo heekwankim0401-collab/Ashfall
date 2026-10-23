@@ -1,5 +1,6 @@
 /* Ashfall 게임 UI 스타일 (설계 §5.4, GDD §10.1, §12).
    색은 §10.1 팔레트 토큰만 쓴다. 텍스트는 Bone. 새 색이 필요하면 팔레트에서 고른다.
+   예외는 §6 희귀(청) --rarity-rare-blue 하나뿐이다 (M7 Q49).
    C#은 요소 이름·클래스만 알고 크기·색은 여기서 정한다(칸 크기 = --ash-cell-size). */
 
 :root, .ash-root {
@@ -13,6 +14,9 @@
     --toxic: #7A8A2A;
     /* Ash_Black 반투명 (전체 화면 배경) */
     --ash-black-dim: rgba(13, 8, 7, 0.88);
+    /* §6 희귀(청) — §10.1 팔레트에 청색이 없어 둔 유일한 팔레트 밖 색 (M7 Q49, TODO(GDD-?) Q49: 팔레트 확정 시 교체).
+       PaletteConsistencyTests가 이 하나만 예외로 허용한다. */
+    --rarity-rare-blue: #4E6C8A;
 
     /* 배치 (TODO(GDD-?): 문서에 없음, 그레이박스 값) */
     --ash-cell-size: 48px;
@@ -827,4 +831,56 @@
 .hideout-notice-section {
     width: auto;
     margin-bottom: 12px;
+}
+
+/* M7 §6 희귀도 테두리 (RarityStyle, 설계 §3.11·§4.8, Q49 A). 인벤토리·보관함 아이템 칸·퀵슬롯·상인 이름 칸.
+   고철 Ash_Grey / 일반 Bone / 우수(녹) = Toxic 토큰 재사용 / 희귀(청) = --rarity-rare-blue / 유물 = Ember 발광.
+   UI Toolkit에는 box-shadow가 없어 유물 "발광"은 두꺼운 Ember 테두리 + Rust_Red 바탕으로 근사한다 (TODO(GDD-?) Q49).
+   검색 전 "?" 아이템에는 클래스가 붙지 않는다. 텍스트 색은 그대로 Bone. */
+.trader-row-name.rarity {
+    border-left-width: 3px;
+    padding-left: 6px;
+}
+
+.inv-item.rarity--scrap,
+.inv-quick.rarity--scrap,
+.trader-row-name.rarity--scrap {
+    border-color: var(--ash-grey);
+}
+
+.inv-item.rarity--common,
+.inv-quick.rarity--common,
+.trader-row-name.rarity--common {
+    border-color: var(--bone);
+}
+
+.inv-item.rarity--uncommon,
+.inv-quick.rarity--uncommon,
+.trader-row-name.rarity--uncommon {
+    border-color: var(--toxic);
+}
+
+.inv-item.rarity--rare,
+.inv-quick.rarity--rare,
+.trader-row-name.rarity--rare {
+    border-color: var(--rarity-rare-blue);
+}
+
+.inv-item.rarity--relic,
+.inv-quick.rarity--relic {
+    border-width: 2px;
+    border-color: var(--ember);
+    background-color: var(--rust-red);
+}
+
+.trader-row-name.rarity--relic {
+    border-left-width: 4px;
+    border-color: var(--ember);
+}
+
+/* 드래그 고스트 "패널 밖 = 버리기" (M2): Ember 테두리가 희귀도 색보다 우선한다 (7D 리뷰 중간 1).
+   고스트는 .inv-item + 희귀도 클래스를 같이 달아 .inv-item.rarity--*(클래스 2개)가 .inv-ghost--outside(1개)를 덮었다 →
+   클래스 3개 선택자로 올리고 희귀도 규칙 뒤에 둔다. 유물은 원래 Ember 테두리라 안/밖 색이 같다(두께 2px는 그대로) — TODO(GDD-?) Q49. */
+.inv-item.inv-ghost.inv-ghost--outside {
+    border-color: var(--ember);
 }

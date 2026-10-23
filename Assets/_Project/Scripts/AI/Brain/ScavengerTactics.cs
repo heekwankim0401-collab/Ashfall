@@ -4,7 +4,7 @@ namespace Ashfall.AI
 {
     // AI-SCV 약탈자 전술 (§7 "2~3인 순찰, 소리 추적", M3 설계 §1.6.2). RDR이 엄폐를 못 찾을 때도 이걸 쓴다.
     // - Suspicious: investigatesNoise면 자극 위치로 걷고 도착 후 둘러봄, 아니면 제자리에서 자극 쪽을 봄
-    // - Alert(안 보임): LKP로 달린다. 보이면 멈춰서 표적을 본다(반응 시간)
+    // - Alert(안 보임): LKP로 달린다(LKP에서 approachStopDistanceM 앞에서 멈춤 — 7D-3 발견 1). 보이면 멈춰서 표적을 본다(반응 시간)
     // - Combat: 선호 거리 밖이면 표적 쪽으로 달림(사격 안 함), 안이면 정지 사격 + strafeIntervalSec마다 옆으로 걸으며 사격
     //   (M7 거점 유형은 선호 거리 밖이어도 다가가지 않고 제자리 사격 — 7B 리뷰 2)
     internal sealed class ScavengerTactics : IEnemyTactics
@@ -74,9 +74,9 @@ namespace Ashfall.AI
 
             if (s.TargetDistance > c.Archetype.preferredRangeM.y)
             {
-                // 멀면 달려서 좁힌다. 달리는 중에는 쏘지 않는다.
+                // 멀면 달려서 좁힌다. 달리는 중에는 쏘지 않는다. 목적지는 표적에서 approachStopDistanceM 앞(7D-3 발견 1).
                 strafing = false;
-                c.MoveTo(ref i, s.TargetPosition, EnemyMoveMode.Run);
+                c.MoveTo(ref i, c.ApproachPoint(s, s.TargetPosition), EnemyMoveMode.Run);
                 i.Fire = false;
                 return;
             }
@@ -135,12 +135,17 @@ namespace Ashfall.AI
         }
 
         // "소리 추적": LKP로 달려가고, 도착하면 그 자리에서 LKP 쪽을 본다.
+        // 목적지·도착 = LKP에서 approachStopDistanceM 앞 점(7D-3 발견 1: 표적 발까지 걸어 들어가 몸이 겹치지 않게).
         internal static void ChaseLastKnown(TacticsContext c, in EnemySenses s, ref EnemyIntent i)
         {
-            if (c.HasLastKnown && !c.Reached(s, c.LastKnown))
+            if (c.HasLastKnown)
             {
-                c.MoveTo(ref i, c.LastKnown, EnemyMoveMode.Run);
-                return;
+                Vector3 approach = c.ApproachPoint(s, c.LastKnown);
+                if (!c.Reached(s, approach))
+                {
+                    c.MoveTo(ref i, approach, EnemyMoveMode.Run);
+                    return;
+                }
             }
             TacticsContext.Hold(ref i);
             if (c.HasLastKnown)

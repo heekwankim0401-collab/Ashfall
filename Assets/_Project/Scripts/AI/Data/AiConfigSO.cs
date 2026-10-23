@@ -153,6 +153,11 @@ namespace Ashfall.AI
         [Tooltip("표적(또는 LKP)과 수평 거리 ≤ 사거리 × 이 값이면 멈춘다 (밀고 들어가 몸이 겹치지 않게)")]
         public float mutantHoldInsideRangeRatio = 0.75f;
 
+        // 7D-3 발견 1: 약탈자·습격자(같은 경로를 쓰는 보스·호위 포함)가 LKP = 표적 발까지 걸어 들어와 몸이 겹치던 문제.
+        [Header("M7 7D 접근 정지 (TODO(GDD-?))")]
+        [Tooltip("약탈자·습격자가 LKP·표적 위치로 다가갈 때 그 점에서 자기 쪽으로 이 수평 거리(m) 앞에서 멈춘다. 0 = 끝까지 (변이체는 둘레 규칙을 따로 쓴다)")]
+        public float approachStopDistanceM = 2.0f;
+
         [Header("디버그")]
         [Tooltip("머리 위 상태 색 표시 (그레이박스 확인용). M6 Q8에서 끔 — 기본값도 false(새로 만든 AiConfig·테스트 인스턴스)")]
         public bool showStateIndicator = false;

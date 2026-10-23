@@ -743,8 +743,14 @@ namespace Ashfall.Tests.EditMode
         {
             string text = System.IO.File.ReadAllText(Uss);
             string[] palette = { "#0D0807", "#3A0B0B", "#6E1A14", "#B2321C", "#5A524E", "#C9BBA8", "#7A8A2A" };
+            // M7 Q49: §6 희귀(청)만 문서화된 예외 (--rarity-rare-blue 정의 줄, PaletteConsistencyTests가 하나뿐임을 검사)
             foreach (Match m in Regex.Matches(text, "#[0-9A-Fa-f]{3,8}\\b"))
+            {
+                int lineStart = text.LastIndexOf('\n', m.Index) + 1;
+                if (text.Substring(lineStart, m.Index - lineStart).Trim().StartsWith("--rarity-rare-blue:"))
+                    continue;
                 CollectionAssert.Contains(palette, m.Value.ToUpperInvariant(), "팔레트 밖 색: " + m.Value);
+            }
             foreach (Match m in Regex.Matches(text, "rgba?\\(([^)]*)\\)"))
                 StringAssert.StartsWith("13, 8, 7", m.Groups[1].Value, "반투명은 Ash_Black만: " + m.Value);
             // 변수 정의 줄 밖에서 색 리터럴을 쓰지 않는다

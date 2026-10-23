@@ -416,7 +416,8 @@ namespace Ashfall.Tests.EditMode
             brain.Tick(AiTest.Unseen(0.1f, Self), 0.1f);
             Assert.AreEqual(EnemyState.Alert, brain.State);
             Assert.AreEqual(EnemyMoveMode.Run, brain.Intent.Move, "소리 추적");
-            Assert.AreEqual(shot, brain.Intent.Destination);
+            // 7D-4(7D-3 발견 1): 목적지 = LKP에서 자기 쪽으로 approachStopDistanceM 앞
+            Assert.AreEqual(ApproachRules.StopShort(Self, shot, config.approachStopDistanceM), brain.Intent.Destination);
             Assert.IsFalse(brain.Intent.Fire);
         }
 

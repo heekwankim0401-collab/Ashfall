@@ -52,7 +52,7 @@ namespace Ashfall.UI
             foreach (TraderOfferRow row in model.Offers)
             {
                 ItemDefinitionSO item = row.Item;
-                offers.Add(Row(row.Name, row.PriceText, UiText.TraderBuy, hubEnabled && row.CanBuy, () => onBuy?.Invoke(item)));
+                offers.Add(Row(row.Name, row.PriceText, UiText.TraderBuy, hubEnabled && row.CanBuy, () => onBuy?.Invoke(item), RarityStyle.ClassFor(item)));
             }
 
             if (model.Sell.Count == 0)
@@ -66,16 +66,18 @@ namespace Ashfall.UI
             foreach (TraderSellRow row in model.Sell)
             {
                 ItemInstance item = row.Item;
-                sell.Add(Row(row.Name, row.PriceText, UiText.TraderSell, hubEnabled && row.CanSell, () => onSell?.Invoke(item)));
+                sell.Add(Row(row.Name, row.PriceText, UiText.TraderSell, hubEnabled && row.CanSell, () => onSell?.Invoke(item), RarityStyle.ClassFor(item)));
             }
         }
 
-        private static VisualElement Row(string name, string price, string buttonText, bool enabled, Action onClick)
+        // rarityClass = 이름 칸 왼쪽 테두리 색(§6 희귀도, Q49). null이면 없음.
+        private static VisualElement Row(string name, string price, string buttonText, bool enabled, Action onClick, string rarityClass)
         {
             var row = new VisualElement();
             row.AddToClassList(RowClass);
             var nameLabel = new Label(name) { pickingMode = PickingMode.Ignore };
             nameLabel.AddToClassList(RowNameClass);
+            RarityStyle.Apply(nameLabel, rarityClass);
             row.Add(nameLabel);
             var priceLabel = new Label(price) { pickingMode = PickingMode.Ignore };
             priceLabel.AddToClassList(RowPriceClass);

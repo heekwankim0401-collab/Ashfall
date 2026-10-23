@@ -61,6 +61,52 @@ namespace Ashfall.Tests.EditMode
             }
         }
 
+        // M7 Q49: USS의 색 상수는 팔레트 7개 + Ash_Black 반투명뿐이고, 팔레트 밖 색은 문서화된 예외 하나(§6 희귀 청색)만.
+        // 색 속성은 전부 var(--…)로 그 변수들만 쓴다(리터럴 색 금지).
+        private const string RareBlueVariable = "--rarity-rare-blue";
+
+        [Test]
+        public void Uss_ColorLiterals_ArePaletteTokens_ExceptRareBlue()
+        {
+            PaletteSO palette = LoadPalette();
+            var paletteHex = new HashSet<string>(UssVariables.Select(v => ColorUtility.ToHtmlStringRGB(palette.Get(v.token))));
+            string uss = RarityStyleTests.StripComments(File.ReadAllText(Path.GetFullPath(UssPath)));
+
+            var colorVariables = new HashSet<string>();
+            var offPalette = new List<string>();
+            foreach (Match m in Regex.Matches(uss, @"(--[a-z0-9-]+)\s*:\s*([^;]+);"))
+            {
+                string name = m.Groups[1].Value, value = m.Groups[2].Value.Trim();
+                Match hex = Regex.Match(value, @"^#([0-9A-Fa-f]{6})$");
+                Match rgba = Regex.Match(value, @"^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(,\s*[0-9.]+\s*)?\)$");
+                if (!hex.Success && !rgba.Success)
+                {
+                    Assert.IsFalse(value.StartsWith("#") || value.StartsWith("rgb"), $"{name}: 색 형식은 #RRGGBB 또는 rgba만 ({value})");
+                    continue;
+                }
+                colorVariables.Add(name);
+                string rgb = hex.Success
+                    ? hex.Groups[1].Value.ToUpperInvariant()
+                    : $"{int.Parse(rgba.Groups[1].Value):X2}{int.Parse(rgba.Groups[2].Value):X2}{int.Parse(rgba.Groups[3].Value):X2}";
+                if (!paletteHex.Contains(rgb))
+                    offPalette.Add(name);
+            }
+            CollectionAssert.AreEqual(new[] { RareBlueVariable }, offPalette, "팔레트 밖 색은 §6 희귀 청색 하나만 (M7 Q49)");
+
+            // 리터럴 색은 변수 정의에만
+            string withoutVariables = Regex.Replace(uss, @"--[a-z0-9-]+\s*:\s*[^;]+;", "");
+            Assert.IsFalse(Regex.IsMatch(withoutVariables, @"#[0-9A-Fa-f]{3,8}\b|rgba?\("), "색 리터럴은 :root 변수 정의에만 둔다");
+            foreach (Match m in Regex.Matches(withoutVariables, @"var\((--[a-z0-9-]+)\)"))
+            {
+                // 크기 변수(--ash-cell-size 등)는 색이 아니므로 색 속성에 쓰인 것만 본다
+                int start = withoutVariables.LastIndexOf(';', m.Index) + 1;
+                int brace = withoutVariables.LastIndexOf('{', m.Index) + 1;
+                string property = withoutVariables.Substring(Math.Max(start, brace), m.Index - Math.Max(start, brace));
+                if (property.Contains("color"))
+                    Assert.IsTrue(colorVariables.Contains(m.Groups[1].Value), $"색 속성에 정의 안 된 색 변수: {m.Groups[1].Value}");
+            }
+        }
+
         [Test]
         public void PaletteMaterials_BaseColor_EqualsToken()
         {

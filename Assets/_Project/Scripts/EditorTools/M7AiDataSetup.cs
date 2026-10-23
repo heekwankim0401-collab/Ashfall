@@ -13,7 +13,7 @@ namespace Ashfall.EditorTools
     // ③ 적 유형 AI-SNP·AI-MUT·AI-BOS·AI-BGD — 없을 때만. 무장 = §7(SNP 볼트액션 WPN-DMR-01, MUT 없음, BOS 경기관총 WPN-LMG-01 + MAG-762-100,
     //    BGD 소총). LMG·탄띠는 7A-1b가 만든 것을 참조만 한다. 호위(BGD)는 AI-RDR 값을 복사한 뒤 §3.4 차이만 덮는다.
     // ④ 기존 AI-SCV·AI-RDR weaponDurabilityRange 35~85 — 파일에 필드가 없거나 (100,100)(코드 초기값 = 미설정)일 때만. tactics는 쓰지 않는다(Auto 유지).
-    // ⑤ AiConfig.glintAngularSizeDeg·vocalCooldownSec(0.35·4) + 7B 리뷰 수정 근접·둘레 필드 7개 — 하나라도 파일에 없을 때만 초기값 기록.
+    // ⑤ AiConfig.glintAngularSizeDeg·vocalCooldownSec(0.35·4) + 7B 리뷰 수정 근접·둘레 필드 7개 + 7D-4 approachStopDistanceM(2.0) — 하나라도 파일에 없을 때만 초기값 기록.
     // ⑥ ItemDatabase 재수집(M5DataSetup.CreateItemDatabase).
     // GDD 값은 §7 행동·무장뿐이다. 나머지 수치는 전부 TODO(GDD-?) 임시값(설계 §3.4 표). 표에 "—"인 칸은 0(안 씀)이고,
     // 표에 행이 없는 M3 필드(오차 배율 등)는 AI-RDR 값을 쓴다(설계 "RDR 값"의 확장, 7B-1b 구현 메모).
@@ -290,6 +290,7 @@ namespace Ashfall.EditorTools
             nameof(AiConfigSO.meleePartWeightLeftArm), nameof(AiConfigSO.meleePartWeightRightArm),
             nameof(AiConfigSO.meleeMaxHeightDiffM), nameof(AiConfigSO.mutantCloseRadiusRatio),
             nameof(AiConfigSO.mutantHoldInsideRangeRatio),
+            nameof(AiConfigSO.approachStopDistanceM),   // 7D-4 (7D-3 발견 1) 접근 정지 거리
         };
 
         private static void WriteAiConfigFields()
@@ -307,7 +308,8 @@ namespace Ashfall.EditorTools
             EditorUtility.SetDirty(config);
             Debug.Log($"{Tag} AiConfig에 M7 필드 기록: glintAngularSizeDeg {config.glintAngularSizeDeg} / vocalCooldownSec {config.vocalCooldownSec} / " +
                       $"근접 부위 가중치 {config.meleePartWeightThorax}·{config.meleePartWeightStomach}·{config.meleePartWeightLeftArm}·{config.meleePartWeightRightArm} / " +
-                      $"높이 차 {config.meleeMaxHeightDiffM} / 둘레 비율 {config.mutantCloseRadiusRatio}·{config.mutantHoldInsideRangeRatio}");
+                      $"높이 차 {config.meleeMaxHeightDiffM} / 둘레 비율 {config.mutantCloseRadiusRatio}·{config.mutantHoldInsideRangeRatio} / " +
+                      $"접근 정지 {config.approachStopDistanceM}m");
         }
     }
 }

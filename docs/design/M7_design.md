@@ -274,6 +274,12 @@ PlayerHealth.Update ─► SurvivalModel.Tick(dt, stomachDestroyed)   수분 −
 
 합계 WAV 15개(7A 8, 7B 7) — 기존 27개 + 15 = 42개. 프리팹 5개, 머티리얼 4개. 7C 소리 없음(먹기·마시기 효과음은 만들지 않는다).
 
+**실제 생성 결과(M7 완료 시점, 위 표와 다른 곳 — 계약 `M7Names` 경로를 따름):**
+- WAV 13개(기존 27 + 13 = **40개**): `Gunshots/GS_{Shotgun,Sniper,Lmg}_{Near,Mid,Far}.wav` 9개, `Weapon/WPN_DryFire.wav`·`WPN_JamClear.wav`, `Enemy/MUT_Alert.wav`·`MUT_Attack.wav`(종류마다 1개).
+- 프리팹 5개: `Prefabs/Weapons/VM_WPN-{PST,SMG,RIF,SHT,DMR}-01.prefab`(무기 id 기준 이름).
+- 머티리얼 4개: `Art/Materials/Palette/M_Mutant.mat`·`M_Boss.mat`·`M_Toxic.mat`, `Art/Materials/M_SniperGlint.mat`.
+- 씬 자리표시: 레이드 `M7_ToxicMarkers` 아래 프리미티브 54개(기둥·판·드럼통), 저격수 자식 `SniperGlint` 쿼드.
+
 ### 2.3 사용자에게 필요한 실제 에셋 (교체 위치)
 
 | 에셋 | 권장 형식 | 교체 방법 |
@@ -628,6 +634,12 @@ PlayerHealth.Update ─► SurvivalModel.Tick(dt, stomachDestroyed)   수분 −
 - 전체 EditMode·PlayMode 2회, AC 체크.
 **7D-4 리뷰 + 수정 + 문서 — 45~60분**: CHANGELOG "M7 설계 결정", CLAUDE.md "현재 진행"(오케스트레이터), 이 문서 §10 확정 → 커밋 `M7D: 성능 판정·개발 빌드 진단·빌드 메서드·희귀도 색 (TECH, §15 M7)`.
 **7D-IL2CPP (사용자 설치 확인 뒤) — 90~120분**: 사람이 Unity Hub에서 6000.3.26f1에 "Windows Build Support (IL2CPP)" 추가 + VS 2022 "C++를 사용한 데스크톱 개발" 설치 → `BuildWindows64Il2Cpp` 성공 확인 → 메뉴로 ProjectSettings 백엔드 IL2CPP 영구 전환 → 릴리스·개발 IL2CPP 빌드 + 스모크 → 실패 시 link.xml·코드 수정 → 커밋 `M7: IL2CPP 빌드 전환 (TECH-§13.1)`.
+- **ProjectSettings 확인(7D 리뷰 중간 2):** `BuildWindows64Il2Cpp*`는 빌드 동안만 백엔드를 IL2CPP로 바꾸고 finally에서 되돌리지만, 값을 되돌려도 `ProjectSettings/ProjectSettings.asset`에 새 키(예: `scriptingBackend: Standalone: 0`, `il2cppStacktraceInformation`)가 남을 수 있다.
+  ① 임시 빌드 전에 `git status --porcelain ProjectSettings` + `md5sum ProjectSettings/*.asset`을 기록 → ② 빌드 → ③ 같은 두 명령으로 비교 → ④ 영구 전환 전 임시 빌드에서 생긴 diff면 `git checkout -- ProjectSettings/ProjectSettings.asset`로 되돌리고(에디터·Unity 꺼진 상태에서) 다시 md5 확인.
+  영구 전환 단계에서는 메뉴(`PlayerSettings.SetScriptingBackend`)가 만든 diff만 커밋하고, 백엔드 키 외의 변경이 섞였으면 커밋 전에 보고한다.
+- **스모크 바깥 제한 시간(7D 리뷰 낮음 5):** 플레이어의 60초 제한(`SmokeRunner.DefaultTimeoutSec`)은 메인 스레드가 돌아야 판정된다(멈추면 판정 불가). 실행하는 쪽이 프로세스 대기에 **바깥 제한 180초**를 둔다
+  (PowerShell `$p = Start-Process … -PassThru; if (-not $p.WaitForExit(180000)) { $p.Kill(); 실패 }`, 또는 bash `timeout 180 …` — 종료 코드 124 = 멈춤 = 실패). IL2CPP 첫 실행은 셰이더·초기화가 느릴 수 있어 60초가 아니라 180초.
+  값 없는 `-ashfallSmoke`(다음 인자 없음·`-`로 시작)는 종료 1 — Mono 개발 빌드에서 7D-4가 실제로 확인했다(아래 "7D 리뷰 수정 메모"). IL2CPP 개발 빌드에서도 한 번 확인한다.
 
 **예상 총 소요: 약 20~23시간**(7A 5.5 + 7B 6 + 7C 6 + 7D 3.5, IL2CPP 별도 2). 선택 가속(7B ∥ 7C 일부) 시 약 18~21시간. PlayMode 전체 실행이 약 10분 → M7 끝에는 13~15분 예상(하위 단계마다 2회 + 통합).
 
@@ -761,26 +773,33 @@ PlayerHealth.Update ─► SurvivalModel.Tick(dt, stomachDestroyed)   수분 −
 
 ---
 
-## 10. MVP 전체(M0~M7) 남은 TODO(GDD-?)·임시값 중 기획 확정이 필요한 것 (초안)
+## 10. MVP 전체(M0~M7) 남은 TODO(GDD-?)·임시값 중 기획 확정이 필요한 것 (7D-4 확정)
 
-1. **§5.3 방어구 관통·둔탁 피해·방어구 내구도** — 미구현(M7 Q19). 헬멧·방탄복은 지금 무게만 있다. MVP에 넣을지 결정 필요.
-2. **무기 수치**: 5종 반동·조준·재장전·퍼짐·소음 반경·마모율, 탄 관통력·초속(M1·M3·M7 임시값). 9mm 권총 35 / SMG 30은 무기 피해 필드로 해석(M3).
-3. **고장·내구도 정책**: 수리 유무, 내구도 표시, 가격 반영, 적 무기 스폰 내구도(M7 Q12~Q17).
-4. **상태이상 발생 규칙**: 출혈 0.35·중출혈 0.15(피해 10+), 골절 0.2(피해 20+), 골절 패널티, 의약품 사용 시간(M2).
-5. **RULE-04·05 경계**: 탄창 확인 구간 0.67/0.34, 부위 등급 0.75/0.35, 생존 등급 25%·선량 50(M2·M7).
-6. **생존 해석**: "전신 −0.5 HP/s"를 부위마다로, 복부 파괴 탈수 ×2, 방사능 100 → 모든 부위 최대 HP ×0.8, 레이드 사이 이월 없음(M7 Q32~Q35).
-7. **방독면·방사능 구역**: 헬멧 슬롯 공유, 폭풍만 차단, 정유소 반경 70m·0.5/s(M7 Q37~Q39).
-8. **적 AI 수치**: 인지 게이지·반응·명중·점사·선호 거리(M3), 저격수 시야 150m·경고 1.5초, 변이체 근접 14·속도 5.0, 보스 HP·거점 25m(M7).
-9. **레이드 배치·밀도**: 적 34명 배치, 탈출 반경, 스폰 3곳, 상자 수, 재 폭풍 시작 창 180~1200초·전환 20초(M4·M6·M7).
-10. **루트 테이블 전부**: LT-CRATE·SCV·RDR·SNP·MUT·BOS 내용과 굴림 횟수, 신호탄 기대 개수(M3·M4·M7).
-11. **경제**: 모든 basePrice, 매수·매도 배율 1.0/0.4, 시작 탄피 6000, 상인 이름·판매 목록, 제작 레시피 8개(M5·M7).
-12. **보관함 업그레이드**: §9 "업그레이드로 확장"이 미구현(10×30 고정, M5 Q1).
-13. **희귀도 표와 색**: 전 아이템 희귀도, 희귀(청) 색이 §10.1 팔레트에 없음·우수(녹)가 Toxic("유일한 비적색 강조")을 재사용(M7 Q48·Q49).
-14. **HUD·UI 해석**: 남은 시간은 지도 분 단위만, 탈출 조건 이유 문구, 지도는 세계를 멈추지 않음, 일시정지 [레이드 포기](M4).
-15. **소리 수치**: 총성 거리·게인, 걸음 들리는 거리, voice 24(교전 중 발소리 누락 관찰), 환경음 간격, 소리 전달 지연·차폐 없음(M6 Q15~Q17·4단계 관찰).
-16. **아트 수치**: 맑을 때 가시거리 450m, 틴트·Bloom, 재 파티클 수, 태양 위치(M6) — 실제 에셋 교체 때 함께.
-17. **이동 해석**: 점프 = Space, 빠른 재장전 = 재장전 중 R 한 번 더, 무게 패널티 해석(M1).
-18. **자리표시 에셋 전체**: WAV 42개·프리팹 5개·하늘/재/지형 텍스처·머티리얼 — 실제 에셋 목록(M6 §2.3, M7 §2.3).
+7A~7D 진행 결과로 확정한 목록이다. 코드 위치는 각 `TODO(GDD-?) Qn` 주석, 결정 근거는 `docs/CHANGELOG_GDD.md` M1~M7 절.
+
+1. **§5.3 방어구 관통·둔탁 피해·방어구 내구도 — 미구현(Q19 B).** 헬멧·방탄복·방독면은 무게(방독면은 폭풍 차단)만 있다. MVP에 넣을지 결정.
+2. **무기 수치**: 5종 반동·조준·재장전·퍼짐·소음 반경·마모율, 펌프·볼트 동작 시간, 탄 관통력·초속(M1·M3·M7). 9mm 35 / SMG 30 = 무기 피해 필드 해석(M3).
+3. **고장·내구도**: 내구도 **화면 표시 없음·수리 없음**·가격 반영 없음, 고장 확률 곡선, 적 무기 스폰 내구도 35~85(시체가 될 때 굴림)(M7 Q12~Q17).
+4. **상태이상**: 출혈 0.35·중출혈 0.15(피해 10+), 골절 0.2(피해 20+), 골절 패널티, 의약품 사용 시간(M2).
+5. **RULE-04·05 경계**: 탄창 확인 0.67/0.34, 부위 등급 0.75/0.35, 생존 등급 Low = 최대 × 0.25·방사능 오염 50(M2·M7 Q43).
+6. **생존 해석**: 수분 0 = 머리 제외 부위마다 −0.5 HP/s(흉부 160초에 사망), **전신 사인 문구("탈수") 없음 — 지금은 사인 = 흉부**(Q33), 복부 파괴 수분 × 2(Q34), 방사능 100 → 최대 HP × 0.8, 레이드 사이 이월 없음(Q32·Q35).
+7. **방독면·방사능 구역**: 헬멧 슬롯 공유, 폭풍 방사능만 차단, RAD-REF 반경 70m·0.5/s·감쇠 15m, 지도에 구역 표시 없음(Q37~Q41).
+8. **적 AI 수치**: 인지 게이지·반응·명중·점사·선호 거리(M3), 저격수 시야 150m·경고 1.5초·섬광 0.35°, 변이체 근접 14·속도 5.0·둘레 2.5m, 보스 HP·거점 25m, 호위 3명(M7 Q22~Q29).
+9. **적 접근 정지 거리 `approachStopDistanceM` 2.0m**(7D-4, 7D-3 발견 1): 약탈자·습격자·보스·호위가 LKP·표적에서 멈추는 거리. 수색 지점(LKP 둘레 12m 무작위)은 그대로. 여러 명이 한 LKP로 몰리면 2m 고리가 차서 서로 밀리고, 적끼리 시야 가림(7B 규칙)으로 뒤쪽 사수가 못 쏜다 — 군집 분산 규칙 필요 여부.
+10. **레이드 배치·밀도**: 적 34명 배치·분대, 탈출 반경, 스폰 3곳, 상자 수, 재 폭풍 시작 창 180~1200초·전환 20초(M4·M6·M7 Q30).
+11. **루트 테이블 전부**: LT-CRATE·SCV·RDR·SNP·MUT·BOS 내용·굴림 횟수, 방독면 0.5(신호탄 최저 가중치 규칙 유지), 유물 1개 보장(M3·M4·M7 Q31).
+12. **경제**: 모든 basePrice, 매수·매도 1.0/0.4, 시작 탄피 6000, 상인 이름·판매 목록(M5·M7).
+13. **제작 레시피 8개**: 재료·이름 임시, **12ga 탄 상자·부목은 JNK-01 × 2**(설계 × 1이면 "산출 매도 ≤ 재료 매수" 위반), 즉시·비용 없음, 재료 = 보관함만(Q44~Q47).
+14. **보관함 업그레이드**: §9 "업그레이드로 확장" 미구현(10×30 고정, M5 Q1).
+15. **희귀도 표**: 전 아이템 희귀도(Q48). **WPN-PST-01·WPN-SMG-01·ITM-FLR-01은 Common으로 남음**(§3.11은 우수 — 에셋을 직접 고쳐야 바뀜).
+16. **희귀도 색(§6·§10.1)**: 우수(녹) = Toxic 재사용 → "Toxic = 유일한 비적색 강조"가 인벤토리에서 약해짐, 희귀(청) `#4E6C8A`는 팔레트 밖 유일한 색, 유물 "발광" = Ember 2px + Rust_Red 바탕(UI Toolkit에 그림자 없음), 유물 고스트는 패널 안/밖 테두리 색이 같다(Q49).
+17. **HUD·UI 해석**: 남은 시간은 지도 분 단위만, 탈출 조건 이유 문구, 지도는 세계를 멈추지 않음, 일시정지 [레이드 포기], 제작 결과 문구(M4·M7).
+18. **소리 수치**: 총성 거리·게인, 걸음 들리는 거리, voice 24(교전 중 발소리 누락·빼앗기 관찰), 울음 60m·쿨다운 4초, 환경음 간격, 전달 지연·차폐 없음(M6 Q15~Q17·M7 Q26).
+19. **아트 수치**: 맑을 때 가시거리 450m, 틴트·Bloom, 재 파티클 수, 태양 위치, Toxic 표시물 배치(M6·M7) — 실제 에셋 교체 때 함께.
+20. **이동 해석**: 점프 = Space, 빠른 재장전 = 재장전 중 R 한 번 더, 무기 교체 키, 무게 패널티 해석(M1·M7).
+21. **성능 판정 전제(Q50)**: 자동 판정은 배치모드 CPU 예산(렌더 제외, 34명 + Peak + 변이체 둘레 + 보스 LMG, 표적 = 보스 거점 5m·0.8m 띄움)과 정상 상태 GC 0(콜라이더 래퍼 1회 생성 제외)이다. **1080p 60fps(GTX 1660급)는 사람이 개발 빌드 `[DevDiagnostics]`로 측정**해야 확정된다(§7.1 P1).
+22. **개발 빌드 기술 상수(Q51)**: 프레임 로그 10초·링 4096, 스모크 60초·레이드 10초 — 게임 수치 아님(바꿀 일 없으면 확정).
+23. **자리표시 에셋 전체**: WAV 40개(§2.2 실제 생성 결과)·프리팹·머티리얼·하늘/재/지형 텍스처 — 실제 에셋 목록(M6 §2.3, M7 §2.3). IL2CPP 빌드는 사용자 설치 대기(7D-IL2CPP).
 
 ## 질문 결정 (오케스트레이터, 2026-10-22)
 - §5 Q1~Q53은 ★추천안을 그대로 채택한다(Q19 = B, 나머지 = A). 사용자 지시: GDD에 없거나 모호한 것은 가장 단순한 쪽으로 정하고 `TODO(GDD-?) Qn`·CHANGELOG에 기록.
@@ -1608,3 +1627,167 @@ Mono `BuildWindows64` 종료 0: "Succeeded, 오류 0, 경고 0", 110,232,870 byt
 
 **결과**: EditMode 1737/1737(기존 1723 + 14). PlayMode 전체 179/179 × 2회 연속(750초·748초, 종료 0). Mono `BuildWindows64` 종료 0: "Succeeded, 오류 0, 경고 0", 110,233,382 bytes.
 테스트·빌드 전후 git status·md5 동일(커밋 에셋 무변경). Unity 프로세스 남지 않음(Hub 보조 `unity.exe serve`만).
+
+## 7D-1 구현 메모 (gameplay-programmer, 2026-10-23)
+
+원본에서 작업(커밋하지 않음). 새 `.meta`는 만들지 않았다(유니티가 생성). UI·Art/UI는 건드리지 않음(7D-2 병렬).
+
+- **Core `Diagnostics/`(새)**:
+  - `FrameTimeStats` — 고정 링 버퍼(가득 차면 가장 오래된 것부터 덮어씀) + 같은 크기 작업 배열, 직접 힙 정렬(`Array.Sort` 비교자 할당 회피). 중앙값(짝수 = 가운데 둘 평균),
+    99% = nearest-rank `ceil(0.99 n)`(정수 계산 — `0.99f × 100`이 100.0000x가 되어 한 칸 밀리던 것을 막음), 최대, 평균·fps 추정(1000/평균). 음수·NaN 무시. Add·Compute·Clear 할당 0.
+  - `SmokeRunner` — 순수 실행기: `ParseArguments`(`-ashfallSmoke <폴더>`, 이름 대소문자 무시, 상대 경로 → 절대, 값 없음·`-`로 시작 = 요청됐지만 무효 → 종료 1),
+    단계 표를 한 틱에 한 단계까지 진행, 전체 실시간 제한 60초(`DefaultTimeoutSec`, 기술 상수 `TODO(GDD-?) Q51`) — 초과·단계 실패·단계 예외·외부 `Fail` = 종료 코드 1, 전부 통과 = 0. 단계마다 `[Smoke] 단계 i/N 이름 통과 (t초) — 설명` 한 줄.
+  - `SmokeScenario`(설계의 "순수 단계 표") — `Boot`(MainMenu 대기) → `EnterHideout`(`GameFlow.EnterHideout` → Hideout + `IHideoutService`) → `HideoutSaveLoad`(`ProfileService.Save` → 저장소 다시 읽기·해석, version = 2, raidInProgress false)
+    → `StartRaid`(`IHideoutService.StartRaid`, 파일 raidInProgress true 확인 → Raid + `IRaidInfo`·`IAshStormInfo`) → `ForceStorm`(이벤트 → Pending 벗어남) → `RaidPlay`(레이드 경과 10초, `DefaultRaidDurationSec` `TODO(GDD-?) Q51`)
+    → `Abandon`(`RaidAbandonRequested` → 은신처 복귀) → `HideoutResult`(결과 Abandoned, 흐름 표·raidInProgress 해제, W1 저장 성공, 파일 version 2·raidInProgress false). Core 서비스·이벤트·GameFlow만 쓴다(`SmokeEnvironment`).
+  - `DevDiagnostics`(MonoBehaviour, 정적 인스턴스 없음) — `ShouldAttach(isDebugBuild, isEditor) = isDebugBuild && !isEditor`. 10초(`LogIntervalSec`)마다 `[DevDiagnostics] 프레임 n개 — 중앙값·99%·최대 ms, fps 약 N` 한 줄,
+    링 버퍼 4096(`FrameSampleCapacity`, 둘 다 기술 상수 `TODO(GDD-?) Q51`). 스모크면 Awake(= GameManager Awake, 첫 씬 로드 전)에서 `GameManager.UseSaveStorage(new FileSaveStorage(폴더))` →
+    실제 persistentDataPath를 읽거나 쓰지 않는다. `Application.logMessageReceived`로 예외 로그(버스가 삼킨 핸들러 예외 포함) = 실패, 오류 로그는 세어 마지막 줄에. 끝나면 `Application.Quit(종료 코드)`.
+- **새 Core 계약(최소, 보고)**: `Events/GameEvents.cs` `AshStormStartRequested : IGameEvent`(스모크 "폭풍 강제 시작"용 — Core에 폭풍 명령 경로가 없어서). Raid `AshStormController`가 OnEnable 구독·OnDisable 해지,
+  `Debug.isDebugBuild`(개발 빌드·에디터)일 때만 기존 `ForceStartNow()`를 부른다(릴리스 무시). 다른 기능 변경 없음.
+- **`GameManager`**: Awake 끝 한 줄 `if (DevDiagnostics.ShouldAttach(Debug.isDebugBuild, Application.isEditor)) gameObject.AddComponent<DevDiagnostics>();`. 세이브 폴더 교체는 DevDiagnostics가 기존 `UseSaveStorage`로 한다.
+- **`FileSaveStorage`**: 폴더 주입 생성자 `FileSaveStorage(string directory, string fileName = "save.json")`가 M5부터 있어 변경 없음.
+- **`EditorTools/BuildTools.cs`**: `BuildWindows64`(릴리스, 출력 그대로) 유지 + `BuildWindows64Development`(`Builds/Windows64Dev/`) + `BuildWindows64Il2Cpp`(`Builds/Windows64Il2Cpp/`)·`BuildWindows64Il2CppDevelopment`(`Builds/Windows64Il2CppDev/`, 7D-IL2CPP 스모크용 — 같은 확인).
+  IL2CPP: `EnsureIl2CppAvailable` = `BuildPipeline.IsBuildTargetSupported(Standalone, StandaloneWindows64)` + `GetPlaybackEngineDirectory/Variations`의 `win64_*_il2cpp` 폴더. 판정은 순수 `HasWin64Il2CppVariation`·`DescribeIl2CppProblem`.
+  없으면 `InvalidOperationException("[BuildTools] IL2CPP 모듈 설치 필요: …")` → 배치모드 종료 1. 있으면 이 빌드 동안만 `PlayerSettings.SetScriptingBackend(Standalone, IL2CPP)`(개발이면 스택 추적 `MethodFileLineNumber` — Unity 6 이름) → finally에서 둘 다 되돌림.
+  ProjectSettings 백엔드는 Mono 그대로(테스트로 고정). 메뉴 `Ashfall/Build/Windows64 (Development)`·`Windows64 IL2CPP`·`Windows64 IL2CPP (Development)` 추가.
+- **`Assets/_Project/link.xml`(새)**: 런타임 Ashfall 어셈블리 9개 `preserve="all"`(EditorTools 제외). Managed Stripping Level 그대로.
+- **테스트(EditMode, 새 3파일)**: `FrameTimeStatsTests` 11(빈 값·중앙값 홀짝·99%·최대·fps·링 덮어쓰기·정렬이 링 순서를 안 바꿈·무효 표본·Clear·할당 0),
+  `SmokeRunnerTests` 14(인자 파싱 4, 진단 부착 조건, 단계 표 순서, 실행기 순서·종료 0·시간 초과(단계 이름·대기 설명)·전체 기준 제한·실패/예외·외부 실패,
+  가짜 씬 로드로 단계 표 끝까지 — 실제 `GameFlow`·`ProfileService`·`HideoutService` + 메모리 세이브: 통과·폭풍 미시작 = 시간 초과·저장 실패 = HideoutSaveLoad 실패),
+  `BuildToolsTests` 6(변형 폴더 판정, 문구, **이 PC 실제 확인**(모듈 없으면 예외 문구, 설치 뒤엔 통과로 바뀜), 백엔드 Mono 고정, 출력 경로, link.xml이 런타임 asmdef 전부 포함).
+
+**실제 확인(이 PC)**
+- `-executeMethod …BuildWindows64Il2Cpp` → 종료 1, `InvalidOperationException: [BuildTools] IL2CPP 모듈 설치 필요: win64 IL2CPP 플레이어 변형(win64_*_il2cpp)이 없다 (…\PlaybackEngines\WindowsStandaloneSupport\Variations). …`. 백엔드 변경 전 실패.
+- `BuildWindows64Development` → 종료 0, Succeeded·오류 0·경고 0, 175,089,169 bytes(4분 42초).
+- 스모크 `Builds/Windows64Dev/Ashfall.exe -batchmode -nographics -ashfallSmoke <scratchpad>\smoke_save -logFile smoke.log` → **종료 0**, 8단계 전부 통과(전체 14.7초, 오류 로그 0개), 프레임 시간 한 줄
+  (nographics: 중앙값 1.07ms·99% 2.50ms), `smoke_save/save.json`(version 2, raidInProgress false)·`.bak` 생성. 실제 `LocalLow/…/Ashfall/save.json`은 시각 그대로(건드리지 않음).
+- `BuildWindows64`(릴리스) → 종료 0, Succeeded·오류 0·경고 0, 110,251,190 bytes. 릴리스 exe에 `-ashfallSmoke`를 줘도 `[DevDiagnostics]`·`[Smoke]` 로그 0줄, 폴더 생성 없음(15초 뒤 종료시킴) = 진단 컴포넌트 없음.
+
+## 7D-2 구현 메모 (ui-programmer, 2026-10-23)
+
+§6 희귀도 색(Q49 A). UI 어셈블리·USS·테스트만 고쳤다(Core·EditorTools·데이터 무변경, RULE-04/05 영향 없음 — 문구·수치 표시 그대로).
+
+- **새 `UI/RarityStyle.cs`(순수 static):** `ClassFor(Rarity|ItemDefinitionSO|ItemInstance)` → `rarity--scrap/common/uncommon/rare/relic`(null 정의 = null),
+  `Apply(VisualElement, …)` = 희귀도 클래스 하나만 남기고 공통 `rarity` 클래스를 켠다(null이면 전부 지움).
+- **칸 뷰:** 아이템 칸을 그리는 곳은 `InventoryScreenView.BuildItem` 하나(소지품 그리드·장비 슬롯·열린 루트 = 레이드 상자/시체·은신처 보관함 공통) + 퀵슬롯 칸 + 드래그 고스트.
+  상인은 줄 목록이라 `TraderView.Row` 이름 칸(`trader-row-name`) 왼쪽 테두리(3px, 유물 4px)로 표시 — 매수(정의)·매도(보관함 인스턴스) 둘 다.
+  **검색 전 "?" 아이템에는 붙이지 않는다**(§6 검색 연출 — 희귀도가 미리 드러나지 않게).
+- **USS(`Ashfall.uss`):** `:root`에 `--rarity-rare-blue: #4E6C8A`(팔레트 밖 유일한 색, TODO(GDD-?) Q49) 추가. 규칙은 `.inv-item.rarity--*`·`.inv-quick.rarity--*`·`.trader-row-name.rarity--*`
+  (두 클래스 선택자라 기본 `.inv-item` Rust_Red 테두리를 덮는다): 고철 `--ash-grey`, 일반 `--bone`, 우수 `--toxic`, 희귀 `--rarity-rare-blue`,
+  유물 `--ember` 2px + 바탕 `--rust-red`. **설계와 다른 점:** UI Toolkit에 box-shadow가 없어 유물 "발광"은 두꺼운 Ember 테두리 + Rust_Red 바탕으로 근사(TODO(GDD-?) Q49).
+  우수 Toxic 재사용으로 "Toxic = 유일한 비적색 강조"(§10.1)가 인벤토리에서 흔해진다 — 설계 Q49대로 두고 7D-4 CHANGELOG 대상.
+- **테스트:** 새 `EditMode/RarityStyleTests`(9: 매핑·enum 순서·null, Apply 교체/해제, USS 색 5종 × 칸 3종, HideoutUI.uxml 위 뷰 — 그리드 고철·보관함 유물·"?" 클래스 없음·장비 슬롯 우수·퀵슬롯 일반/빈 칸 없음·상인 매수 희귀/일반·매도 유물).
+  `PaletteConsistencyTests.Uss_ColorLiterals_ArePaletteTokens_ExceptRareBlue`(새 케이스: USS 색 변수 = 팔레트 RGB, 팔레트 밖은 `--rarity-rare-blue` 하나뿐, 색 속성은 정의된 색 변수만).
+  기존 `HideoutUxmlTests.Uss_UsesOnlyPaletteColors`는 `--rarity-rare-blue:` 정의 줄 하나만 건너뛰게 고쳤다(그대로면 새 색으로 실패).
+- **결과(사본, 다른 에이전트 진행 중 Core 파일은 사본에서만 HEAD로 격리):** EditMode 1747/1747(종료 0). PlayMode 필터(은신처·HUD·인벤토리·루트·UI 입력) 18/18, PlayMode 전체 179/179(819초, 종료 0).
+  사본 첫 실행은 복사한 Library가 ScriptableObject를 못 읽어 데이터 테스트 105개가 실패 → 사본 Library 삭제 후 재임포트하니 해결(코드 무관).
+- **에디터 확인(C8):** 은신처 [장비]·[상인]과 레이드 인벤토리에서 칸 테두리 색 5종, 유물(ITM-REL-01, 보스 루트) 테두리가 팔레트와 어울리는지, 희귀 청색이 튀지 않는지.
+
+**결과**: EditMode 1778/1778(종료 0 — 이 수에는 동시에 원본에 반영된 7D-2 `RarityStyleTests` 등이 포함). PlayMode 전체 179/179(822초, 종료 0, 로그에 `DevDiagnostics` 0줄 = 에디터 Play에 진단 없음).
+`ProjectSettings` 무변경(백엔드 Mono). Unity·빌드 프로세스 남지 않음(Hub 보조 `unity.exe serve`만).
+
+## 7D-3 구현 메모 (test-engineer, 2026-10-23)
+
+원본에서 검증. 제품 코드·데이터·씬·ProjectSettings 무변경(새 테스트 파일 1개). 커밋하지 않음. 새 `.meta`는 유니티가 만든 `M7PerformanceTests.cs.meta` 하나.
+
+**새 PlayMode `M7PerformanceTests` (1, Q50 A — 예산 그대로)**
+- 실제 레이드 씬(SP-W), 34명 무적(복제 아키타입), 측정 직전 `RaidPerformanceTests.RefillAmmo`, 무적 표적 `PerfTarget`(근접 = 부위 힌트 있는 피격, 총탄 따로 셈) = 청취자, 폭풍 Peak 강제(시야 30m).
+- 배치: 표적 = 보스 거점 중심 5m(보스 눈 시선 뚫림, Peak 30m 안에서 보스가 거점 어디로 가도 보이게), 변이체 8명 2~6m, 저격수 2명 22m(시선 뚫림·표적 쪽), M4 20명 12~24m 고리, 보스·호위는 제자리.
+  플레이어는 SP-W(약 330m)에서 펌프 샷건(펠릿 8)을 Primary2로 들고 하늘로 연사(LMB 토글, 튜브는 테스트가 채움).
+- 측정 A 10초(시간·사격 단언), 측정 B ≥ 300프레임·최소 5초(GC: AiDirector·WeaponController는 끄고 직접 호출, 투사체·PlayerHealth·Audio·폭풍은 추가 호출, RadiationField 질의),
+  측정 A의 ShotFired·FootstepTaken·EnemyVocalized 재발행(오디오 이벤트 경로). 투사체 상한 = Σ(rpm/60 × 비행 시간 + 2) × 펠릿.
+- 테스트 쪽 조정 2가지(결함 아님 — 아래 발견 1·2 참고): ① 표적을 0.8m 띄움(`TargetRaiseM`, 상자 위에 선 것처럼, 근접 높이 차 1.2m 안). ② GC 구간 전에 씬 콜라이더 263개의 관리 래퍼를 미리 만든다(`WarmColliderWrappers`).
+
+**최악 상황 측정값 (PlayMode 전체 2회 = 3회째·4회째 실행)**
+
+| 항목 | 예산 | 3회째 | 4회째 |
+|---|---|---|---|
+| AI 틱 평균 / 99% / 최대 | ≤ 1.0 / ≤ 3 ms | 0.175 / 0.560 / 0.997 | 0.187 / 0.459 / 1.074 |
+| 투사체 스텝 평균 / 최대 | ≤ 1.0 ms | 0.050 / 0.238 | 0.056 / 0.432 |
+| 프레임 중앙값 / 99% (렌더 제외) | ≤ 16.6 ms | 1.90 / 3.25 | 2.07 / 3.35 |
+| Audio + 폭풍 + RadiationField 평균(최대) | ≤ 0.3 ms | 0.0035+0.0006+0.0012 = 0.0053 (0.379) | 0.0033+0.0007+0.0012 = 0.0051 (0.272) |
+| GC 할당 프레임 (AI·무기·투사체·생존·Audio+폭풍·방사능) | 0 | 0·0·0·0·0·0 / 2418프레임 | 0·0·0·0·0·0 / 2451프레임 |
+| 오디오 이벤트 재발행 GC | 0 | 627개 0 | 632개 0 |
+| 교전 평균 / 생존 최소 | — | 33.7 / 34 | 33.7 / 34 |
+| 적 ShotFired (LMG · DMR) | > 0 | 524 (60 · 8) | 513 (60 · 7) |
+| 플레이어 샷건 / 근접 타격 / MutantAttack | > 0 | 12 / 72 / 20 | 11 / 74 / 20 |
+| 섬광 켜진 프레임 | > 0 | 전 프레임 | 전 프레임 |
+| 동시 탄 최대 / 이론 상한 | ≤ 상한 | 30 / 624 | 29 / 624 |
+| GC 구간 중 샷건 · 적 사격(LMG) · 근접 | > 0 | 6 · 285(34) · 38 | 6 · 265(33) · 37 |
+
+- 변이체 최근접(표적 발 수평) 1.06m, 보스-표적 최대 4.0m, 오디오 재생 ~2700·voice 빼앗기 ~2200, 플레이어 선량 ~25(SP-W, Peak).
+- 같은 실행의 `M6PerformanceTests`: AI 0.164/0.545·0.191/0.584ms, `RaidPerformanceTests` B: AI 0.163/0.474·0.160/0.447ms — 기존 예산 안.
+
+**결과**
+- EditMode 1778/1778(종료 0, 34초).
+- PlayMode 180/180 × 2회 연속(805초·806초, 종료 0). 그 전 2회(799·807초)는 179/180 — `M7PerformanceTests` 투사체 경로 GC 1프레임(아래 발견 2) → 테스트 수정 뒤 필터 실행 4회 + 전체 2회 모두 0.
+- Mono `BuildWindows64` 종료 0: Succeeded·오류 0·경고 0, 110,251,222 bytes(15.7초). `BuildWindows64Development` 종료 0: Succeeded·오류 0·경고 0, 175,089,201 bytes(49.1초).
+- 개발 빌드 스모크 `Builds/Windows64Dev/Ashfall.exe -batchmode -nographics -ashfallSmoke <scratchpad>\smoke7d3 -logFile <scratchpad>\smoke7d3.log` → **종료 0**, 8/8 단계 통과(14.0초, 오류 로그 0),
+  `[DevDiagnostics]` 한 줄(nographics 중앙값 0.71ms·99% 1.81ms), `smoke7d3/save.json` version 2·raidInProgress false + `.bak`. 실제 `LocalLow/…/save.json` 시각 그대로(10-22 15:12).
+- `BuildWindows64Il2Cpp` → 종료 1, `InvalidOperationException: [BuildTools] IL2CPP 모듈 설치 필요: …win64_*_il2cpp…` = **사용자 설치 대기**. ProjectSettings 백엔드 변경 없음.
+- 테스트·빌드 전후 `Assets`(Tests 제외)·`ProjectSettings`·`Packages` md5 946파일 동일, git status 차이 = 새 `M7PerformanceTests.cs(.meta)`뿐.
+
+**발견 (제품 코드 — 고치지 않음, 7D-4 리뷰가 판단)**
+1. **변이체 둘레 + 지면 표적 = 다른 적이 표적에 겹쳐 들어온다.** 1차 실행(표적 지면, 거점 12m): 변이체 8명이 1.35m 둘레를 감싸 모든 사수의 눈 → 표적 눈·중심 레이가 변이체 캡슐에 막혔다.
+   SCV·RDR·호위는 표적을 못 본 채 총성 자극·LKP(= 표적 발)로 걸어 들어가 수평 0.0~2.1m에 겹쳤고(34명 중 28명 0~2m, Alert/Search), 90초 동안 보스는 교전에 들지 못했다(재현: 이 메모의 `TargetRaiseM`을 0으로).
+   7B 리뷰 15는 변이체만 멈추게 했다 — SCV·RDR은 표적 근처에서 멈추는 규칙이 없고 NavMeshAgent는 플레이어 CharacterController와 부딪히지 않는다.
+   실제 플레이: 변이체 무리에 둘러싸인 플레이어에게 다른 적이 몸을 겹쳐 오고, 겹친 적이 다시 시야를 막는다. 방안: SCV·RDR도 LKP를 일정 거리(예: 2m) 앞에서 끊기, 또는 수색 목적지를 LKP 둘레로. TODO(GDD-?).
+2. **GC 판정: 투사체 경로 1블록(2400여 프레임 중 1프레임, 예열 전 6회 실행 중 3회, 그중 1회는 AI 경로도 1블록).** 탄·시야 레이가 처음 맞힌 콜라이더의 관리 래퍼(`hit.collider`·`transform.root`)를 엔진이 처음 만들 때의 1회 할당으로 본다
+   (예열 뒤 6회 연속 0). 정상 상태 프레임 할당은 아니다. `GC.GetAllocatedBytesForCurrentThread`는 이 Mono에서 실제 할당에도 0을 돌려줘 바이트 판정은 쓸 수 없었다.
+3. `EventCapture` 상한 512 때문에 재발행 총성은 512개에서 잘린다(측정 구간 실제 적 ShotFired 510~535). 재발행 GC 판정에는 영향 없음.
+
+**M7 AC 체크표**
+
+| AC | 항목 | 자동 근거 | 에디터·빌드 사람 확인 | 대기 |
+|---|---|---|---|---|
+| AC1 | 무기 5종(PST·SMG·RIF·SHT·DMR) | EditMode `M7WeaponDataAssetTests`·`JamRulesTests`·`WeaponModelWearTests`·`TubeReloadTests`·`LooseAmmoSourceTests`·`PlayerInventoryLooseAmmoTests`·`WeaponSwitchModelTests`·`JamClearModelTests`·`PelletSpreadTests`·`SaveSerializerV2Tests`, PlayMode `WeaponSwitchFlowTests`·`JamFlowTests`·`TubeReloadFlowTests`·`M7WeaponRaidFlowTests`·`M7WeaponSceneSmokeTests`, `M7PerformanceTests`(샷건 연사) — 통과 | §7.1 W1~W8 | — |
+| AC1 | AI-SNP | `M7AiDataAssetTests`·`SniperTacticsTests`·`AnchorTests`·`EnemyTacticsFactoryTests`, PlayMode `SniperFlowTests`·`M7AiRaidFlowTests`(DMR 내구도·루팅)·`M7EnemySceneSmokeTests`, `M7PerformanceTests`(섬광·DMR 사격) — 통과 | E1·E2·E7 | — |
+| AC1 | AI-MUT | `EnemyMeleeTests`·`MutantTacticsTests`, PlayMode `MutantFlowTests`·`M7AiRaidFlowTests`(울음·접근·겹침 ≥ 1.0m), `M7PerformanceTests`(근접 72~75) — 통과 | E3·E5·E7 (+ 발견 1) | — |
+| AC1 | AI-BOS | `M7AiDataAssetTests`(LMG + 호위 3)·`CorpseLootBuilderTests`·`EnemyWeaponTests`, PlayMode `M7AiRaidFlowTests`(유물·거점 25m), `M7PerformanceTests`(LMG ShotFired 60) — 통과 | E4·E5·E6 | — |
+| AC1 | 오디오(세트 6·클릭·울음) | `AudioConfigAssetTests`, PlayMode `AudioFlowTests` — 통과 | W6, M6 A1~A9 | — |
+| AC2 | 제작대 | `CraftingModelTests`·`HideoutServiceTests`·`HideoutUiModelTests`, PlayMode `HideoutCraftingFlowTests` — 통과 | C6·C7 | — |
+| AC2 | 방사능 | `RadiationZoneMathTests`·`BodyHealthSystemicTests`·`MedicalSurvivalTests`, PlayMode `RadiationFieldFlowTests`·`AshStormFlowTests`·`M7SurvivalRaidFlowTests` — 통과 | C2·C3·C4 | — |
+| AC2 | 탈수·허기 | `SurvivalModelTests`(스태미나 포함)·`UiModelTests`(RULE-05)·`M7SurvivalDataAssetTests`, PlayMode `SurvivalFlowTests` — 통과 | C1·C5 | — |
+| AC2 | 희귀도 색(§6) | `RarityStyleTests`·`PaletteConsistencyTests` — 통과 | C8 | — |
+| AC3 | Windows 빌드(Mono) | `BuildToolsTests`·`BuildSettingsTests`, 릴리스·개발 빌드 성공(경고 0), 개발 빌드 스모크 종료 0·8단계·save v2 | P3(릴리스 실행·세이브 유지) | — |
+| AC3 | Windows 빌드(IL2CPP) | `BuildToolsTests`(이 PC = 모듈 없음 예외), `BuildWindows64Il2Cpp` 종료 1 "IL2CPP 모듈 설치 필요" | P4 | **사용자 설치 대기**(Hub 모듈 + VS 2022 C++) → 7D-IL2CPP |
+| AC3 | 성능(CPU 예산·GC) | `M7PerformanceTests`(최악)·`M6PerformanceTests`·`RaidPerformanceTests`·`AiPerformanceTests`·`FrameTimeStatsTests`·`SmokeRunnerTests` — 통과(위 표) | P2(GPU·Profiler) | — |
+| AC3 | 1080p 60fps(GTX 1660) | 자동 판정 불가(배치모드 렌더 없음) | **사람 측정**: P1 — 개발 빌드 1080p 전체 화면, Peak 폭풍 + 교전 + 변이체 무리에서 `Player.log`의 `[DevDiagnostics]` 중앙값 ≤ 16.6ms, GPU 이름 기록 | — |
+
+## 7D 리뷰 수정 메모 (gameplay-programmer, 2026-10-23)
+
+원본에서 작업(커밋하지 않음). 새 `.meta`는 유니티가 만든 `ApproachRules.cs.meta`·`ApproachStopTests.cs.meta`뿐. CLAUDE.md는 고치지 않았다(오케스트레이터 몫).
+
+**7D-3 발견**
+- 1 (적 겹침): `AiConfigSO.approachStopDistanceM` 2.0(TODO(GDD-?)) + 순수 `AI/Brain/ApproachRules`(`StopShort`·`IsWithinStop`) + `TacticsContext.ApproachPoint`(당긴 점을 NavMesh 샘플, 같은 표적은 캐시 — 방향은 처음 잡은 자리 기준, 이미 정지 거리 안이면 자기 위치).
+  `ScavengerTactics.ChaseLastKnown`(SCV Alert·Combat 안 보임, RDR·보스·호위의 엄폐 없음 대체)과 Combat "선호 거리 밖 → 달려서 좁힘"이 목적지·도착 판정에 같은 점을 쓴다. 거점 자르기는 그 뒤(정지 점도 반경 안). 수색·엄폐·변이체 둘레는 그대로.
+  `M7AiDataSetup.AiConfigM7Fields`에 필드 추가(파일에 없을 때만 SetDirty) → `AiConfig.asset`에 `approachStopDistanceM: 2` 한 줄.
+  **바뀐 기존 단언 3개(이유: 목적지가 LKP 자체 → LKP에서 2m 앞으로 바뀐 것이 이번 수정의 의도):** `EnemyBrainTests.Alert_Scavenger_RunsToLastKnown`, `AiReviewFixTests.R3_CoverNone_StillFallsBackToScavenger`, `AnchorTests.Brain_ZeroAnchor_DestinationUnlimited` — 기대값만 `StopShort(…)`/`50 − 2`로. 수색·M3 PlayMode 행동 테스트는 변경 없이 통과.
+  새 EditMode `ApproachStopTests` 10개(케이스 12: 기본값 2, 순수 규칙·경계·0/음수/NaN, SCV Alert 정지 점·NavMesh 높이·캐시, 정지 점 도착 → 제자리·LKP 쪽 보기, 이미 안 → 다가가지 않음, 0 = M3 동작, RDR 대체, Combat 원거리 접근, 거점 자르기).
+  `M7PerformanceTests`: 사수(SCV·RDR·호위·보스) 표적 최근접 기록 + `≥ 1.0m` 단언. **`TargetRaiseM` 0은 불안정 → 0.8 유지:** 0으로 필터 1회 + 전체 2회 중 전체 1회째가 "90초 안에 보스 교전" 전제에서 실패
+  (사수 20여 명이 테스트의 300m 소음으로 LKP 둘레 2m 고리에 한꺼번에 모여 회피로 0.6~1.1m까지 밀리고, 변이체와 함께 보스(거점 2.7m) 시선을 막음 — 적끼리 시야 가림은 7B 규칙). 통과한 2회는 사수 최근접 2.00m. 근거를 테스트 주석·CHANGELOG·§10 9번에 남겼다.
+- 2 (GC 예열): 유지. 테스트 머리 주석에 근거(예열 전 6회 중 3회 1블록 → 예열 뒤 0, 콜라이더당 게임 전체 1회 엔진 래퍼 생성 = 정상 상태 할당 아님, 바이트 API 사용 불가).
+- 3 (기록 상한): 512 → 1024(주석). 이번 측정 재발행 총성 505·514개로 잘리지 않음.
+
+**7D 리뷰 (M7_review.md "7D")**
+1. `Ashfall.uss` 끝에 `.inv-item.inv-ghost.inv-ghost--outside { border-color: var(--ember); }`(클래스 3개, 희귀도 규칙 뒤). `RarityStyleTests.Uss_GhostOutsideEmber_WinsOverRarityBorder` — 희귀도 5종마다 고스트 클래스 집합에 맞는 border-color 규칙을 구체성·순서로 골라 Ember·outside 규칙인지 확인.
+2. §6 7D-IL2CPP에 ProjectSettings 확인 절차(빌드 전후 `git status ProjectSettings`·md5, 임시 diff `git checkout`). 3. 프레임 로그 `프레임 n개(전체 TotalAdded개, 버퍼 4096)` + 상수 주석 — 이번 nographics 스모크가 실제로 `전체 12257개`(약 1200fps)를 찍었다.
+4. `SmokeRunner.IsSameFolder`·`PrepareSaveFolder`(persistentDataPath와 같으면 −1 → 종료 1, 폴더 생성, `save.json`·`.bak`·`.tmp`·`save.corrupt.json`만 지움). `SmokeRunnerTests` +3.
+5. §6 7D-IL2CPP에 바깥 제한 180초(`WaitForExit`/`timeout`). 6. `logMessageReceivedThreaded` + Interlocked 카운터·첫 예외 문구(CompareExchange) → 메인 스레드 Update가 `smoke.Fail`. 마지막 줄에 예외 로그 수도.
+7. `AshStormFlowTests.StartRequestedEvent_LeavesPending_SecondRequestIgnored`. 8. `RarityStyle.ClassFor` 범위 밖 = null(+ 테스트). 9. CHANGELOG "### 7D 성능·빌드·폴리시". 10. `BuildToolsTests` — 설치 확인을 고정 경로 + `win64*il2cpp` 패턴 + 빌드 대상 지원으로 따로 계산(구현 경로와 위치 일치도 확인),
+   link.xml 역방향(모든 항목이 현 런타임 asmdef)·중복·preserve 검사, 에디터 전용 = asmdef `includePlatforms`만, 이름 = asmdef `name`. 11. 유지(CHANGELOG에 기록).
+- §10 목록을 7A~7D 결과로 확정(23항목).
+
+**결과**
+- EditMode 1796/1796(종료 0, 14초). 첫 실행은 `M7AiDataAssetTests` 2개 실패(새 필드가 에셋에 아직 없음 — 그 테스트의 재실행 검사가 메뉴를 불러 에셋에 기록) → 기록 뒤 전부 통과.
+- `M7SceneSetup.ApplyAll` 2회(종료 0·0): Assets(Tests 제외)·ProjectSettings·Packages 948파일 md5가 1회 전·1회 뒤·2회 뒤 모두 같음(필드는 위 테스트가 이미 기록) = 멱등.
+- PlayMode 전체 181/181 × 2회 연속(776초·767초, 종료 0, `[DevDiagnostics]` 0줄). (`TargetRaiseM` 0 시험 때 전체 2회 = 180/181(위 전제 실패)·181/181.)
+- `M7PerformanceTests` 최악 상황(전체 2회): AI 평균 0.160·0.160ms / 99% 0.294·0.307ms / 최대 0.418·0.555ms, 투사체 평균 0.047·0.048ms(최대 0.118·0.115), 프레임 중앙값 1.86·1.84ms·99% 2.65·2.69ms(렌더 제외),
+  Audio+폭풍+방사능 0.0043·0.0046ms, GC 할당 프레임 6경로 전부 0(2590·2573프레임), 재발행 GC 0, 교전 평균 33.8·33.9명, 생존 최소 34, 적 ShotFired 505·514(LMG 60·60, DMR 8·7), 샷건 11·11, 근접 74·74,
+  동시 탄 최대 31 / 상한 624, 변이체 최근접 1.07·1.08m, 사수 최근접 4.03·4.03m. 필터 3회(0.8m): AI 평균 0.171~0.178ms, 사수 최근접 2.20~2.61m.
+- Mono `BuildWindows64` 종료 0: Succeeded·오류 0·경고 0, 110,253,558 bytes. `BuildWindows64Development` 종료 0: Succeeded·오류 0·경고 0, 175,093,213 bytes.
+- 개발 빌드 스모크(바깥 `timeout 180`): ① `-ashfallSmoke <scratchpad>\smoke7d4`(미리 쓰레기 `save.json`·`.bak`·`other.txt`) → **종료 0**, "남은 세이브 파일 2개 지움", 8/8 통과 14.0초, 오류·예외 로그 0, 새 `save.json` version 2·raidInProgress false, `other.txt` 그대로.
+  ② 값 없는 `-ashfallSmoke`(마지막 인자) → **종료 1**("뒤에 세이브 폴더가 없다"). ③ `-ashfallSmoke <LocalLow\DefaultCompany\Ashfall>`(= persistentDataPath) → **종료 1**, 실제 `save.json`·`.bak` md5·시각(10-22 15:12) 그대로.
+- 테스트·적용·빌드 전후 Assets(Tests 제외)·ProjectSettings·Packages md5 동일(AiConfig.asset 한 줄은 의도한 변경), git status 차이 = 이번 새 파일뿐. ProjectSettings 무변경(백엔드 Mono). Unity·빌드·게임 프로세스 남지 않음(Hub 보조 `unity.exe` 하나).
+- IL2CPP: 그대로 사용자 설치 대기(이번에 다시 실행하지 않음).

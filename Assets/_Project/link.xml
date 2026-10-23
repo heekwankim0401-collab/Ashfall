@@ -1,0 +1,17 @@
+<!--
+  관리 코드 스트리핑 대비 (M7 설계 §1.9, Q53). Ashfall 런타임 어셈블리 전체를 보존한다.
+  JsonUtility 세이브 DTO, RuntimeInitializeOnLoadMethod, UI Toolkit 바인딩 이름이 IL2CPP 스트리핑에 잘리지 않게.
+  Managed Stripping Level은 기본(Minimal) 그대로. 에디터 전용 Ashfall.EditorTools는 빌드에 없다.
+  새 런타임 asmdef를 만들면 여기에 한 줄 추가한다 (BuildToolsTests가 확인).
+-->
+<linker>
+  <assembly fullname="Ashfall.Core" preserve="all" />
+  <assembly fullname="Ashfall.Player" preserve="all" />
+  <assembly fullname="Ashfall.Weapons" preserve="all" />
+  <assembly fullname="Ashfall.Inventory" preserve="all" />
+  <assembly fullname="Ashfall.AI" preserve="all" />
+  <assembly fullname="Ashfall.Raid" preserve="all" />
+  <assembly fullname="Ashfall.Hideout" preserve="all" />
+  <assembly fullname="Ashfall.Audio" preserve="all" />
+  <assembly fullname="Ashfall.UI" preserve="all" />
+</linker>

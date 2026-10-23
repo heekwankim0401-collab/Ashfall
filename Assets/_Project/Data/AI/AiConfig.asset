@@ -86,4 +86,5 @@ MonoBehaviour:
   meleeMaxHeightDiffM: 1.2
   mutantCloseRadiusRatio: 0.5
   mutantHoldInsideRangeRatio: 0.75
+  approachStopDistanceM: 2
   showStateIndicator: 0

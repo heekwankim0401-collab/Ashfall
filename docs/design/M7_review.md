@@ -114,3 +114,36 @@
 
 ### 7C 처리 결과
 지적 9개 모두 처리(1은 탈수에서 머리 제외, 3·9는 기록, 8은 커밋 전 확인) — M7_design.md "7C 리뷰 수정 메모". 수정 후 원본 EditMode 1737/1737, PlayMode 179/179 × 2, Mono 빌드 성공(경고 0).
+
+## 7D 성능·빌드·폴리시 — 높음 0, 중간 2, 낮음 9
+
+범위: 0d234ff 대비 작업 트리(7D-1·7D-2 메모의 파일, M7PerformanceTests 제외).
+
+### 중간
+1. 드래그 고스트의 "패널 밖 = 버리기" Ember 테두리가 희귀도 색에 덮인다(M2 회귀) — UI/InventoryScreenView.cs:583, Art/UI/Ashfall.uss:234-236·845-874. [확인] `.inv-item.rarity--*`(클래스 2개)가 `.inv-ghost--outside`보다 우선.
+   고칠 방향: 희귀도 블록 뒤에 `.inv-ghost.inv-ghost--outside { border-color: var(--ember); }` 등 우선순위 높은 규칙, 또는 고스트에 희귀도 미적용. USS 검사 테스트.
+2. IL2CPP 빌드 뒤 값은 되돌려도 ProjectSettings.asset에 `Standalone: 0` 키가 새로 남을 수 있다 — EditorTools/BuildTools.cs:113-130. [추정] 이 PC에선 모듈 확인에서 먼저 실패해 발생 안 함.
+   고칠 방향: 7D-IL2CPP 절차에 빌드 전후 `git status ProjectSettings`·md5 확인과 임시 diff 되돌리기 기록.
+
+### 낮음
+3. DevDiagnostics.cs:16·73·104 링 버퍼 4096 → 약 410fps 넘으면 최근 구간만. 로그에 TotalAdded, 주석.
+4. SmokeRunner.cs:99-122 스모크 폴더 = 실제 persistentDataPath여도 막지 않음, 이전 save.json을 그대로 읽음. 같으면 종료 1, 시작 때 정책(비어 있지 않으면 실패 또는 save.json* 삭제).
+5. SmokeRunner.cs:125-142 메인 스레드 정지 시 시간 초과 판정 불가 → 7D-IL2CPP 스모크에 바깥 제한 시간(WaitForExit). 값 없는 `-ashfallSmoke` → 종료 1 확인.
+6. DevDiagnostics.cs:42·109 다른 스레드 예외 미포착 → logMessageReceivedThreaded + 플래그.
+7. AshStormController.cs:54·62·66-72 `AshStormStartRequested` 경로 PlayMode 테스트 없음 → AshStormFlowTests에 추가.
+8. RarityStyle.cs:31 enum 범위 밖이면 예외 → 화면 전체 실패. default null.
+9. CHANGELOG 7D 절 없음(팔레트 밖 청색, 우수 = Toxic 재사용으로 §10.1 의미 약화, 유물 = Ember 2px + Rust_Red 바탕(발광 없음), 고스트 테두리 결론, Q51 기술 상수, `AshStormStartRequested` Core 계약, IL2CPP 임시 전환 정책).
+10. BuildToolsTests.cs:48-65·98-106 IL2CPP 확인 동어반복·link.xml 한 방향 검사·"Editor" 문자열 필터 → 구현과 같은 계산, 역방향 검사, includePlatforms만.
+11. GameManager.cs:56, AshStormController.cs:66-72 진단 코드가 릴리스 바이너리에 남음(가드로 미실행, 확인됨) — Q51로 충분, 선택적으로 `#if DEVELOPMENT_BUILD || UNITY_EDITOR`.
+
+### 확인한 것 (문제 없음)
+- §13.3: Core references 없음, Diagnostics는 Core 서비스·이벤트·GameFlow만, 정적 인스턴스 없음, 옛 Input 없음.
+- 부착 조건(isDebugBuild && !isEditor) — 에디터 Play·PlayMode에 없음, UseSaveStorage가 첫 로드 전 적용.
+- 스모크 종료 코드·시간 초과·Quit 1회·인자 파싱, FrameTimeStats 정확성·할당 0.
+- BuildTools: IL2CPP 확인이 백엔드 변경 전, try/finally 복원, 출력 경로 분리, 릴리스 메서드 그대로.
+- IL2CPP 준비: link.xml 런타임 asmdef 9개, 구조체 제네릭 AOT 안전.
+- 희귀도: §6·Q49 매핑, "?" 칸 제외, 상인 줄, 팔레트 밖 색 1개만.
+- 테스트가 에셋·PlayerSettings를 쓰지 않음, M1~M7C 회귀는 중간 1뿐.
+
+### 7D 처리 결과
+지적 11개 모두 처리(9는 CHANGELOG 소절, 11은 유지·기록) + 7D-3 발견 1(적 접근 정지 거리 2m)·2(예열 유지·근거)·3(상한 1024) — M7_design.md "7D 리뷰 수정 메모". 수정 후 원본 EditMode 1796/1796, PlayMode 181/181 × 2, Mono 릴리스·개발 빌드 성공(경고 0), 개발 빌드 스모크 종료 0.

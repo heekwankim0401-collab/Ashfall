@@ -44,6 +44,12 @@ namespace Ashfall.AI
         private Vector3 clampCacheIn;
         private Vector3 clampCacheOut;
 
+        // ApproachPoint 캐시 (직전 표적 → 당겨서 NavMesh에 붙인 점). 같은 LKP면 방향을 처음 잡은 자리에서 고정한다
+        // (매 Tick 자기 위치로 다시 당기면 목적지가 조금씩 움직여 MoveTo가 경로를 계속 새로 잡는다).
+        private bool hasApproachCache;
+        private Vector3 approachCacheIn;
+        private Vector3 approachCacheOut;
+
         public TacticsContext(EnemyBrain brain, EnemyArchetypeSO archetype, AiConfigSO config, IEnemyWorld world,
                               System.Random random, Squad squad)
         {
@@ -102,6 +108,29 @@ namespace Ashfall.AI
             hasClampCache = true;
             clampCacheIn = point;
             clampCacheOut = result;
+            return result;
+        }
+
+        // 접근 목적지 (7D-3 발견 1): LKP·표적 위치 대신 그 점에서 자기 쪽으로 approachStopDistanceM 앞 점(NavMesh에 붙임).
+        // 이미 그 거리 안이면 자기 위치(= Reached 즉시 참 → 제자리). MoveTo·Reached 둘 다 이 점을 쓴다.
+        // 샘플 실패 = 당긴 점 그대로. 같은 표적이면 캐시(NavMesh 질의 1회). 0이면 표적 그대로(M3 동작).
+        public Vector3 ApproachPoint(in EnemySenses s, Vector3 target)
+        {
+            float stop = Config.approachStopDistanceM;
+            if (!(stop > 0f))
+                return target;
+            if (ApproachRules.IsWithinStop(s.SelfPosition, target, stop))
+                return s.SelfPosition;
+            if (hasApproachCache && (approachCacheIn - target).sqrMagnitude <= 1e-6f)
+                return approachCacheOut;
+
+            Vector3 pulled = ApproachRules.StopShort(s.SelfPosition, target, stop);
+            Vector3 result = pulled;
+            if (World != null && World.TrySampleNavPoint(pulled, Config.navSampleRadiusM, out Vector3 ground))
+                result = ground;
+            hasApproachCache = true;
+            approachCacheIn = target;
+            approachCacheOut = result;
             return result;
         }
 

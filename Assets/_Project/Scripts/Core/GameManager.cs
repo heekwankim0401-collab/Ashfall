@@ -52,6 +52,8 @@ namespace Ashfall.Core
                 scale => Time.timeScale = scale,
                 Profiles);
             SceneManager.sceneLoaded += HandleSceneLoaded;
+            // M7 7D (Q51): 개발 빌드 플레이어에서만 진단(프레임 시간 로그·-ashfallSmoke 스모크 — 세이브 폴더 교체 포함). 릴리스·에디터 Play에는 없다.
+            if (DevDiagnostics.ShouldAttach(Debug.isDebugBuild, Application.isEditor)) gameObject.AddComponent<DevDiagnostics>();
         }
 
         // 테스트·도구: 세이브 위치 교체. 로드한 프로필을 버린다(다음 EnsureLoaded가 새 위치에서 읽음 = "다음 실행" 흉내).
