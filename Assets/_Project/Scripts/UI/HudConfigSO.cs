@@ -20,5 +20,19 @@ namespace Ashfall.UI
         // 비어 있으면 지도를 열 수 없다(경고 1회). 에셋 연결은 M4DataSetup(ITM-MAP-01).
         [Tooltip("M 지도 화면을 여는 데 필요한 아이템 (RULE-06)")]
         public ItemDefinitionSO mapItem;
+
+        // MVP 마무리 F3 내구도 대략 등급 (§5.1, RULE-04 — 숫자 없음). TODO(GDD-?) MF-Q10: GDD에 경계가 없다 — 임시값.
+        // 비율 ≥ conditionWornBelow = 양호, conditionCriticalBelow ≤ 비율 < conditionWornBelow = 낡음, 비율 < conditionCriticalBelow = 위험.
+        [Tooltip("내구도 비율이 이 값 미만이면 \"낡음\" (0.5 = §5.1 고장 시작). TODO(GDD-?) MF-Q10")]
+        [Range(0f, 1f)]
+        public float conditionWornBelow = 0.5f;
+        [Tooltip("내구도 비율이 이 값 미만이면 \"위험\" (낡음 경계 이하). TODO(GDD-?) MF-Q10")]
+        [Range(0f, 1f)]
+        public float conditionCriticalBelow = 0.25f;
+
+        private void OnValidate()
+        {
+            conditionCriticalBelow = Mathf.Min(conditionCriticalBelow, conditionWornBelow);
+        }
     }
 }

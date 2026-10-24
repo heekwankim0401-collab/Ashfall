@@ -62,6 +62,16 @@ namespace Ashfall.Core
         public static StashUpgradeOffer None => default;
     }
 
+    // MVP 마무리 F3 상인 수리 결과 (§5.1, MF-Q13·Q14)
+    public enum RepairResult
+    {
+        Ok,
+        NotEnoughCasings, // 탄피 부족 → 변화 없음
+        NotNeeded,        // 내구도 없음·이미 100%
+        NotInStash,       // 수리는 보관함 아이템만 (매도와 같음, MF-Q14)
+        Unavailable,      // 떠나는 중·프로필 없음 등
+    }
+
     // M7 제작대 결과 (§9, M7 설계 §1.5, Q44~Q47)
     public enum CraftResult
     {
@@ -133,6 +143,10 @@ namespace Ashfall.Core
         int StashLevel { get; }
         StashUpgradeOffer NextStashUpgrade { get; }
         StashUpgradeResult TryUpgradeStash();
+        // MVP 마무리 F3 상인 수리 (§5.1, MF-Q13·Q14): 보관함의 내구도 있는 아이템(IDurableItem)을 탄피로 100%로. 상인 거래처럼 읽기 전용 프로필에서도 허용,
+        // 성공하면 메모리에서만 바뀌고 W2/W3/W4에서 저장 + HideoutChanged.
+        int GetRepairCost(ItemInstance item);         // -1 = 수리 불가·불필요(100%)·보관함 밖
+        RepairResult TryRepair(ItemInstance item);
         SaveLoadReport PendingNotice { get; }         // ProfileService.PendingNotice
         bool LastSaveFailed { get; }
         bool IsReadOnly { get; }                      // 세이브를 읽지 못한 실행 — 저장 막음, 레이드 시작 불가 (ProfileService.IsReadOnly)

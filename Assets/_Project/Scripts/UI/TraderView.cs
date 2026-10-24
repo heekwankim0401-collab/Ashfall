@@ -18,6 +18,8 @@ namespace Ashfall.UI
         public const string RowPriceClass = "trader-row-price";
         public const string RowButtonClass = "trader-row-button";
         public const string EmptyClass = "result-line--empty";
+        // MVP 마무리 F3 [수리] 버튼 표시용 클래스(찾기용, 모양은 ash-button·trader-row-button 그대로 — 새 USS 규칙 없음)
+        public const string RowRepairClass = "trader-row-repair";
 
         private readonly VisualElement panel;
         private readonly Label title;
@@ -25,8 +27,11 @@ namespace Ashfall.UI
         private readonly VisualElement sell;
         private readonly Action<ItemDefinitionSO> onBuy;
         private readonly Action<ItemInstance> onSell;
+        private readonly Action<ItemInstance> onRepair;
 
-        public TraderView(VisualElement documentRoot, Action<ItemDefinitionSO> onBuy, Action<ItemInstance> onSell)
+        // onRepair = MVP 마무리 F3 매도 줄 [수리] (선택 — 기존 호출 그대로)
+        public TraderView(VisualElement documentRoot, Action<ItemDefinitionSO> onBuy, Action<ItemInstance> onSell,
+            Action<ItemInstance> onRepair = null)
         {
             panel = RaidResultView.Find<VisualElement>(documentRoot, PanelName);
             title = RaidResultView.Find<Label>(documentRoot, TitleName);
@@ -34,6 +39,7 @@ namespace Ashfall.UI
             sell = RaidResultView.Find<VisualElement>(documentRoot, SellName);
             this.onBuy = onBuy;
             this.onSell = onSell;
+            this.onRepair = onRepair;
             SetVisible(false);
         }
 
@@ -66,7 +72,16 @@ namespace Ashfall.UI
             foreach (TraderSellRow row in model.Sell)
             {
                 ItemInstance item = row.Item;
-                sell.Add(Row(row.Name, row.PriceText, UiText.TraderSell, hubEnabled && row.CanSell, () => onSell?.Invoke(item), RarityStyle.ClassFor(item)));
+                VisualElement line = Row(row.Name, row.PriceText, UiText.TraderSell, hubEnabled && row.CanSell, () => onSell?.Invoke(item), RarityStyle.ClassFor(item));
+                // [수리]는 [판매] 뒤(줄의 첫 버튼 = [판매] 유지). 수리가 필요 없으면 숨김 (MF-Q13)
+                var repair = new Button(() => onRepair?.Invoke(item)) { text = row.RepairText };
+                repair.AddToClassList("ash-button");
+                repair.AddToClassList(RowButtonClass);
+                repair.AddToClassList(RowRepairClass);
+                repair.SetEnabled(hubEnabled && row.CanRepair);
+                repair.style.display = row.NeedsRepair ? DisplayStyle.Flex : DisplayStyle.None;
+                line.Add(repair);
+                sell.Add(line);
             }
         }
 

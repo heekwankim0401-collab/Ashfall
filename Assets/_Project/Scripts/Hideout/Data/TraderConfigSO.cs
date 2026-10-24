@@ -19,6 +19,11 @@ namespace Ashfall.Hideout
                  "0 이상, 매수 배율 이하(되팔기 이득 없음 — 넘으면 매수 배율로 자른다). TODO(GDD-?) Q10")]
         [Min(0f)]
         public float sellPriceMultiplier = 0.4f;
+        // MVP 마무리 F3 상인 수리 (§5.1, MF-Q13). TODO(GDD-?) MF-Q13: GDD에 수리비가 없다 — 임시값 0.5.
+        [Tooltip("수리비 = max(1, 올림(basePrice × 이 값 × 잃은 내구도 비율)), 100%로 수리. " +
+                 "매도 배율 이상(수리 후 되팔기 이득 없음 — 작으면 매도 배율로 올린다). TODO(GDD-?) MF-Q13")]
+        [Min(0f)]
+        public float repairCostRatio = 0.5f;
         [Tooltip("판매 목록 (이 순서로 표시, 재고 무제한). null·가격 0 이하·중복은 목록에서 빠진다. TODO(GDD-?) Q11")]
         public ItemDefinitionSO[] catalog;
 
@@ -26,6 +31,7 @@ namespace Ashfall.Hideout
         {
             buyPriceMultiplier = Mathf.Max(0f, buyPriceMultiplier);
             sellPriceMultiplier = Mathf.Clamp(sellPriceMultiplier, 0f, buyPriceMultiplier);
+            repairCostRatio = Mathf.Max(repairCostRatio, sellPriceMultiplier);
         }
     }
 }

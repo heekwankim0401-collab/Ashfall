@@ -222,6 +222,21 @@ namespace Ashfall.Hideout
             return result;
         }
 
+        // ── MVP 마무리 F3 상인 수리 (§5.1, MF-Q13·Q14) ──
+
+        public int GetRepairCost(ItemInstance item) => Trader?.GetRepairCost(item) ?? -1;
+
+        // 떠나는 중·프로필 없음 → Unavailable. 읽기 전용은 상인 거래처럼 허용(저장만 안 된다). 성공하면 HideoutChanged.
+        public RepairResult TryRepair(ItemInstance item)
+        {
+            if (IsLeaving || Trader == null)
+                return RepairResult.Unavailable;
+            RepairResult result = Trader.TryRepair(item);
+            if (result == RepairResult.Ok)
+                publishChanged();
+            return result;
+        }
+
         // id가 같은 유효한 레시피 중 첫 번째
         private CraftingRecipe FindRecipe(string recipeId)
         {

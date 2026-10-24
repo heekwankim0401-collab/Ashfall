@@ -206,6 +206,48 @@ namespace Ashfall.UI
             return string.IsNullOrEmpty(def.displayName) ? def.id : def.displayName;
         }
 
+        // ── MVP 마무리 F3 내구도 대략 등급 (§5.1, MF-Q10·Q11, RULE-04: 숫자 없음) ──
+        public static string ConditionWord(ItemConditionTier tier)
+        {
+            switch (tier)
+            {
+                case ItemConditionTier.Worn: return "낡음";
+                case ItemConditionTier.Critical: return "위험";
+                default: return "양호";
+            }
+        }
+
+        // 내구도 있는 아이템이면 "이름 (낡음)", 아니면(탄창·잡동사니·config 없음) ItemLabel 그대로
+        public static string ItemLabelWithCondition(ItemInstance item, HudConfigSO config)
+        {
+            string label = ItemLabel(item);
+            if (!ItemConditionRules.TryGetTier(item, config, out ItemConditionTier tier))
+                return label;
+            return label + " (" + ConditionWord(tier) + ")";
+        }
+
+        // ── MVP 마무리 F3 상인 수리 (MF-Q13·Q14) ──
+        public const string MessageRepairNotNeeded = "수리할 필요가 없다.";
+        public const string MessageRepairNotInStash = "보관함에 있는 것만 수리할 수 있다.";
+
+        // [수리 (625 탄피)]
+        public static string RepairButton(int cost) => "수리 (" + Price(cost) + ")";
+
+        public static string Repaired(string itemName) => "수리했다: " + itemName;
+
+        // 실패 문구 (성공은 Repaired)
+        public static string Repair(RepairResult result)
+        {
+            switch (result)
+            {
+                case RepairResult.NotEnoughCasings: return MessageNotEnoughCasings;
+                case RepairResult.NotNeeded: return MessageRepairNotNeeded;
+                case RepairResult.NotInStash: return MessageRepairNotInStash;
+                case RepairResult.Unavailable: return MessageUnavailable;
+                default: return string.Empty;
+            }
+        }
+
         public static string SlotLabel(EquipSlot slot)
         {
             switch (slot)

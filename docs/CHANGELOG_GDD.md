@@ -429,3 +429,6 @@
   읽기 전용 프로필에서도 허용(상인과 같음). 그리드는 제자리 확장(`ItemGrid.TryGrow`), 확장 실패 시 탄피를 깎지 않는다. 줄 수가 이전 단계 이하인 설정 단계부터는 무시.
 - **F2 §13.3 세이브 version 3:** `SaveData.stashLevel`(v1·v2 → 0, 음수 → 0, 설정 최대보다 크면 최대로 자름·환불 없음). v4 이상 = 지원 안 함(격리, 기존 규칙). v3 파일을 이전 빌드로 열면 격리 + 새 프로필.
   에셋은 `Ashfall/Setup/Apply MVP Finish Data`(`MvpFinishDataSetup.ApplyAll`, `Apply M7 Content` 끝에서도 호출, 파일에 없는 필드만)가 기록.
+- **F3 §5.1 내구도 표시·수리·가격 (Q10~Q15):** 무기·방어구(`IDurableItem`) 이름 뒤 "(양호/낡음/위험)" — 비율 ≥ 0.5 / 0.25~0.5 / < 0.25(`HudConfigSO`, TODO), 숫자 없음(RULE-04).
+  인벤토리 칸·장비 슬롯·상인 매도 줄. 매도 = 내림(base × 0.4 × 비율) + 장착 탄창, 매수는 새 물건(비율 1)이라 공식은 같고 결과가 같다.
+  수리 = 보관함 아이템만, 상인 매도 줄 [수리 (N 탄피)], max(1, 올림(base × 0.5 × 잃은 비율)), 100%로(`TraderConfigSO.repairCostRatio`, TODO, OnValidate가 매도 배율 이상으로 올림). 수리 후 되팔기 이득 없음(0.5 ≥ 0.4).

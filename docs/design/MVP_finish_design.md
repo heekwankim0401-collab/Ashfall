@@ -423,3 +423,19 @@ GDD §15에 이 작업의 AC가 없어 아래를 AC로 쓴다(§9 GDD 수정 제
   EditMode `MvpFinishDataAssetTests`가 파일 기록·재실행 바이트 동일을 고정한다.
 - 테스트: EditMode 새 46개(`SaveSerializerV3Tests`·`StashUpgradeModelTests`(모델·서비스 위임·에셋)·`ItemGridTests` TryGrow 2·`HideoutStashUpgradeUiTests`), PlayMode `StashUpgradeFlowTests` 1개.
   사본에서 EditMode 1869·PlayMode 183 전부 통과. 새 `.meta`는 Unity가 만들었다(손으로 만든 것 없음). CHANGELOG_GDD는 손대지 않았다(§10 초안 = 오케스트레이터).
+
+## F3 구현 메모 (gameplay-programmer, 2026-10-24)
+- 설계 §1.4·§3대로 구현: Core `Items/IDurableItem.cs`(`IDurableItem`, `DurabilityRules.Ratio`·`HasDurability`·`RestoreFull`), `WeaponItem : IDurableItem`(MaxDurability 명시적 구현),
+  `IHideoutService.GetRepairCost`·`TryRepair`·`RepairResult`. Hideout `PriceRules`(매도 본체 × 비율, 장착 탄창 그대로, `RepairCost` = max(1, 올림(base × repairCostRatio × (1 − 비율))), 100%·내구도 없음 = −1),
+  `TraderModel.GetRepairCost`·`TryRepair`(NotInStash → NotNeeded → NotEnoughCasings → 차감·100), `TraderConfigSO.repairCostRatio = 0.5`(TODO MF-Q13), `HideoutService` 위임(떠나는 중 Unavailable, 읽기 전용 허용) + `HideoutChanged`.
+  UI `ItemConditionRules`·`ItemConditionTier`(경계 값은 위 등급: 0.5 = 양호, 0.25 = 낡음), `HudConfigSO.conditionWornBelow 0.5`·`conditionCriticalBelow 0.25`(TODO MF-Q10, OnValidate critical ≤ worn),
+  `UiText.ConditionWord`·`ItemLabelWithCondition`·수리 문구, `InventoryScreenView`(생성자 끝 선택 인자 `HudConfigSO conditionConfig` + 속성 `ConditionConfig`, `BuildItem` = 칸·장비 슬롯), `TraderSellRow`(NeedsRepair·RepairText·CanRepair, 기존 생성자 유지),
+  `TraderViewModel.Build(hideout, conditionConfig = null)`, `TraderView`(선택 인자 `onRepair`, `RowRepairClass`), `HideoutPresenter(hideout, flow, conditionConfig = null)`·`Repair(item)`, `GameUIRoot`·`HideoutRoot` 연결. EditorTools `MvpFinishDataSetup.ApplyTraderAndHud`.
+- 설계와 다른 점: ① [수리 (N 탄피)] 버튼은 [판매] **뒤**에 둔다 — 줄의 첫 버튼이 [판매]로 남아 기존 테스트·`M5TestSupport.RowButton`이 그대로 동작. 수리 불필요면 요소는 있고 `display: none`.
+  ② 경계(HudConfig)가 없으면(null) 이름만 — 코드에 경계 기본값을 두지 않았다(기존 생성 호출 = 등급 없음). ③ `TraderConfigSO.OnValidate`가 repairCostRatio를 매도 배율 이상으로 올린다(되팔기 이득 방지).
+  ④ 작은 칸 잘림: `.inv-item`이 이미 `white-space: normal`이라 "(낡음)"이 다음 줄로 넘어간다 — USS 변경 없음(에디터 확인 3번에서 권총 2×1 확인). [판매]·[수리] 사이 여백은 기존 클래스 그대로(margin 0).
+  ⑤ 성공 문구 `UiText.Repaired("이름 (양호)")` "수리했다: …", 실패 NotNeeded·NotInStash 문구 추가.
+- 에셋: 사본에서 `-executeMethod Ashfall.EditorTools.MvpFinishDataSetup.ApplyAll` 1회 → `TraderConfig.asset` `repairCostRatio: 0.5`, `HudConfig.asset` `conditionWornBelow: 0.5`·`conditionCriticalBelow: 0.25` 기록, 2회째 기록 로그 없음·md5 동일.
+- 테스트: EditMode `DurabilityRepairTests.cs` 34개(규칙·등급 문구(숫자 없음)·가격·수리비·되팔기 이득 없음·TraderModel·HideoutService 위임·저장·뷰모델·프레젠터·TraderView·인벤토리 라벨·에셋/재실행 바이트 동일·에셋 repairCostRatio ≥ sellPriceMultiplier),
+  PlayMode `RepairFlowTests` 1개(은신처 보관함 낡은 권총 → [수리] 클릭 → 탄피 차감·내구도 100·"(양호)"·[수리] 숨김·매도가 원래대로·[장비] 칸 라벨, SaveSandbox). 기존 단언 변경 없음(`FakeHideoutService` 멤버 추가만).
+  사본에서 EditMode 1903·PlayMode 184 전부 통과. 새 `.meta`는 Unity가 만들었다. CHANGELOG_GDD는 손대지 않았다.

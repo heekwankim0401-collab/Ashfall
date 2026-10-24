@@ -103,13 +103,18 @@ namespace Ashfall.UI
         private bool hasPointer;
         private float cellPx;
 
+        // MVP 마무리 F3 (MF-Q11): 내구도 대략 등급 경계. 있으면 칸·장비 슬롯 이름 뒤 "(양호/낡음/위험)", null이면 이름만.
+        // 드래그 고스트·퀵슬롯은 이름만. 다음 Render부터 적용.
+        public HudConfigSO ConditionConfig { get; set; }
+
         private Label ghost;
         private VisualElement highlight;
         private VisualElement highlightedSlot;
 
         public InventoryScreenView(VisualElement documentRoot, float dragThresholdPx,
-            IReadOnlyList<string> quickSlotKeys, Func<bool> quickMoveModifier)
+            IReadOnlyList<string> quickSlotKeys, Func<bool> quickMoveModifier, HudConfigSO conditionConfig = null)
         {
+            ConditionConfig = conditionConfig;
             screen = documentRoot.Q<VisualElement>(ScreenName) ?? throw HudView.Missing(ScreenName);
             equipSlots = documentRoot.Q<VisualElement>(EquipSlotsName) ?? throw HudView.Missing(EquipSlotsName);
             storage = documentRoot.Q<VisualElement>(StorageName) ?? throw HudView.Missing(StorageName);
@@ -344,7 +349,8 @@ namespace Ashfall.UI
 
         private Label BuildItem(ItemInstance item)
         {
-            var element = new Label(UiText.ItemLabel(item)) { userData = new ItemTag(item) };
+            // 작은 칸(1×N)에서는 .inv-item의 white-space: normal로 "(낡음)"이 다음 줄로 넘어간다 (설계 §8)
+            var element = new Label(UiText.ItemLabelWithCondition(item, ConditionConfig)) { userData = new ItemTag(item) };
             element.AddToClassList(ItemClass);
             RarityStyle.Apply(element, item);   // §6 희귀도 테두리 (Q49). 장비 슬롯·그리드·보관함 공통
             if (drag != null && ReferenceEquals(drag.Dragging, item))

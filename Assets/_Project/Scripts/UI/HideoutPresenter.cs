@@ -27,10 +27,14 @@ namespace Ashfall.UI
         private readonly IHideoutService hideout;
         private readonly GameFlow flow;
 
-        public HideoutPresenter(IHideoutService hideout, GameFlow flow)
+        private readonly HudConfigSO conditionConfig;
+
+        // conditionConfig = 내구도 대략 등급 경계(MVP 마무리 F3, 상인 매도 줄 이름). null이면 등급 없이 이름만 — 기존 호출 그대로.
+        public HideoutPresenter(IHideoutService hideout, GameFlow flow, HudConfigSO conditionConfig = null)
         {
             this.hideout = hideout ?? throw new ArgumentNullException(nameof(hideout));
             this.flow = flow ?? throw new ArgumentNullException(nameof(flow));
+            this.conditionConfig = conditionConfig;
             // W1 진입 저장 실패 → 진입은 계속, 메시지만 (M5 설계 §1.4). 읽기 전용(세이브를 못 읽음)이면 그 문구.
             Message = hideout.IsReadOnly ? UiText.MessageReadOnly
                 : hideout.LastSaveFailed ? UiText.MessageSaveFailed
@@ -50,7 +54,7 @@ namespace Ashfall.UI
         public RaidResultViewModel Result { get; private set; }
         // 항상 값이 있다 (탭이 Trader일 때 뷰가 그린다). 처음 읽을 때 만들고 Refresh가 버린다 —
         // 숨은 [상인] 탭 때문에 이벤트마다 매도 목록을 다시 만들지 않게 (M5 리뷰 10).
-        public TraderViewModel Trader => trader ??= TraderViewModel.Build(hideout);
+        public TraderViewModel Trader => trader ??= TraderViewModel.Build(hideout, conditionConfig);
         // [제작] 탭 데이터. 상인과 같이 처음 읽을 때 만들고 Refresh가 버린다 (숨은 탭 때문에 이벤트마다 다시 세지 않게).
         public CraftingViewModel Crafting => crafting ??= CraftingViewModel.Build(hideout);
 
@@ -191,6 +195,17 @@ namespace Ashfall.UI
             Message = result == TradeResult.Ok ? UiText.Sold(name) : UiText.Trade(result);
             Refresh();
             return result == TradeResult.Ok;
+        }
+
+        // [수리] (MVP 마무리 F3, MF-Q13·Q14 — 보관함 아이템만). 성공 문구는 수리 뒤 이름("이름 (양호)").
+        public bool Repair(ItemInstance item)
+        {
+            if (!HubEnabled || item == null)
+                return false;
+            RepairResult result = hideout.TryRepair(item);
+            Message = result == RepairResult.Ok ? UiText.Repaired(UiText.ItemLabelWithCondition(item, conditionConfig)) : UiText.Repair(result);
+            Refresh();
+            return result == RepairResult.Ok;
         }
 
         // [제작] (M7, Q44~Q47). 결과 문구: 성공 = "만들었다: 레시피 이름", 실패 = 재료 부족·보관함 자리 없음 등.

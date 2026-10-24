@@ -4,7 +4,8 @@ namespace Ashfall.Core
 {
     // 무기 아이템. 장착된 탄창을 들고 있고 무게에 포함한다 (§4.1 무게).
     // M7: 내구도(§5.1, 0~100 %)와 고장 상태. 내장 튜브 무기는 생성 때 빈 튜브를 장착 탄창으로 가진다 (TODO(GDD-?) Q5).
-    public sealed class WeaponItem : ItemInstance
+    // MVP 마무리 F3: IDurableItem(대략 등급 표시·매도가·수리 공통). MaxDurability는 기존 const와 이름이 같아 명시적 구현.
+    public sealed class WeaponItem : ItemInstance, IDurableItem
     {
         public const float MaxDurability = 100f;
 
@@ -30,6 +31,8 @@ namespace Ashfall.Core
             Definition = definition;
             LoadedMagazine = loaded ?? (definition.internalMagazine != null ? new Magazine(definition.internalMagazine, 0) : null);
         }
+
+        float IDurableItem.MaxDurability => MaxDurability;
 
         public override float WeightKg => Definition.weightKg + (LoadedMagazine?.WeightKg ?? 0f);
     }

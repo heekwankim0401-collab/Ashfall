@@ -16,6 +16,7 @@ MonoBehaviour:
   displayName: "\uACE0\uBB3C\uC0C1"
   buyPriceMultiplier: 1
   sellPriceMultiplier: 0.4
+  repairCostRatio: 0.5
   catalog:
   - {fileID: 11400000, guid: 8b913dda283d4cf4d87b5e949e0042dc, type: 2}
   - {fileID: 11400000, guid: 8bf876d69e7c41343a655c0a81d68e95, type: 2}

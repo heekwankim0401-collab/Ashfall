@@ -204,7 +204,7 @@ namespace Ashfall.UI
                 if (presenter != null)
                     presenter.Changed -= OnPresenterChanged;
                 hideout = foundHideout;
-                presenter = hideout != null ? new HideoutPresenter(hideout, gm.Flow) : null;
+                presenter = hideout != null ? new HideoutPresenter(hideout, gm.Flow, hudConfig) : null;
                 if (presenter != null)
                     presenter.Changed += OnPresenterChanged;
                 viewDirty = true;
@@ -256,9 +256,10 @@ namespace Ashfall.UI
             hubView = new HideoutHubView(root, OnTabClicked, OnKitClicked, OnStartRaidClicked, OnMainMenuClicked, OnStashUpgradeClicked);
             noticeView = new HideoutNoticeView(root, OnNoticeConfirmClicked);
             resultView = new RaidResultView(root, OnResultConfirmClicked);
-            traderView = new TraderView(root, OnBuyClicked, OnSellClicked);
+            traderView = new TraderView(root, OnBuyClicked, OnSellClicked, OnRepairClicked);
             craftingView = new CraftingView(root, OnCraftClicked);
-            inventoryView = new InventoryScreenView(root, threshold, quickSlotKeys, IsQuickMoveModifierHeld);
+            // MVP 마무리 F3: 보관함·장비 칸 이름 뒤 내구도 등급 (hudConfig 없으면 이름만)
+            inventoryView = new InventoryScreenView(root, threshold, quickSlotKeys, IsQuickMoveModifierHeld, hudConfig);
             viewsBuilt = true;
             viewDirty = true;
         }
@@ -371,6 +372,9 @@ namespace Ashfall.UI
                 drag.Cancel();
             presenter?.Sell(item);
         }
+
+        // MVP 마무리 F3 [수리] (MF-Q13·Q14)
+        private void OnRepairClicked(ItemInstance item) => presenter?.Repair(item);
 
         // Ctrl+클릭 빠른 이동 (GameUIRoot와 같음)
         private static bool IsQuickMoveModifierHeld()

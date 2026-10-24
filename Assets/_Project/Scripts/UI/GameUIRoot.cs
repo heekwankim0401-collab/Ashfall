@@ -205,7 +205,7 @@ namespace Ashfall.UI
                 return;
 
             hud = new HudView(root);
-            inventoryView = new InventoryScreenView(root, config.dragThresholdPx, quickSlotKeys, IsQuickMoveModifierHeld);
+            inventoryView = new InventoryScreenView(root, config.dragThresholdPx, quickSlotKeys, IsQuickMoveModifierHeld, config);
             bodyView = new BodyStatusScreenView(root);
             mapView = new MapScreenView(root);
             pauseView = new PauseScreenView(root, OnResumeClicked, OnAbandonClicked, OnConfirmAbandonClicked, OnCancelAbandonClicked);

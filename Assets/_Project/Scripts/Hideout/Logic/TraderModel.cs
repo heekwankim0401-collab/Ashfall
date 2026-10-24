@@ -8,6 +8,7 @@ namespace Ashfall.Hideout
     // - 매수: 판매 목록 안의 정의만. 탄피 부족 → NotEnoughCasings, 보관함 자리 없음 → NoSpace(돈을 받지 않는다).
     //   보관함 자동 배치에 성공한 뒤 차감. 탄창은 가득, 무기는 탄창 없이 (ItemFactory.Create).
     // - 매도: 보관함에 있는 아이템만 (Q12). 가격 0도 팔린다(= 처분, 은신처에는 버리기가 없다).
+    // - 수리(MVP 마무리 F3): 보관함의 내구도 있는 아이템만, 탄피로 100%로 (MF-Q13·Q14).
     // 변경 알림(HideoutChanged)은 호출자(HideoutService)가 낸다.
     public sealed class TraderModel
     {
@@ -75,6 +76,31 @@ namespace Ashfall.Hideout
             long total = (long)profile.Casings + price;
             profile.Casings = total >= int.MaxValue ? int.MaxValue : (int)total;
             return TradeResult.Ok;
+        }
+
+        // MVP 마무리 F3 (MF-Q13·Q14). 보관함 밖·null·수리 불필요 → -1
+        public int GetRepairCost(ItemInstance item)
+        {
+            if (item == null || !profile.Stash.Contains(item))
+                return -1;
+            return PriceRules.RepairCost(item, trader);
+        }
+
+        // 보관함 밖 → NotInStash, 내구도 없음·100% → NotNeeded, 탄피 부족 → NotEnoughCasings(변화 없음).
+        // 성공 = 탄피 차감 + 내구도 최대(최대 내구도 감소 없음). 아이템 자리는 그대로.
+        public RepairResult TryRepair(ItemInstance item)
+        {
+            if (item == null || !profile.Stash.Contains(item))
+                return RepairResult.NotInStash;
+            int cost = PriceRules.RepairCost(item, trader);
+            if (cost < 0)
+                return RepairResult.NotNeeded;
+            if (profile.Casings < cost)
+                return RepairResult.NotEnoughCasings;
+            if (!DurabilityRules.RestoreFull(item))
+                return RepairResult.NotNeeded;
+            profile.Casings -= cost;
+            return RepairResult.Ok;
         }
 
         private int IndexOfOffer(ItemDefinitionSO item)

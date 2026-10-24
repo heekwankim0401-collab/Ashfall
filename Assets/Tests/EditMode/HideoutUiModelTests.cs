@@ -96,6 +96,24 @@ namespace Ashfall.Tests.EditMode
             return UpgradeResult;
         }
 
+        // MVP 마무리 F3: 상인 수리. RepairCosts에 없으면 -1(수리 불필요). RepairResultToReturn = Ok면 내구도를 최대로 되돌린다.
+        public readonly Dictionary<ItemInstance, int> RepairCosts = new Dictionary<ItemInstance, int>();
+        public RepairResult RepairResultToReturn = RepairResult.Ok;
+
+        public int GetRepairCost(ItemInstance item) =>
+            item != null && RepairCosts.TryGetValue(item, out int c) ? c : -1;
+
+        public RepairResult TryRepair(ItemInstance item)
+        {
+            Calls.Add("Repair:" + item.Definition.id);
+            if (RepairResultToReturn == RepairResult.Ok)
+            {
+                DurabilityRules.RestoreFull(item);
+                RepairCosts.Remove(item);
+            }
+            return RepairResultToReturn;
+        }
+
         public void AcknowledgeNotice()
         {
             Calls.Add("AckNotice");

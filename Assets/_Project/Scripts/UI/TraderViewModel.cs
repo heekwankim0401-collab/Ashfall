@@ -21,20 +21,33 @@ namespace Ashfall.UI
         }
     }
 
-    // 보관함 매도 한 줄 (이름 · 매도가 · [판매]). 같은 정의도 아이템마다 한 줄 (Q12: 보관함 아이템만).
+    // 보관함 매도 한 줄 (이름 · 매도가 · [수리] · [판매]). 같은 정의도 아이템마다 한 줄 (Q12: 보관함 아이템만).
+    // MVP 마무리 F3: 이름 뒤 내구도 대략 등급(MF-Q11), 수리가 필요하면 [수리 (N 탄피)](MF-Q13·Q14).
     public readonly struct TraderSellRow
     {
         public readonly ItemInstance Item;
         public readonly string Name;
         public readonly string PriceText;
         public readonly bool CanSell;
+        public readonly bool NeedsRepair;   // 수리비 ≥ 0 (내구도 있고 100% 미만) — 아니면 [수리] 숨김
+        public readonly string RepairText;  // [수리] 버튼 문구 (NeedsRepair일 때만)
+        public readonly bool CanRepair;     // NeedsRepair이고 탄피 ≥ 수리비이고 떠나는 중이 아님
 
         public TraderSellRow(ItemInstance item, string name, string priceText, bool canSell)
+            : this(item, name, priceText, canSell, false, string.Empty, false)
+        {
+        }
+
+        public TraderSellRow(ItemInstance item, string name, string priceText, bool canSell,
+            bool needsRepair, string repairText, bool canRepair)
         {
             Item = item;
             Name = name;
             PriceText = priceText;
             CanSell = canSell;
+            NeedsRepair = needsRepair;
+            RepairText = repairText ?? string.Empty;
+            CanRepair = canRepair;
         }
     }
 
@@ -53,7 +66,8 @@ namespace Ashfall.UI
         public IReadOnlyList<TraderOfferRow> Offers { get; }   // IHideoutService.Offers 순
         public IReadOnlyList<TraderSellRow> Sell { get; }      // 보관함 배치 순 (위→아래, 왼→오른쪽)
 
-        public static TraderViewModel Build(IHideoutService hideout)
+        // conditionConfig = 내구도 대략 등급 경계(HudConfigSO, MVP 마무리 F3). null이면 매도 줄 이름에 등급을 붙이지 않는다.
+        public static TraderViewModel Build(IHideoutService hideout, HudConfigSO conditionConfig = null)
         {
             if (hideout == null)
                 throw new ArgumentNullException(nameof(hideout));
@@ -103,7 +117,11 @@ namespace Ashfall.UI
                 int price = hideout.GetSellPrice(item);
                 if (price < 0)
                     continue;   // 보관함 밖으로 보고됨 (서비스 기준) — 팔 수 없다
-                sell.Add(new TraderSellRow(item, UiText.ItemLabel(item), UiText.Price(price), !leaving));
+                int repairCost = hideout.GetRepairCost(item);
+                bool needsRepair = repairCost >= 0;
+                sell.Add(new TraderSellRow(item, UiText.ItemLabelWithCondition(item, conditionConfig), UiText.Price(price), !leaving,
+                    needsRepair, needsRepair ? UiText.RepairButton(repairCost) : string.Empty,
+                    needsRepair && !leaving && repairCost <= casings));
             }
 
             return new TraderViewModel(hideout.TraderName ?? string.Empty, offers, sell);
