@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 
 namespace Ashfall.Core
@@ -58,6 +59,8 @@ namespace Ashfall.Core
     public sealed class SmokeRunner
     {
         public const string ArgumentName = "-ashfallSmoke";
+        // 선택 인자: 레이드에 머무는 시간(레이드 경과 초). 없으면 SmokeScenario.DefaultRaidDurationSec. 성능 실측용(MVP 최종 정리).
+        public const string RaidSecArgumentName = "-ashfallSmokeRaidSec";
         // TODO(GDD-?) Q51: 기술 상수(게임 수치 아님) — 스모크 전체 제한 시간(실시간). 넘으면 실패(종료 코드 1).
         public const float DefaultTimeoutSec = 60f;
         public const int SuccessExitCode = 0;
@@ -119,6 +122,39 @@ namespace Ashfall.Core
                 return new SmokeArguments(true, folder, null);
             }
             return new SmokeArguments(false, null, null);
+        }
+
+        // 명령줄에서 "-ashfallSmokeRaidSec <초>"를 찾는다 (이름은 대소문자 무시, 소수점은 '.'). 없으면 fallback으로 true.
+        // 값이 없거나 0 이하·숫자가 아니면 false + error (스모크를 실패로 끝낸다).
+        public static bool TryParseRaidDuration(IReadOnlyList<string> args, float fallback, out float raidSec, out string error)
+        {
+            raidSec = fallback;
+            error = null;
+            if (args == null)
+                return true;
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (!string.Equals(args[i], RaidSecArgumentName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                string value = i + 1 < args.Count ? args[i + 1] : null;
+                if (value == null
+                    || !float.TryParse(value.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
+                    || !(parsed > 0f) || float.IsInfinity(parsed))
+                {
+                    error = $"{RaidSecArgumentName} 뒤에 0보다 큰 초 값이 없다.";
+                    return false;
+                }
+                raidSec = parsed;
+                return true;
+            }
+            return true;
+        }
+
+        // 레이드 체류 시간에 맞춘 전체 제한 시간: 기본 제한 + 기본 체류 시간을 넘는 만큼
+        public static float TimeoutForRaidDuration(float raidSec)
+        {
+            float extra = raidSec - SmokeScenario.DefaultRaidDurationSec;
+            return DefaultTimeoutSec + (extra > 0f ? extra : 0f);
         }
 
         // 두 폴더가 같은 곳인가 (절대 경로·끝 구분자·대소문자 무시 — Windows 기준). 하나라도 비었으면 false.

@@ -14,6 +14,7 @@ namespace Ashfall.Tests.EditMode
             FrameTimeSummary s = stats.Compute();
             Assert.AreEqual(0, s.Count);
             Assert.AreEqual(0f, s.MedianMs);
+            Assert.AreEqual(0f, s.P95Ms);
             Assert.AreEqual(0f, s.P99Ms);
             Assert.AreEqual(0f, s.MaxMs);
             Assert.AreEqual(0f, s.Fps);
@@ -47,6 +48,7 @@ namespace Ashfall.Tests.EditMode
             FrameTimeSummary s = stats.Compute();
             Assert.AreEqual(100, s.Count);
             Assert.AreEqual(50.5f, s.MedianMs, 1e-4f);
+            Assert.AreEqual(95f, s.P95Ms, 1e-5f);
             Assert.AreEqual(99f, s.P99Ms, 1e-5f);
             Assert.AreEqual(100f, s.MaxMs, 1e-5f);
             Assert.AreEqual(50.5f, s.MeanMs, 1e-3f);

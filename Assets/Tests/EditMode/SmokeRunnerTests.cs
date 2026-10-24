@@ -127,6 +127,44 @@ namespace Ashfall.Tests.EditMode
         }
 
         [Test]
+        public void RaidDuration_DefaultWhenAbsent_ParsedWhenGiven()
+        {
+            Assert.IsTrue(SmokeRunner.TryParseRaidDuration(new[] { "-ashfallSmoke", "x" }, 10f, out float d, out string e));
+            Assert.AreEqual(10f, d);
+            Assert.IsNull(e);
+
+            Assert.IsTrue(SmokeRunner.TryParseRaidDuration(new[] { "-ashfallSmoke", "x", "-ASHFALLSMOKERAIDSEC", "75.5" }, 10f, out d, out e));
+            Assert.AreEqual(75.5f, d, 1e-5f);
+            // 폴더 인자 해석과 겹치지 않는다
+            Assert.AreEqual(Path.GetFullPath("x"), SmokeRunner.ParseArguments(new[] { "-ashfallSmokeRaidSec", "5", "-ashfallSmoke", "x" }).Folder);
+        }
+
+        [Test]
+        public void RaidDuration_InvalidValue_Fails()
+        {
+            foreach (string[] args in new[]
+                     {
+                         new[] { "-ashfallSmokeRaidSec" },
+                         new[] { "-ashfallSmokeRaidSec", "abc" },
+                         new[] { "-ashfallSmokeRaidSec", "0" },
+                         new[] { "-ashfallSmokeRaidSec", "-5" },
+                     })
+            {
+                Assert.IsFalse(SmokeRunner.TryParseRaidDuration(args, 10f, out _, out string e), string.Join(" ", args));
+                StringAssert.Contains(SmokeRunner.RaidSecArgumentName, e);
+            }
+        }
+
+        [Test]
+        public void RaidDuration_ExtendsTimeout()
+        {
+            Assert.AreEqual(SmokeRunner.DefaultTimeoutSec, SmokeRunner.TimeoutForRaidDuration(SmokeScenario.DefaultRaidDurationSec));
+            Assert.AreEqual(SmokeRunner.DefaultTimeoutSec, SmokeRunner.TimeoutForRaidDuration(1f));
+            Assert.AreEqual(SmokeRunner.DefaultTimeoutSec + 110f,
+                SmokeRunner.TimeoutForRaidDuration(SmokeScenario.DefaultRaidDurationSec + 110f), 1e-4f);
+        }
+
+        [Test]
         public void Diagnostics_OnlyInDevelopmentPlayer()
         {
             Assert.IsTrue(DevDiagnostics.ShouldAttach(isDebugBuild: true, isEditor: false));

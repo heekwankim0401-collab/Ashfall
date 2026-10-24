@@ -6,8 +6,9 @@ namespace Ashfall.Core
 {
     // 개발 빌드 진단 (M7 설계 §1.9, Q51). GameManager 오브젝트의 컴포넌트 — GameManager가 개발 빌드 플레이어에서만 붙인다
     // (ShouldAttach: 릴리스 빌드·에디터 Play에는 없음). 정적 인스턴스 없음.
-    // - 프레임 시간: LogIntervalSec마다 중앙값·99%·최대 ms와 fps 추정을 Player.log에 한 줄(FrameTimeStats 고정 링 버퍼, 표본 추가 할당 0).
+    // - 프레임 시간: LogIntervalSec마다 중앙값·95%·99%·최대 ms와 fps 추정을 Player.log에 한 줄(FrameTimeStats 고정 링 버퍼, 표본 추가 할당 0).
     // - 스모크: 명령줄 "-ashfallSmoke <폴더>"일 때만. 세이브 위치를 그 폴더로 바꾸고(FileSaveStorage, 실제 persistentDataPath 안 씀)
+    //   "-ashfallSmokeRaidSec <초>"로 레이드 체류 시간을 늘릴 수 있다(성능 실측용, 제한 시간도 그만큼 늘어남).
     //   SmokeScenario 단계를 SmokeRunner로 돌린 뒤 종료 코드(성공 0, 실패·예외·시간 초과 1)로 Application.Quit.
     //   폴더 정책(7D 리뷰 낮음 4, SmokeRunner.PrepareSaveFolder): persistentDataPath와 같으면 종료 1, 남은 save.json*·save.corrupt.json은 지우고 시작.
     public sealed class DevDiagnostics : MonoBehaviour
@@ -43,7 +44,8 @@ namespace Ashfall.Core
             nextLogAt = Time.realtimeSinceStartup + LogIntervalSec;
             Debug.Log($"{LogTag} 개발 빌드 진단 켜짐 — 프레임 시간 {LogIntervalSec:0}초마다 기록");
 
-            SmokeArguments args = SmokeRunner.ParseArguments(Environment.GetCommandLineArgs());
+            string[] commandLine = Environment.GetCommandLineArgs();
+            SmokeArguments args = SmokeRunner.ParseArguments(commandLine);
             if (!args.Requested)
                 return;
             Application.logMessageReceivedThreaded += OnLogMessage;
@@ -51,6 +53,13 @@ namespace Ashfall.Core
             {
                 smokeArgumentError = true;
                 Debug.LogError($"{SmokeRunner.LogTag} {args.Error} 종료 코드 {SmokeRunner.FailureExitCode}");
+                return;
+            }
+
+            if (!SmokeRunner.TryParseRaidDuration(commandLine, SmokeScenario.DefaultRaidDurationSec, out float raidSec, out string raidSecError))
+            {
+                smokeArgumentError = true;
+                Debug.LogError($"{SmokeRunner.LogTag} {raidSecError} 종료 코드 {SmokeRunner.FailureExitCode}");
                 return;
             }
 
@@ -72,8 +81,8 @@ namespace Ashfall.Core
             }
             gm.UseSaveStorage(storage);
             Debug.Log($"{SmokeRunner.LogTag} 세이브 폴더 {args.Folder} ({storage.FilePath}), 남은 세이브 파일 {deleted}개 지움");
-            var env = new SmokeEnvironment(gm.Flow, gm.Services, gm.Events, gm.Profiles, storage);
-            smoke = new SmokeRunner(SmokeScenario.Build(env), SmokeRunner.DefaultTimeoutSec, Debug.Log);
+            var env = new SmokeEnvironment(gm.Flow, gm.Services, gm.Events, gm.Profiles, storage, raidSec);
+            smoke = new SmokeRunner(SmokeScenario.Build(env), SmokeRunner.TimeoutForRaidDuration(raidSec), Debug.Log);
         }
 
         private void OnDestroy()
@@ -119,7 +128,7 @@ namespace Ashfall.Core
             FrameTimeSummary s = stats.Compute();
             if (s.Count == 0)
                 return;
-            Debug.Log($"{LogTag} 프레임 {s.Count}개(전체 {stats.TotalAdded}개, 버퍼 {stats.Capacity}) — 중앙값 {s.MedianMs:0.00}ms, 99% {s.P99Ms:0.00}ms, " +
+            Debug.Log($"{LogTag} 프레임 {s.Count}개(전체 {stats.TotalAdded}개, 버퍼 {stats.Capacity}) — 중앙값 {s.MedianMs:0.00}ms, 95% {s.P95Ms:0.00}ms, 99% {s.P99Ms:0.00}ms, " +
                       $"최대 {s.MaxMs:0.00}ms, fps 약 {s.Fps:0} (평균 {s.MeanMs:0.00}ms)");
         }
 

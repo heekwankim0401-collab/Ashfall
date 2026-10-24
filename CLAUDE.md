@@ -4,13 +4,15 @@
 **구현 기준은 [docs/GDD.md](docs/GDD.md)다.** 작업 전 §0 작업 규칙, §13 기술 스펙, 현재 마일스톤(§15)을 읽는다.
 
 ## 현재 진행
-- 마일스톤: M0~M5(이동·사격, 체력·인벤토리, 적 AI, 레이드 루프, 은신처 & 세이브) 완료(자동 테스트 + 에디터·빌드 확인).
-  M6(아트 & 오디오 패스, 재 폭풍)은 자동 테스트·빌드 완료, 에디터 확인 대기(`docs/design/M6_design.md` §7.1).
-  M7(콘텐츠 확장 & 폴리시 — MVP 마지막)은 하위 단계 7A 무기·7B AI·7C 생존·제작·7D 성능·빌드로 자동 테스트·Mono 빌드 완료, 에디터 확인 대기(`docs/design/M7_design.md` §7.1).
-  IL2CPP 전환(7D-IL2CPP) 완료: ProjectSettings Standalone 백엔드 = IL2CPP(`BuildToolsTests`가 고정), C++ 툴체인 = Visual Studio 2026(2022도 가능) "C++를 사용한 데스크톱 개발".
-  1080p 60fps(GTX 1660)는 사람이 개발 빌드 `Player.log`의 `[DevDiagnostics]` 프레임 로그로 판정한다.
-  MVP 마무리(사용자 결정 4가지 — F1 전신 사인·F2 보관함 업그레이드·F3 내구도 대략 표시·수리·가격·F4 방어구 관통·둔탁(플레이어·적))는 자동 테스트·IL2CPP 빌드 완료, 에디터 확인 대기(`docs/design/MVP_finish_design.md` §7.1).
+- **MVP(M0~M7 + 마무리 F1~F4) 구현 완료, 사람 플레이 확인 미실시**(2026-10-24 사용자 결정으로 건너뜀). 자동 테스트(EditMode·PlayMode)·IL2CPP 릴리스/개발 빌드·스모크 통과.
+  최종 정리 문서 `docs/design/MVP_final.md`(성능 실측·임시값 확정·남은 일). GDD §15는 기능 AC 체크, 성능 AC 2개는 GTX 1660 실측 전이라 비워 둠.
+  M7 = 7A 무기·7B AI·7C 생존·제작·7D 성능·빌드, MVP 마무리 = F1 전신 사인·F2 보관함 업그레이드·F3 내구도 대략 표시·수리·가격·F4 방어구 관통·둔탁(플레이어·적).
+  IL2CPP: ProjectSettings Standalone 백엔드 = IL2CPP(`BuildToolsTests`가 고정), C++ 툴체인 = Visual Studio 2026(2022도 가능) "C++를 사용한 데스크톱 개발".
   데이터: `Ashfall/Setup/Apply MVP Finish Data`(배치 `MvpFinishDataSetup.ApplyAll`, 멱등, 파일에 없는 필드만, `Apply M7 Content` 끝에서도 호출).
+- 성능: 이 PC(Intel HD 620) 1080p 전체 화면 폭풍 Peak 중앙값 약 32.6ms(31fps, 미충족)·720p 13.4ms — GPU 병목, 데이터는 안 바꿈. GTX 1660 판정은 그 GPU에서
+  `Ashfall.exe -screen-width 1920 -screen-height 1080 -screen-fullscreen 1 -ashfallSmoke <임시 폴더> -ashfallSmokeRaidSec 90 -logFile perf.log`의 `[DevDiagnostics]` 줄(중앙값 ≤ 16.6ms)로.
+- 남은 일(`docs/design/MVP_final.md` §4): 사람 플레이 확인(`M6_design.md`·`M7_design.md`·`MVP_finish_design.md` 각 §7.1), 실제 에셋 교체(`M6_design.md`·`M7_design.md` 각 §2.3),
+  수치 조정(임시값 = "MVP 기본값(플레이 검증 전)", 목록 `M7_design.md` §10 + `MVP_finish_design.md` §11), 원격 백업(원격 없음).
 - 마일스톤 설계·리뷰 노트와 진행 방식은 `docs/design/`(README 참고). 새 마일스톤도 같은 방식으로 설계 문서를 여기에 남긴다.
   한 번에 한 마일스톤만 작업하고 다음 마일스톤 기능을 미리 만들지 않는다.
 - 확인 씬(빌드 설정에는 없음): `Assets/_Project/Scenes/Test/M1_Greybox.unity`(`Ashfall/Setup/Recreate M1 Greybox Scene`),
