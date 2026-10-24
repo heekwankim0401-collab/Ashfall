@@ -174,9 +174,24 @@ namespace Ashfall.EditorTools
             {
                 if (path != archetypePath)
                     continue;
-                archetype.helmet = LoadArmor(helmetPath);
-                archetype.bodyArmor = LoadArmor(bodyArmorPath);
+                // 리뷰 수정 7: 경로가 있는데 방어구 에셋(M5 데이터)이 아직 없으면 오류를 내고 그 필드는 쓰지 않는다.
+                //  그대로 두면 null이 "기록된 값"으로 저장돼 ApplyEnemyArmor(없는 필드만)가 나중에 채우지 못한다.
+                if (TryLoadForNewArchetype(archetype, helmetPath, "helmet", out ArmorDefinitionSO helmet))
+                    archetype.helmet = helmet;
+                if (TryLoadForNewArchetype(archetype, bodyArmorPath, "bodyArmor", out ArmorDefinitionSO bodyArmor))
+                    archetype.bodyArmor = bodyArmor;
             }
+        }
+
+        // 경로 없음 = 방어구 없음(null, true). 경로가 있는데 로드 실패 = LogError, false(필드 미기록).
+        private static bool TryLoadForNewArchetype(EnemyArchetypeSO archetype, string path, string field, out ArmorDefinitionSO armor)
+        {
+            armor = LoadArmor(path);
+            if (armor != null || string.IsNullOrEmpty(path))
+                return true;
+            Debug.LogError($"{Tag} {archetype.id} {field}: 방어구 에셋이 없어 비워 둔다({path}). " +
+                           "Ashfall/Setup/Create M2 Data(방어구 에셋)를 먼저 실행한 뒤 이 유형 에셋을 지우고 다시 만든다.");
+            return false;
         }
 
         private static ArmorDefinitionSO LoadArmor(string path) =>

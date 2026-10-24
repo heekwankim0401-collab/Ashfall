@@ -451,3 +451,14 @@ GDD §15에 이 작업의 AC가 없어 아래를 AC로 쓴다(§9 GDD 수정 제
 - 기존 테스트: 고친 것 없음. `M7AiRaidFlowTests.Boss_Killed_...`는 관통 0·피해 1e5로 보스 몸통을 쏜다 → 등급 3 대 관통 0 = 확률 0(결정적, 난수 미소비) → 30000 둔탁으로 그대로 사망. `M7PerformanceTests`는 적이 무적 표적만 쏘고 34명 생존 단언 — 방어구는 피해만 줄인다.
   `SurvivalFlowTests.OrdinaryHelmet_DoesNotBlockStorm`(TEST-HLM 최대 내구도 0 → `ArmorItem` 내구도 0 → 판정 제외)·방독면 테스트는 피격이 없다.
 - 테스트: EditMode `ArmorRulesTests.cs` 51개(규칙·부위·Absorb·ArmorItem·ItemFactory·세이브·적 방어구·에셋 값 일치/재실행 바이트 동일), PlayMode `ArmorFlowTests` 4개(방탄복 9mm 30%·−6, 헬멧 내구도 0, 등급 2 대 7.62 관통, 근접 힌트).
+
+## 리뷰 수정 메모 (gameplay-programmer, 2026-10-24)
+- 지적 1 = (b) 현재 동작 유지: 파괴 부위 → 몸통 70% 분산 몫은 방어구를 거치지 않는다. `EnemyAgent.ApplyDamage`·`PlayerHealth.ApplyDamage`에 `TODO(GDD-?) MF-Q25`,
+  EditMode `EnemyArmorTests.DestroyedLegsHit_SpreadToBody70_BypassesBodyArmor`(몸통 −21·방탄복 60 그대로)·`ArmorRulesTests.Player_DestroyedArmHit_SpreadToTorso_BypassesBodyArmor`(흉부·복부 각 −10.5).
+- 지적 2: Core `ArmorRules.ArmorSeedSalt`(기술 상수)·`ArmorSeed(seed)`(= seed ^ 소금)·`CreateArmorRandom(seed)`(0 = Guid seed). 적 고정 seed는 소금 섞은 seed, seed 없음·플레이어는 Guid seed. 기존 난수에서 뽑지 않는다(순서 불변).
+  테스트 `ArmorSeed_Salted_FirstValueDiffersFromBaseRandom`(4 seed)·`ArmorSeed_FixedSeed_Deterministic`.
+- 지적 6: `PlayerConfigSO`·`AiConfigSO` 방어구 4필드 툴팁에 "같은 값 유지(테스트 고정)", `ArmorRuleParams`·`PlayerHealth` Awake 캐시 이유 주석(피격 경로 SO 재조회 없음, 인스펙터 조정은 씬 재진입부터).
+- 지적 7: `MvpFinishDataSetup.AssignEnemyArmor` — 경로가 있는데 방어구 에셋 로드가 null이면 `LogError`하고 그 필드는 쓰지 않는다.
+- 지적 8(a) `UiText.StashUpgraded` 조사 주석, 10 `DeathCauseFlowTests` 머리 주석, 9(b) `ArmorPriceRulesTests` 2개(실제 에셋 방탄복 2500·TraderConfig: 100% = 1000·수리 −1, 30/60 = 매도 500·수리 625, 방독면 수리 불가).
+- 3·4·5·8(b)는 코드 변경 없음(CHANGELOG = 오케스트레이터). 9(c) 방탄복 레이드 → 탈출 → 저장 → 읽기 PlayMode 흐름은 추가하지 않았다(EditMode 왕복으로 둔다).
+- 검증(사본): EditMode 1963·PlayMode 188 각 2회 연속 전부 통과, IL2CPP 개발·릴리스 빌드 성공(오류 0), 개발 빌드 스모크 종료 0·"save version 3".

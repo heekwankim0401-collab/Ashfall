@@ -160,16 +160,17 @@ namespace Ashfall.AI
 
         // MVP 마무리 F4 (§5.3, MF-Q16 B·Q22): 적 방어구 판정 수치. PlayerConfigSO의 같은 이름 4필드와 값이 같아야 한다(EditMode 테스트가 에셋 값을 고정).
         [Header("§5.3 방어구 (적)")]
-        [Tooltip("관통 확률 기본값 (GDD §5.3 0.5)")]
+        [Tooltip("관통 확률 기본값 (GDD §5.3 0.5) — PlayerConfig와 같은 값 유지(테스트 고정)")]
         [Range(0f, 1f)] public float armorBasePenetrationChance = 0.5f;
-        [Tooltip("관통력 − 방어등급 1당 관통 확률 변화 (GDD §5.3 0.25)")]
+        [Tooltip("관통력 − 방어등급 1당 관통 확률 변화 (GDD §5.3 0.25) — PlayerConfig와 같은 값 유지(테스트 고정)")]
         [Min(0f)] public float armorPenetrationPerClassStep = 0.25f;
-        [Tooltip("비관통 시 몸이 받는 피해 비율 (GDD §5.3 둔탁 30% = 0.3)")]
+        [Tooltip("비관통 시 몸이 받는 피해 비율 (GDD §5.3 둔탁 30% = 0.3) — PlayerConfig와 같은 값 유지(테스트 고정)")]
         [Range(0f, 1f)] public float armorBluntDamageRatio = 0.3f;
-        [Tooltip("비관통 시 방어구 내구도 감소 = 원피해 × 이 값 (TODO(GDD-?) MF-Q17 임시값 0.2)")]
+        [Tooltip("비관통 시 방어구 내구도 감소 = 원피해 × 이 값 (TODO(GDD-?) MF-Q17 임시값 0.2) — PlayerConfig와 같은 값 유지(테스트 고정)")]
         [Min(0f)] public float armorDurabilityLossPerDamage = 0.2f;
 
-        // §5.3 판정 수치 묶음 (Core ArmorRules에 넘긴다)
+        // §5.3 판정 수치 묶음 (Core ArmorRules에 넘긴다). EnemyAgent가 Awake에서 한 번 캐시한다(피격 경로에서 SO 재조회 없음, 적 34명 상수 비용)
+        //  — 플레이 중 인스펙터 조정은 적이 다시 만들어질 때(씬 재진입)부터 반영.
         public Ashfall.Core.ArmorRuleParams ArmorRuleParams => new Ashfall.Core.ArmorRuleParams(
             armorBasePenetrationChance, armorPenetrationPerClassStep, armorBluntDamageRatio, armorDurabilityLossPerDamage);
 

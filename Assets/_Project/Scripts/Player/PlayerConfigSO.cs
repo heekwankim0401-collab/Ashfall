@@ -165,16 +165,16 @@ namespace Ashfall.Player
 
         // MVP 마무리 F4 (설계 §2, MF-Q17·Q22). 적은 AiConfigSO의 같은 4필드를 쓴다(값이 같은지 EditMode 테스트가 고정).
         [Header("§5.3 방어구")]
-        [Tooltip("관통 확률 기본값 (GDD §5.3 0.5). 관통확률 = clamp01(이 값 + (탄관통력 − 방어등급) × 등급당 변화)")]
+        [Tooltip("관통 확률 기본값 (GDD §5.3 0.5). 관통확률 = clamp01(이 값 + (탄관통력 − 방어등급) × 등급당 변화) — AiConfig와 같은 값 유지(테스트 고정)")]
         [Range(0f, 1f)] public float armorBasePenetrationChance = 0.5f;
-        [Tooltip("관통력 − 방어등급 1당 관통 확률 변화 (GDD §5.3 0.25)")]
+        [Tooltip("관통력 − 방어등급 1당 관통 확률 변화 (GDD §5.3 0.25) — AiConfig와 같은 값 유지(테스트 고정)")]
         [Min(0f)] public float armorPenetrationPerClassStep = 0.25f;
-        [Tooltip("비관통 시 몸이 받는 피해 비율 (GDD §5.3 둔탁 피해 30% = 0.3)")]
+        [Tooltip("비관통 시 몸이 받는 피해 비율 (GDD §5.3 둔탁 피해 30% = 0.3) — AiConfig와 같은 값 유지(테스트 고정)")]
         [Range(0f, 1f)] public float armorBluntDamageRatio = 0.3f;
-        [Tooltip("비관통 시 방어구 내구도 감소 = 원피해 × 이 값 (TODO(GDD-?) MF-Q17 임시값 0.2). 관통은 마모 없음")]
+        [Tooltip("비관통 시 방어구 내구도 감소 = 원피해 × 이 값 (TODO(GDD-?) MF-Q17 임시값 0.2). 관통은 마모 없음 — AiConfig와 같은 값 유지(테스트 고정)")]
         [Min(0f)] public float armorDurabilityLossPerDamage = 0.2f;
 
-        // §5.3 판정 수치 묶음 (Core ArmorRules에 넘긴다)
+        // §5.3 판정 수치 묶음 (Core ArmorRules에 넘긴다). PlayerHealth가 Awake에서 한 번 캐시한다 — 플레이 중 인스펙터 조정은 씬 재진입부터 반영.
         public ArmorRuleParams ArmorRuleParams => new ArmorRuleParams(
             armorBasePenetrationChance, armorPenetrationPerClassStep, armorBluntDamageRatio, armorDurabilityLossPerDamage);
 

@@ -153,6 +153,9 @@ namespace Ashfall.UI
             "보관함 확장 " + StashSizeText(newSize) + " (" + Price(cost) + ")";
 
         // 성공 "보관함을 10×40으로 늘렸다."
+        // 리뷰 수정 8(a): 조사 "으로"는 고정이다. 지금 설정(40·50 — 읽으면 "십", ㅂ 받침)에서는 맞지만, 줄 수 끝자리가
+        //  받침 없는 수(2 이·4 사·5 오·9 구)나 ㄹ 받침(1 일·7 칠·8 팔)이 되면 "로"가 맞다(3 삼·6 육·0 십은 "으로").
+        //  TODO(GDD-?) HideoutConfigSO.stashUpgrades 줄 수를 바꾸면 조사 처리를 넣는다.
         public static string StashUpgraded(UnityEngine.Vector2Int newSize) => "보관함을 " + StashSizeText(newSize) + "으로 늘렸다.";
 
         // 실패 문구 (성공은 StashUpgraded)

@@ -42,6 +42,18 @@ namespace Ashfall.Core
     // 확률이 정확히 0 또는 1이면 난수를 뽑지 않는다(결정적 경우 난수 순서 불변). 할당 없음.
     public static class ArmorRules
     {
+        // 리뷰 수정 2: 방어구 전용 난수 seed 소금. 게임 수치가 아니라 기술 상수(SO 대상 아님) — 고정 seed의 적이
+        // 기존 난수(무장·명중·루트)와 같은 수열로 관통을 굴리지 않게 섞는다. 값을 바꾸면 고정 seed 적의 관통 결과만 달라진다.
+        public const int ArmorSeedSalt = 0x5A17A4E3;
+
+        // 고정 seed(≠ 0) → 소금 섞은 방어구 seed. 순수 함수(테스트용).
+        public static int ArmorSeed(int seed) => unchecked(seed ^ ArmorSeedSalt);
+
+        // 방어구 전용 난수. seed 0(없음)은 Guid 기반 seed — 같은 프레임에 만든 다른 new System.Random()과 seed가 겹치지 않게.
+        // 기존 난수에서 Next()로 뽑지 않는다(기존 순서 불변).
+        public static Random CreateArmorRandom(int seed) =>
+            seed != 0 ? new Random(ArmorSeed(seed)) : new Random(Guid.NewGuid().GetHashCode());
+
         // clamp01. NaN(설정 오류)은 0 = 관통 안 됨으로 본다.
         public static float PenetrationChance(in ArmorRuleParams p, int penetration, int armorClass)
         {

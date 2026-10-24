@@ -637,4 +637,48 @@ namespace Ashfall.Tests.EditMode
             CollectionAssert.AreEqual(hudBefore, File.ReadAllBytes(hud));
         }
     }
+
+    // 리뷰 수정 9(b): 방어구(ArmorItem)도 무기와 같은 매도·수리 공식 — 실제 에셋 방탄복 basePrice·TraderConfig 기준 (설계 예 30/60).
+    public class ArmorPriceRulesTests
+    {
+        private const string TraderConfigPath = "Assets/_Project/Data/Hideout/TraderConfig.asset";
+
+        [Test]
+        public void BodyArmor_HalfDurability_Sell500_Repair625()
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<ArmorDefinitionSO>(M5DataSetup.BodyArmorPath);
+            var trader = AssetDatabase.LoadAssetAtPath<TraderConfigSO>(TraderConfigPath);
+            Assert.IsNotNull(definition);
+            Assert.IsNotNull(trader);
+            Assert.AreEqual(2500, definition.basePrice, "방탄복 basePrice (M5 가격표)");
+            Assert.AreEqual(60f, definition.maxDurability);
+
+            var armor = (ArmorItem)ItemFactory.Create(definition);
+            Assert.AreEqual(1000, PriceRules.SellPrice(armor, trader), "100% = 기존 매도가 (2500 × 0.4)");
+            Assert.AreEqual(-1, PriceRules.RepairCost(armor, trader), "100% = 수리 불필요");
+
+            armor.Durability = 30f;
+            Assert.AreEqual(500, PriceRules.SellPrice(armor, trader));     // 내림(2500 × 0.4 × 0.5)
+            Assert.AreEqual(625, PriceRules.RepairCost(armor, trader));    // 올림(2500 × 0.5 × 0.5)
+        }
+
+        [Test]
+        public void GasMask_NoDurability_NotRepairable()
+        {
+            var mask = ScriptableObject.CreateInstance<ArmorDefinitionSO>();
+            mask.id = "TEST-GSM"; mask.basePrice = 800; mask.maxDurability = 0f;
+            var trader = ScriptableObject.CreateInstance<TraderConfigSO>();
+            try
+            {
+                ItemInstance item = ItemFactory.Create(mask);
+                Assert.AreEqual(-1, PriceRules.RepairCost(item, trader), "내구도 없음(방독면) = 수리 대상 아님");
+                Assert.AreEqual(PriceRules.SellPrice(mask, trader), PriceRules.SellPrice(item, trader), "비율 1 = 정의 매도가");
+            }
+            finally
+            {
+                Object.DestroyImmediate(mask);
+                Object.DestroyImmediate(trader);
+            }
+        }
+    }
 }

@@ -32,7 +32,10 @@ namespace Ashfall.Player
         private bool raidOver;
         private readonly RadiationDoseModel radiation = new RadiationDoseModel();
         // MVP 마무리 F4: 방어구 전용 난수(BodyHealthModel 상태이상 굴림 순서를 밀지 않게)·§5.3 수치(config에서 Awake 1회)
-        private readonly System.Random armorRandom = new System.Random();
+        // 리뷰 수정 2: Guid seed — Awake의 상태이상 new System.Random()과 같은 프레임에 만들어져도 seed가 겹치지 않게.
+        // 리뷰 수정 6: 수치는 Awake에서 한 번 묶어 두고 피격 경로에서는 SO를 다시 읽지 않는다(적 AiConfig와 같은 방식).
+        //  그래서 플레이 중 인스펙터에서 바꾼 값은 이 컴포넌트가 다시 만들어질 때(씬 재진입)부터 반영된다.
+        private readonly System.Random armorRandom = ArmorRules.CreateArmorRandom(0);
         private ArmorRuleParams armorParams;
 
         public BodyHealthModel Body { get; private set; }
@@ -107,6 +110,8 @@ namespace Ashfall.Player
             }
             // MVP 마무리 F4 §5.3: 그 부위를 덮는 헬멧·방탄복이 있으면 관통 판정 → 관통 = 그대로, 비관통 = 둔탁 30% + 방어구 내구도 감소.
             // 감소된 피해로 기존 ApplyHit(상태이상 굴림·복부 배율 그대로, MF-Q19). 근접(관통 0)도 같은 공식(MF-Q20).
+            // TODO(GDD-?) MF-Q25: 방어구 판정은 처음 맞은 부위로 한 번만. 파괴된 팔다리를 맞혀 흉부·복부로 넘어가는 70% 분산 몫
+            //  (BodyHealthModel 분산)은 방탄복을 거치지 않는다(가장 단순, 리뷰 1 (b) — ArmorRulesTests가 고정).
             ArmorItem armor = FindEquippedArmor(part);
             ArmorHitResult armorHit = ArmorRules.Absorb(armor, armorParams, info.Penetration, info.Amount, armorRandom);
             Body.ApplyHit(part, armorHit.BodyDamage);

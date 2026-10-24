@@ -282,6 +282,57 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(expected.BluntDamageRatio, actual.BluntDamageRatio, 1e-6f, label + " 둔탁");
             Assert.AreEqual(expected.DurabilityLossPerDamage, actual.DurabilityLossPerDamage, 1e-6f, label + " 감소율");
         }
+
+        // ── 리뷰 수정 1 (b) MF-Q25: 파괴 부위 분산 몫은 방어구를 거치지 않는다 (플레이어) ──
+
+        [Test]
+        public void Player_DestroyedArmHit_SpreadToTorso_BypassesBodyArmor()
+        {
+            PlayerConfigSO config = TestData.Player();
+            try
+            {
+                var body = new BodyHealthModel(config, new System.Random(1));
+                ArmorItem vest = Armor(TestData.BodyArmor());   // 흉부·복부, 등급 3, 60
+                body.ApplyDamage(BodyPart.LeftArm, 60f);
+                Assert.IsTrue(body.IsDestroyed(BodyPart.LeftArm));
+
+                // PlayerHealth.ApplyDamage와 같은 순서: 처음 맞은 부위(왼팔)로 방어구를 찾는다 → 없음 → 피해 그대로
+                ArmorItem covering = ArmorRules.FindCovering(null, vest, BodyPart.LeftArm);
+                Assert.IsNull(covering, "팔은 방탄복이 덮지 않는다");
+                ArmorHitResult r = ArmorRules.Absorb(covering, P, 1, 30f, null);   // 9mm
+                body.ApplyHit(BodyPart.LeftArm, r.BodyDamage);
+
+                Assert.AreEqual(80f - 10.5f, body.GetHp(BodyPart.Thorax), 1e-4f, "30 × 70% ÷ 2 — 방탄복 둔탁(30%) 없음");
+                Assert.AreEqual(70f - 10.5f, body.GetHp(BodyPart.Stomach), 1e-4f);
+                Assert.AreEqual(60f, vest.Durability, "분산 몫은 방탄복 내구도를 깎지 않는다");
+            }
+            finally
+            {
+                Object.DestroyImmediate(config);
+            }
+        }
+
+        // ── 리뷰 수정 2: 방어구 전용 난수 seed 독립 ──────────
+
+        [TestCase(1)]
+        [TestCase(7)]
+        [TestCase(12345)]
+        [TestCase(-99)]
+        public void ArmorSeed_Salted_FirstValueDiffersFromBaseRandom(int seed)
+        {
+            Assert.AreNotEqual(seed, ArmorRules.ArmorSeed(seed), "소금 섞은 seed");
+            var baseRandom = new System.Random(seed);
+            System.Random armorRandom = ArmorRules.CreateArmorRandom(seed);
+            Assert.AreNotEqual(baseRandom.NextDouble(), armorRandom.NextDouble(), "같은 seed에서 두 난수 첫 값이 다르다");
+        }
+
+        [Test]
+        public void ArmorSeed_FixedSeed_Deterministic()
+        {
+            Assert.AreEqual(ArmorRules.CreateArmorRandom(42).NextDouble(), ArmorRules.CreateArmorRandom(42).NextDouble(), "고정 seed = 결정적");
+            Assert.AreEqual(new System.Random(ArmorRules.ArmorSeed(42)).Next(), ArmorRules.CreateArmorRandom(42).Next());
+            Assert.IsNotNull(ArmorRules.CreateArmorRandom(0), "seed 없음 = Guid seed");
+        }
     }
 
     // 세이브: 방어구 내구도 ItemRecord.durability 재사용 (설계 §1.6, MF-Q21). 버전은 3 그대로.
@@ -473,6 +524,25 @@ namespace Ashfall.Tests.EditMode
             Assert.IsTrue(body.IsDead, "머리 관통 → 사망");
             Assert.AreEqual(40f, armor.Helmet.Durability, "관통은 마모 없음");
             Assert.AreEqual(reference.NextDouble(), used.NextDouble(), "확률 1 → 난수 미소비");
+        }
+
+        // 리뷰 수정 1 (b) MF-Q25: EnemyAgent.ApplyDamage와 같은 순서(Absorb(처음 맞은 부위) → ApplyHit).
+        // 파괴된 다리 피격의 70% 몸통 분산은 방탄복을 거치지 않는다.
+        [Test]
+        public void DestroyedLegsHit_SpreadToBody70_BypassesBodyArmor()
+        {
+            archetype.bodyArmor = TestData.BodyArmor();
+            var armor = new EnemyArmorModel(archetype);
+            var body = new EnemyBodyModel(archetype, config);
+            body.ApplyHit(EnemyHitRegion.Legs, 65f);
+            Assert.IsTrue(body.IsDestroyed(EnemyHitRegion.Legs));
+
+            ArmorHitResult r = armor.Absorb(EnemyHitRegion.Legs, 1, 30f, P, null);   // 9mm, 다리 = 방어구 없음
+            body.ApplyHit(EnemyHitRegion.Legs, r.BodyDamage);
+
+            Assert.IsTrue(r.Penetrated);
+            Assert.AreEqual(80f - 21f, body.GetHp(EnemyHitRegion.Body), 1e-4f, "30 × 70% — 방탄복 둔탁(30%) 없음");
+            Assert.AreEqual(60f, armor.BodyArmor.Durability, "분산 몫은 방탄복 내구도를 깎지 않는다");
         }
 
         [Test]

@@ -15,6 +15,8 @@ namespace Ashfall.Tests.PlayMode
     // 실제 Raid_CrimsonBasin에서 수분 0 → PlayerHealth의 탈수 피해(ApplySystemicDamage) → 흉부 0 사망
     // → PlayerDied(Thorax, Dehydration) → RaidController → 결과 → 은신처 결과 패널 제목 "사망 — 탈수".
     // 시간 단축: PlayerHealth의 config를 복제본(dehydratedHpPerSec 상향)으로 바꾼다 — 에셋 값은 건드리지 않는다.
+    // 리뷰 수정 10: 이 교체는 Awake 뒤라 Awake에서 만든 BodyHealthModel·SurvivalModel·방어구 수치에는 반영되지 않는다.
+    //  PlayerHealth.TickSurvival이 매 프레임 config.dehydratedHpPerSec를 읽는 데 기댄다 — 그 값을 Awake에서 캐시하도록 바꾸면 이 테스트를 고친다.
     // 세이브는 SaveSandbox 새 폴더(실제 persistentDataPath 없음). 적은 지운다.
     public class DeathCauseFlowTests
     {

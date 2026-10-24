@@ -138,9 +138,10 @@ namespace Ashfall.AI
             Body.Died += OnBodyDied;
             Armor = new EnemyArmorModel(archetype);
             armorParams = config.ArmorRuleParams;
-            // 고정 seed면 방어구 난수도 같은 seed로 결정적 (별도 인스턴스라 random 순서와 무관)
+            // 고정 seed면 방어구 난수도 결정적이되 소금 섞은 별도 seed(리뷰 수정 2 — random과 같은 수열 아님), seed 없음은 Guid seed.
+            // 별도 인스턴스라 random 순서와 무관.
             if (Armor.HasArmor)
-                armorRandom = seed != 0 ? new System.Random(seed) : new System.Random();
+                armorRandom = ArmorRules.CreateArmorRandom(seed);
 
             nav.updateRotation = false;   // 회전은 직접 (turnSpeedDegPerSec)
             nav.speed = archetype.patrolSpeed;
@@ -617,6 +618,8 @@ namespace Ashfall.AI
             Vector3 local = transform.InverseTransformPoint(info.Point);
             EnemyHitRegion region = EnemyHitResolver.Resolve(local.y, capsule.height, config);
             // MVP 마무리 F4 §5.3: 그 부위를 덮는 방어구가 있으면 관통 판정(관통 = 그대로, 비관통 = 둔탁 30% + 내구도 감소)
+            // TODO(GDD-?) MF-Q25: 방어구 판정은 처음 맞은 부위로 한 번만. 파괴된 다리를 맞혀 몸통으로 넘어가는 70% 분산 몫
+            //  (EnemyBodyModel.ApplyHit)은 방탄복을 거치지 않는다(가장 단순, 리뷰 1 (b) — EnemyArmorTests가 고정).
             ArmorHitResult armorHit = Armor.Absorb(region, info.Penetration, info.Amount, armorParams, armorRandom);
             Body.ApplyHit(region, armorHit.BodyDamage);   // 사망이면 Died → Die()
 
