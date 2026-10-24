@@ -13,6 +13,7 @@ namespace Ashfall.AI
     //   AI 청각용 NoiseEmitted는 내지 않는다(적 총성·발소리를 다른 적이 듣지 않는 M3 규칙 유지). 시야는 재 폭풍 상한을 받는다.
     // - M7 (§1.4): 근접(EnemyIntent.Melee → EnemyMelee → 표적 IDamageable), 저격 섬광(EnemyIntent.Telegraph → 자식 SniperGlint),
     //   변이체 울음(EnemyVocalized, Audio 전용).
+    // - MVP 마무리 F4 (§5.3, MF-Q16 B): 피격 부위를 덮는 유형 방어구(EnemyArmorModel, 적마다 내구도)가 있으면 Core ArmorRules로 관통 판정.
     // Update 경로 할당 없음.
     [RequireComponent(typeof(NavMeshAgent), typeof(CapsuleCollider), typeof(Rigidbody))]
     [DisallowMultipleComponent]
@@ -38,6 +39,9 @@ namespace Ashfall.AI
         private CapsuleCollider capsule;
         private AiConfigSO config;
         private System.Random random;
+        // MVP 마무리 F4 (§5.3, MF-Q16 B): 방어구 전용 난수 — random(무장·명중·루트 순서)을 밀지 않는다. 방어구 없는 유형은 null.
+        private System.Random armorRandom;
+        private ArmorRuleParams armorParams;
         private EnemyLoadout loadout;
         private bool hasLoadout;
         private bool registered;
@@ -82,6 +86,8 @@ namespace Ashfall.AI
         public EnemyBrain Brain { get; private set; }
         public EnemyState State => Brain != null ? Brain.State : (IsDead ? EnemyState.Dead : EnemyState.Idle);
         public EnemyBodyModel Body { get; private set; }
+        // MVP 마무리 F4: 헬멧·방탄복 런타임 내구도 (유형에 없으면 HasArmor = false)
+        public EnemyArmorModel Armor { get; private set; }
         public EnemyWeapon Weapon { get; private set; }
         public bool IsDead { get; private set; }
         public int SquadId => squadId;
@@ -130,6 +136,11 @@ namespace Ashfall.AI
             random = seed != 0 ? new System.Random(seed) : new System.Random();
             Body = new EnemyBodyModel(archetype, config);
             Body.Died += OnBodyDied;
+            Armor = new EnemyArmorModel(archetype);
+            armorParams = config.ArmorRuleParams;
+            // 고정 seed면 방어구 난수도 같은 seed로 결정적 (별도 인스턴스라 random 순서와 무관)
+            if (Armor.HasArmor)
+                armorRandom = seed != 0 ? new System.Random(seed) : new System.Random();
 
             nav.updateRotation = false;   // 회전은 직접 (turnSpeedDegPerSec)
             nav.speed = archetype.patrolSpeed;
@@ -605,7 +616,9 @@ namespace Ashfall.AI
 
             Vector3 local = transform.InverseTransformPoint(info.Point);
             EnemyHitRegion region = EnemyHitResolver.Resolve(local.y, capsule.height, config);
-            Body.ApplyHit(region, info.Amount);   // 사망이면 Died → Die()
+            // MVP 마무리 F4 §5.3: 그 부위를 덮는 방어구가 있으면 관통 판정(관통 = 그대로, 비관통 = 둔탁 30% + 내구도 감소)
+            ArmorHitResult armorHit = Armor.Absorb(region, info.Penetration, info.Amount, armorParams, armorRandom);
+            Body.ApplyHit(region, armorHit.BodyDamage);   // 사망이면 Died → Die()
 
             // 추정 사격 위치 (DamageInfo만으로 계산, 사수 참조 불필요)
             // TODO(GDD-?): 아군 탄에 맞아도 그 총구 쪽을 LKP로 삼는다(리뷰 11). DamageInfo에 사수 구분이 생기면 아군 피격은

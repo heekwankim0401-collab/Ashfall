@@ -439,3 +439,15 @@ GDD §15에 이 작업의 AC가 없어 아래를 AC로 쓴다(§9 GDD 수정 제
 - 테스트: EditMode `DurabilityRepairTests.cs` 34개(규칙·등급 문구(숫자 없음)·가격·수리비·되팔기 이득 없음·TraderModel·HideoutService 위임·저장·뷰모델·프레젠터·TraderView·인벤토리 라벨·에셋/재실행 바이트 동일·에셋 repairCostRatio ≥ sellPriceMultiplier),
   PlayMode `RepairFlowTests` 1개(은신처 보관함 낡은 권총 → [수리] 클릭 → 탄피 차감·내구도 100·"(양호)"·[수리] 숨김·매도가 원래대로·[장비] 칸 라벨, SaveSandbox). 기존 단언 변경 없음(`FakeHideoutService` 멤버 추가만).
   사본에서 EditMode 1903·PlayMode 184 전부 통과. 새 `.meta`는 Unity가 만들었다. CHANGELOG_GDD는 손대지 않았다.
+
+## F4 구현 메모 (gameplay-programmer, 2026-10-24)
+- 설계 §1.5·§3과 질문 결정(Q16 B)대로 구현: Core `Combat/ArmorRules.cs`(`ArmorRuleParams`·`ArmorHitResult`·`PenetrationChance`(NaN → 0)·`Protects`·`FindCovering`·`Resolve`(확률 0·1·피해 ≤ 0이면 난수 미소비) + `Absorb`(판정 + 비관통 마모, 방어구 null = 그대로)),
+  `Items/ArmorItem.cs`(`IDurableItem`, 0~max, NaN → max, max ≤ 0 = 내구도 없음 — 방독면), `ItemFactory` 방어구 → `ArmorItem`, `SaveSerializer` 방어구 기록(max ≤ 0 = −1)·`ReadArmorDurability`·`ArmorDurabilityVersion = 3`(버전 올림 없음).
+  Player `PlayerConfigSO` 방어구 4필드 + `ArmorRuleParams` 속성, `PlayerHealth.ApplyDamage` 방어구 단계(헬멧·방탄복 슬롯, 방어구 전용 `System.Random`, 디버그 로그에 관통 여부).
+- 적(Q16 B): `EnemyArchetypeSO.helmet`·`bodyArmor`(AI 어셈블리 — 이 SO는 Core가 아니라 AI에 있다), 순수 `AI/Combat/EnemyArmorModel`(적 1명당 `ArmorItem` 런타임 내구도, 머리 → Head, 몸통 → Thorax 또는 Stomach, 다리 → 없음),
+  `AiConfigSO`에 같은 이름 4필드 + `ArmorRuleParams`, `EnemyAgent.ApplyDamage`가 `Armor.Absorb` 뒤 `Body.ApplyHit`. 방어구 난수는 방어구 있는 유형만 따로 만든다(고정 seed면 같은 seed의 별도 인스턴스 — 기존 `random` 순서 불변). 시체 루트 미포함(TODO MF-Q16).
+- 데이터: `MvpFinishDataSetup.ApplyPlayerArmor`·`ApplyEnemyArmor`(파일에 없는 필드만) → PlayerConfig·AiConfig 4필드(0.5·0.25·0.3·0.2), AI-BOS 헬멧 ARM-HLM-01 + 방탄복 ARM-BDY-01, AI-BGD 방탄복(헬멧 null 기록). 두 번째 실행 기록 로그 없음·md5 동일. 방어구 에셋 3개 불변.
+  설계와 다른 점: 새로 만드는 BOS·BGD 에셋은 필드가 null로 이미 기록돼 "없는 필드만" 규칙으로는 채워지지 않으므로 `M7AiDataSetup` 생성 람다에서 `MvpFinishDataSetup.AssignEnemyArmor`를 부른다(기존 에셋에는 영향 없음).
+- 기존 테스트: 고친 것 없음. `M7AiRaidFlowTests.Boss_Killed_...`는 관통 0·피해 1e5로 보스 몸통을 쏜다 → 등급 3 대 관통 0 = 확률 0(결정적, 난수 미소비) → 30000 둔탁으로 그대로 사망. `M7PerformanceTests`는 적이 무적 표적만 쏘고 34명 생존 단언 — 방어구는 피해만 줄인다.
+  `SurvivalFlowTests.OrdinaryHelmet_DoesNotBlockStorm`(TEST-HLM 최대 내구도 0 → `ArmorItem` 내구도 0 → 판정 제외)·방독면 테스트는 피격이 없다.
+- 테스트: EditMode `ArmorRulesTests.cs` 51개(규칙·부위·Absorb·ArmorItem·ItemFactory·세이브·적 방어구·에셋 값 일치/재실행 바이트 동일), PlayMode `ArmorFlowTests` 4개(방탄복 9mm 30%·−6, 헬멧 내구도 0, 등급 2 대 7.62 관통, 근접 힌트).

@@ -201,6 +201,7 @@ namespace Ashfall.EditorTools
                 a.usesCover = true; a.flanks = false; a.investigatesNoise = false;
                 a.anchorRadiusM = 25f;
                 a.weaponDurabilityRange = UnsetDurabilityRange;               // 적 전용 무기, 시체에 안 나옴 (—)
+                MvpFinishDataSetup.AssignEnemyArmor(a, M7Names.BossArchetypePath);   // MVP 마무리 F4: 헬멧 + 방탄복 (MF-Q16 B)
             }, Tag);
 
             // AI-BGD 호위병 — Q28: RDR 값 + 거점, 측면 우회 끔. 시체는 LT-RDR(일반)
@@ -224,6 +225,7 @@ namespace Ashfall.EditorTools
                 a.usesCover = true; a.flanks = false; a.investigatesNoise = false;
                 a.anchorRadiusM = 25f;
                 a.weaponDurabilityRange = new Vector2(35f, 85f);
+                MvpFinishDataSetup.AssignEnemyArmor(a, M7Names.BodyguardArchetypePath);   // MVP 마무리 F4: 방탄복 (MF-Q16 B)
             }, Tag);
         }
 

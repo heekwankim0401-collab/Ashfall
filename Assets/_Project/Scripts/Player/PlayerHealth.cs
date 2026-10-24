@@ -14,6 +14,8 @@ namespace Ashfall.Player
     //       방사능률 = 폭풍 률 × (방독면 ? 0 : 1) + 구역 률(IRadiationField, 발 위치)(Q38). 방독면 = 헬멧 슬롯 정의의 blocksStormRadiation,
     //       매 프레임 IInventoryService 조회(할당 없음, 레이드 밖·인벤토리 없음 = 미착용). 선량 ≥ 100 → 최대 HP × 0.8(BodyHealthModel.SyncRadiation, Q35).
     //       등급 변화는 BodyHealthModel.StatusChanged → PlayerBodyStatusChanged. 수치는 이 어셈블리 밖으로 내지 않는다(RULE-05).
+    // - MVP 마무리 F4 (§5.3): 피격 부위를 덮는 헬멧·방탄복(IInventoryService.GetEquipped, ArmorItem)이 있으면 Core ArmorRules로 관통 판정.
+    //       방어구 전용 난수(확률 0·1이면 뽑지 않음). 피격음·이벤트·HUD 없음(MF-Q24).
     [RequireComponent(typeof(CharacterController))]
     public sealed class PlayerHealth : MonoBehaviour, IDamageable
     {
@@ -29,6 +31,9 @@ namespace Ashfall.Player
         // M4 리뷰 수정: 레이드 종료 후 의약품 사용 없음 (결과 스냅샷 이후 소지품·상태가 바뀌지 않게)
         private bool raidOver;
         private readonly RadiationDoseModel radiation = new RadiationDoseModel();
+        // MVP 마무리 F4: 방어구 전용 난수(BodyHealthModel 상태이상 굴림 순서를 밀지 않게)·§5.3 수치(config에서 Awake 1회)
+        private readonly System.Random armorRandom = new System.Random();
+        private ArmorRuleParams armorParams;
 
         public BodyHealthModel Body { get; private set; }
         public MedicalUseModel Medical => medical;
@@ -51,6 +56,7 @@ namespace Ashfall.Player
                 enabled = false;
                 return;
             }
+            armorParams = config.ArmorRuleParams;
             Body = new BodyHealthModel(config, new System.Random());
             Survival = new SurvivalModel(config);
             Body.AttachSurvival(Survival, radiation);
@@ -99,14 +105,26 @@ namespace Ashfall.Player
                 local.y += controller.height * 0.5f;
                 part = BodyPartResolver.Resolve(local, controller.height, controller.radius, config);
             }
-            Body.ApplyHit(part, info.Amount);
-            LogHit(part, info.Amount);
+            // MVP 마무리 F4 §5.3: 그 부위를 덮는 헬멧·방탄복이 있으면 관통 판정 → 관통 = 그대로, 비관통 = 둔탁 30% + 방어구 내구도 감소.
+            // 감소된 피해로 기존 ApplyHit(상태이상 굴림·복부 배율 그대로, MF-Q19). 근접(관통 0)도 같은 공식(MF-Q20).
+            ArmorItem armor = FindEquippedArmor(part);
+            ArmorHitResult armorHit = ArmorRules.Absorb(armor, armorParams, info.Penetration, info.Amount, armorRandom);
+            Body.ApplyHit(part, armorHit.BodyDamage);
+            LogHit(part, armorHit.BodyDamage, armor != null, armorHit.Penetrated);
+        }
+
+        // 헬멧·방탄복 슬롯에서 부위를 막는 방어구 (인벤토리 없음 = 없음). 매 피격 조회, 할당 없음.
+        private static ArmorItem FindEquippedArmor(BodyPart part)
+        {
+            if (GameManager.Instance == null || !GameManager.Instance.Services.TryGet(out IInventoryService inventory))
+                return null;
+            return ArmorRules.FindCovering(inventory.GetEquipped(EquipSlot.Helmet), inventory.GetEquipped(EquipSlot.BodyArmor), part);
         }
 
         // RULE-05: 피해 수치를 콘솔에 상시 찍지 않는다. 디버그할 때만 스크립팅 심볼 ASHFALL_DEBUG_DAMAGE를 켠다.
         [System.Diagnostics.Conditional("ASHFALL_DEBUG_DAMAGE")]
-        private void LogHit(BodyPart part, float amount) =>
-            Debug.Log($"[PlayerHealth] 피격 {part}: 피해 {amount}", this);
+        private void LogHit(BodyPart part, float amount, bool armored, bool penetrated) =>
+            Debug.Log($"[PlayerHealth] 피격 {part}: 피해 {amount}" + (armored ? (penetrated ? " (방어구 관통)" : " (방어구 비관통)") : string.Empty), this);
 
         private void Update()
         {

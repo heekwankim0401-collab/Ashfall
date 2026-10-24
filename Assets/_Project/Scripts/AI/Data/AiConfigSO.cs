@@ -158,6 +158,21 @@ namespace Ashfall.AI
         [Tooltip("약탈자·습격자가 LKP·표적 위치로 다가갈 때 그 점에서 자기 쪽으로 이 수평 거리(m) 앞에서 멈춘다. 0 = 끝까지 (변이체는 둘레 규칙을 따로 쓴다)")]
         public float approachStopDistanceM = 2.0f;
 
+        // MVP 마무리 F4 (§5.3, MF-Q16 B·Q22): 적 방어구 판정 수치. PlayerConfigSO의 같은 이름 4필드와 값이 같아야 한다(EditMode 테스트가 에셋 값을 고정).
+        [Header("§5.3 방어구 (적)")]
+        [Tooltip("관통 확률 기본값 (GDD §5.3 0.5)")]
+        [Range(0f, 1f)] public float armorBasePenetrationChance = 0.5f;
+        [Tooltip("관통력 − 방어등급 1당 관통 확률 변화 (GDD §5.3 0.25)")]
+        [Min(0f)] public float armorPenetrationPerClassStep = 0.25f;
+        [Tooltip("비관통 시 몸이 받는 피해 비율 (GDD §5.3 둔탁 30% = 0.3)")]
+        [Range(0f, 1f)] public float armorBluntDamageRatio = 0.3f;
+        [Tooltip("비관통 시 방어구 내구도 감소 = 원피해 × 이 값 (TODO(GDD-?) MF-Q17 임시값 0.2)")]
+        [Min(0f)] public float armorDurabilityLossPerDamage = 0.2f;
+
+        // §5.3 판정 수치 묶음 (Core ArmorRules에 넘긴다)
+        public Ashfall.Core.ArmorRuleParams ArmorRuleParams => new Ashfall.Core.ArmorRuleParams(
+            armorBasePenetrationChance, armorPenetrationPerClassStep, armorBluntDamageRatio, armorDurabilityLossPerDamage);
+
         [Header("디버그")]
         [Tooltip("머리 위 상태 색 표시 (그레이박스 확인용). M6 Q8에서 끔 — 기본값도 false(새로 만든 AiConfig·테스트 인스턴스)")]
         public bool showStateIndicator = false;

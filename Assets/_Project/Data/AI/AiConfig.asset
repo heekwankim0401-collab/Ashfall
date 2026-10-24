@@ -87,4 +87,8 @@ MonoBehaviour:
   mutantCloseRadiusRatio: 0.5
   mutantHoldInsideRangeRatio: 0.75
   approachStopDistanceM: 2
+  armorBasePenetrationChance: 0.5
+  armorPenetrationPerClassStep: 0.25
+  armorBluntDamageRatio: 0.3
+  armorDurabilityLossPerDamage: 0.2
   showStateIndicator: 0

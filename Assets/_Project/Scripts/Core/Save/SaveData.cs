@@ -37,6 +37,6 @@ namespace Ashfall.Core
         public int usesLeft = -1;  // MedicalItem 남은 횟수, 그 밖 -1
         public string loadedMagazineId;   // 튜브 무기는 내장 튜브 id (M7 §1.6)
         public int loadedMagazineRounds;
-        public float durability = -1f;  // v2: WeaponItem 내구도 0~100, 그 밖 -1 (M7 Q13). v1 파일은 버전으로 판정해 100으로 이전
+        public float durability = -1f;  // v2: WeaponItem 내구도 0~100, v3: ArmorItem 내구도 0~maxDurability(MVP 마무리 F4), 그 밖 -1 (M7 Q13). v1 파일은 버전으로 판정해 100으로 이전
     }
 }

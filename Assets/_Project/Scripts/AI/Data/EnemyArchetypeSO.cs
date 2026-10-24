@@ -137,5 +137,14 @@ namespace Ashfall.AI
         public float telegraphSec;
         [Tooltip("평시·수색 중 시선을 좌우로 훑는 전체 각 (도)")]
         public float scanArcDeg;
+
+        // MVP 마무리 F4 (§5.3·§7 "동일한 피해 공식", MF-Q16 B). null = 없음(필드 없는 기존 에셋 = 방어구 없음 = 이전 동작).
+        // 머리 피격 → covers ∋ Head, 몸통 → covers ∋ Thorax 또는 Stomach, 다리 → 방어구 없음. 적마다 런타임 내구도(EnemyArmorModel).
+        // 시체 루트에는 넣지 않는다 (TODO(GDD-?) MF-Q16).
+        [Header("★ MVP 마무리 방어구 (§5.3, MF-Q16)")]
+        [Tooltip("헬멧 (null = 없음). 데이터: AI-BOS = ARM-HLM-01")]
+        public ArmorDefinitionSO helmet;
+        [Tooltip("방탄복 (null = 없음). 데이터: AI-BOS·AI-BGD = ARM-BDY-01")]
+        public ArmorDefinitionSO bodyArmor;
     }
 }

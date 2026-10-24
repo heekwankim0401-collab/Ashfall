@@ -10,10 +10,13 @@ namespace Ashfall.Core
     // M7 (설계 §1.6, TODO(GDD-?) Q13): version 2 = ItemRecord.durability. v1은 읽을 때 모든 무기 내구도 100으로 이전한다
     // (JsonUtility의 누락 필드 처리에 기대지 않고 버전으로 판정). 이전은 메모리에서만 — 다음 저장이 현재 버전으로 쓴다.
     // MVP 마무리 F2 (설계 §1.6, MF-Q6): version 3 = SaveData.stashLevel. v1·v2 → 단계 0, 설정 최대보다 크면 최대로 자름. v4 이상 = 지원 안 함.
+    // MVP 마무리 F4 (설계 §1.6, MF-Q21): 방어구 내구도도 ItemRecord.durability(절대값 0~maxDurability, 최대 ≤ 0 = −1)에 쓴다.
+    // 버전은 올리지 않는다 — v3 = "stashLevel + 방어구 내구도". v < 3·음수(F2 빌드가 쓴 −1)·NaN → 최대, 최대 초과 → 최대.
     public static class SaveSerializer
     {
         public const int CurrentVersion = 3;
         public const int StashLevelVersion = 3;   // stashLevel 필드가 생긴 버전
+        public const int ArmorDurabilityVersion = 3;   // 방어구 내구도를 기록하기 시작한 버전 (F4, 버전 올림 없음)
         public const int FirstVersion = 1;
 
         private const string PocketContainer = nameof(GridKind.Pocket);
@@ -108,6 +111,11 @@ namespace Ashfall.Core
                         record.loadedMagazineId = weapon.LoadedMagazine.Definition.id ?? string.Empty;
                         record.loadedMagazineRounds = weapon.LoadedMagazine.Rounds;
                     }
+                    break;
+                case ArmorItem armor:
+                    // F4: 최대 ≤ 0(방독면)은 내구도 없음 = −1 (기본값 그대로)
+                    if (armor.MaxDurability > 0f)
+                        record.durability = armor.Durability;
                     break;
             }
             return record;
@@ -278,6 +286,10 @@ namespace Ashfall.Core
                     {
                         Durability = ReadDurability(record.durability, version),
                     };
+                case ArmorDefinitionSO armor:
+                    var armorItem = new ArmorItem(armor);
+                    armorItem.Durability = ReadArmorDurability(record.durability, armorItem.MaxDurability, version);
+                    return armorItem;
                 default:
                     return new ItemInstance(definition);
             }
@@ -291,6 +303,15 @@ namespace Ashfall.Core
             if (version < 2 || float.IsNaN(recorded) || recorded < 0f)
                 return WeaponItem.MaxDurability;
             return Math.Min(recorded, WeaponItem.MaxDurability);
+        }
+
+        // 방어구 내구도 (MVP 마무리 F4, 설계 §1.6, MF-Q21). v < 3·음수(−1 = 기록 없음)·NaN → max, max 초과 → max. max ≤ 0·NaN → 0.
+        public static float ReadArmorDurability(float recorded, float max, int version)
+        {
+            float cap = max > 0f ? max : 0f;
+            if (version < ArmorDurabilityVersion || float.IsNaN(recorded) || recorded < 0f)
+                return cap;
+            return Math.Min(recorded, cap);
         }
 
         // 보관함 단계 (MVP 마무리 F2, 설계 §1.6). v1·v2 → 0(필드 기본값이 아니라 버전으로 판정). 음수 → 0.

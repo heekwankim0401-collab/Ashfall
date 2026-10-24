@@ -82,3 +82,7 @@ MonoBehaviour:
   radiationSicknessMaxHpMultiplier: 0.8
   radiationWarnDose: 50
   survivalLowRatio: 0.25
+  armorBasePenetrationChance: 0.5
+  armorPenetrationPerClassStep: 0.25
+  armorBluntDamageRatio: 0.3
+  armorDurabilityLossPerDamage: 0.2
