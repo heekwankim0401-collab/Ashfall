@@ -152,6 +152,9 @@ namespace Ashfall.EditorTools
                 a.sunGlowStrength = 0.8f;
                 a.groundNoiseMin = 0.7f;
                 a.groundTileM = 12f;
+
+                // 맵 개선 밝기 개정 1 (MapPolish 설계 §2): 위 M6 값 중 밝기 7개를 덮고 개정 번호 1 — 새 에셋도 처음부터 밝다
+                MapPolishSetup.WriteLightingRevision(a);
             }, Tag);
 
             // 이미 있는데 팔레트가 비어 있으면(에디터 Create 메뉴로 만든 경우 등) 연결만 한다. 수치는 보존.

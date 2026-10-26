@@ -21,6 +21,8 @@ namespace Ashfall.EditorTools
             Mutant,   // M7 7B-2c: AI-MUT 몸
             Boss,     // M7 7B-2c: AI-BOS 몸
             Toxic,    // M7 7C-2c: 정유소 방사능 구역 표시(드럼통·경고 기둥)
+            EmberGlow, // 맵 개선 §3: 불타는 드럼통·잔불·신호 비컨 (강한 발광 — Bloom이 받는다)
+            LampGlow,  // 맵 개선 §3: 깨진 가로등 등
         }
 
         // 머티리얼 한 개의 사양. 색은 토큰(+ 알파), 셰이더 속성은 URP Lit/Unlit 이름 그대로.
@@ -83,6 +85,9 @@ namespace Ashfall.EditorTools
             { Key.Boss, new Spec("M_Boss", PalettePath("M_Boss"), PaletteToken.Ember, smoothness: 0.35f, emission: 0.3f) },
             // M7 설계 §2.2 (7C-2c, Q40): Toxic(#7A8A2A) 단색 + 약한 발광 — 정유소 드럼통·경고 기둥. 경로 = M7Names.ToxicMaterialPath. TODO(GDD-?) 자리표시
             { Key.Toxic, new Spec("M_Toxic", M7Names.ToxicMaterialPath, PaletteToken.Toxic, smoothness: 0.3f, emission: 0.25f) },
+            // 맵 개선 설계 §3: 광원 소품·랜드마크 신호등 발광면. TODO(GDD-?) 발광 배율 자리표시
+            { Key.EmberGlow, new Spec("M_EmberGlow", PalettePath("M_EmberGlow"), PaletteToken.Ember, smoothness: 0.2f, emission: 1.6f) },
+            { Key.LampGlow, new Spec("M_LampGlow", PalettePath("M_LampGlow"), PaletteToken.Bone, smoothness: 0.2f, emission: 1.5f) },
         };
 
         // M7 저격 섬광 (설계 §1.4·§2.2, Q23): URP Unlit, _BaseColor = Bone × Emission(HDR — Bloom이 받는다), 그림자 없음.
@@ -133,6 +138,7 @@ namespace Ashfall.EditorTools
             { "Tank", new Rule(Key.RustMetal, SurfaceKind.Metal) },
             { "Post", new Rule(Key.RustMetal, SurfaceKind.Metal) },
             { "Flat", new Rule(Key.RustMetal, SurfaceKind.Metal) },
+            { "Container", new Rule(Key.RustMetal, SurfaceKind.Metal) },   // 맵 개선 §4.2
         };
 
         public static IEnumerable<string> ShapeNames => ShapeRules.Keys;

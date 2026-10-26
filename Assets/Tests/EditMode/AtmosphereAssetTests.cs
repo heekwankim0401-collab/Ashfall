@@ -75,6 +75,8 @@ namespace Ashfall.Tests.EditMode
             Assert.Greater(tint.r, tint.b, "틴트 적색 우세");
             Assert.Less(tint.g, 1f, "틴트가 흰색이면 효과 없음");
             Assert.AreEqual(cfg.contrast, ca.contrast.value, Eps);
+            Assert.IsTrue(ca.postExposure.overrideState, "맵 개선 §2 노출");
+            Assert.AreEqual(cfg.postExposureEv, ca.postExposure.value, Eps);
 
             var grain = Component<FilmGrain>(profile);
             Assert.IsTrue(grain.intensity.overrideState);

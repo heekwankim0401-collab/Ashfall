@@ -25,6 +25,12 @@
 - M7 콘텐츠: `Ashfall/Setup/Apply M7 Content`(배치 `M7SceneSetup.ApplyAll`, 멱등, M6이 없으면 먼저 적용)가 무기·AI·생존 데이터(`Create M7 Weapon/AI/Survival Data`),
   무기 뷰모델 프리팹(`Prefabs/Weapons/VM_{id}`), 자리표시 WAV, 레이드 씬 적 14명(`Enemy_M7_*`, 합계 34)·방사능 구역(`RadiationField`·`M7_ToxicMarkers`), 은신처 제작대 연결을 만든다.
   M4 레이드·M5 은신처 씬 메뉴도 저장 전에 M7 적용을 부른다.
+- 맵 개선(2026-10-26, 사용자 피드백 "어둡다·허허벌판", `docs/design/MapPolish_design.md`): `Ashfall/Setup/Apply Map Polish`(배치 `MapPolishSetup.ApplyAll`, 멱등)가
+  밝기 개정(`AtmosphereConfigSO.lightingRevision` 1 미만일 때만)·발광 머티리얼·랜드마크/광원 소품 프리팹(`Prefabs/Landmarks/LM_*`·`Prefabs/Props/LP_*`, 없을 때만)을 만들고,
+  레이드 씬 Environment 아래 `MapPolish_Landmarks`·`MapPolish_Structures`·`MapPolish_Lights`를 없을 때만 배치 → NavMesh 다시 굽기 → 경로·엄폐·적·상자 확인(실패 = 예외).
+  배치 데이터 `MapPolishLayout`, 점광원 14개(그림자 없음, 상한 `maxMapLights` 16). M4 레이드 씬 메뉴도 저장 전에 부른다. 프리팹을 모델로 바꾸면 `Ashfall/Setup/Map Polish/Rebuild Map Polish (Raid Scene)`.
+  이 PC는 Windows 스마트 앱 컨트롤이 켜져 있다 — 2026-10-24에 만든 `Builds/Windows64Dev` exe는 실행이 막혔고 새로 만든 빌드는 실행됐다(막히면 다시 빌드). 보안 설정은 사용자 결정.
+  맵 개선 성능(같은 빌드 쌍, 1080p Peak): 약 +1.4ms(+5%).
 - 세이브: `Application.persistentDataPath/save.json`(version 3 — 보관함 단계 `stashLevel`·방어구 내구도, v2 = 무기 내구도·튜브, v1·v2는 읽을 때 자동 이전, 에디터 메뉴 `Ashfall/Save/Open Save Folder`·`Delete Save Files`). 테스트는 실제 경로를 쓰지 않는다
   (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
 - 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5/M6/M7 설계 결정", "MVP 마무리 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.

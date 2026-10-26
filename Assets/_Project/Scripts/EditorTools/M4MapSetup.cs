@@ -55,6 +55,7 @@ namespace Ashfall.EditorTools
         private const float DeckPillarInsetM = 2f;
         private const float CoverSpacingM = 6f;         // 긴 낮은 벽의 엄폐 지점 간격
         private const float PeekBeyondEndM = 0.4f;      // M3 HighPeekSideM 1.9 = 벽 반길이 1.5 + 0.4
+        internal const float LowCoverMaxHeightM = 1.3f; // 잔해·맵 개선 엄폐 상자: 이 높이 이하면 Low 엄폐 (맵 개선 리뷰 L5에서 공용 상수로)
 
         private static readonly Vector3 CarSize = M3SceneSetup.VehicleSize;      // 4×1.5×2
         private static readonly Vector3 LowWall = M3SceneSetup.LowWallSize;      // 4×1.1×0.4
@@ -475,7 +476,7 @@ namespace Ashfall.EditorTools
 
         // ---------- 블록아웃 (설계 §2.3) ----------
 
-        private enum Shape
+        internal enum Shape
         {
             LowWall,      // Low 엄폐 앞뒤 (긴 벽은 CoverSpacingM 간격)
             HighWall,     // High 엄폐 앞뒤 양 끝 + peek (M3 규칙)
@@ -488,9 +489,10 @@ namespace Ashfall.EditorTools
             Tank,         // 원통 탱크 (MeshCollider), 엄폐 없음
             Post,         // 송전탑·배수구 기둥 (가는 높은 박스), 엄폐 없음
             Flat,         // 낮은 띠(철로·착륙장 테두리), 엄폐 없음
+            Container,    // 맵 개선 §4.2: 컨테이너(녹슨 금속 박스), High 엄폐 앞뒤
         }
 
-        private readonly struct Piece
+        internal readonly struct Piece
         {
             public readonly Shape Shape;
             public readonly Vector2 XZ;
@@ -685,7 +687,7 @@ namespace Ashfall.EditorTools
         }
 
         // 도형·엄폐 지점 생성기. 모든 도형은 Environment 아래, 정적 배칭.
-        private sealed class BlockoutBuilder
+        internal sealed class BlockoutBuilder
         {
             public readonly Terrain Terrain;
             private readonly Transform root;
@@ -777,10 +779,11 @@ namespace Ashfall.EditorTools
                         break;
                     case Shape.HighWall:
                     case Shape.House:
+                    case Shape.Container:
                         CoversFrontBack(structure, size, CoverHeight.High);
                         break;
                     case Shape.Rubble:
-                        CoversFrontBack(structure, size, size.y <= 1.3f ? CoverHeight.Low : CoverHeight.High);
+                        CoversFrontBack(structure, size, size.y <= LowCoverMaxHeightM ? CoverHeight.Low : CoverHeight.High);
                         break;
                     case Shape.Vehicle:
                         CoversAround(structure, size);
@@ -832,7 +835,7 @@ namespace Ashfall.EditorTools
             }
 
             // M3 규칙: 구조물 면에서 CoverGapM 떨어진 앞(-z)·뒤(+z). Low = 가운데(긴 벽은 간격마다), High = 양 끝 + peek(끝 밖).
-            private void CoversFrontBack(Transform structure, Vector3 size, CoverHeight height)
+            internal void CoversFrontBack(Transform structure, Vector3 size, CoverHeight height)
             {
                 float d = size.z * 0.5f + M3SceneSetup.CoverGapM;
                 if (height == CoverHeight.Low)
@@ -862,7 +865,7 @@ namespace Ashfall.EditorTools
                 }
             }
 
-            private void CoversAround(Transform structure, Vector3 size)
+            internal void CoversAround(Transform structure, Vector3 size)
             {
                 float dx = size.x * 0.5f + M3SceneSetup.CoverGapM;
                 float dz = size.z * 0.5f + M3SceneSetup.CoverGapM;
@@ -983,7 +986,13 @@ namespace Ashfall.EditorTools
             }
             if (settings.MinRegionArea > 0f)
                 surface.minRegionArea = settings.MinRegionArea;
+            return RebakeNavMesh(surface, assetPath, out seconds);
+        }
 
+        // 이미 설정된 NavMeshSurface로 다시 굽고 같은 에셋에 덮어쓴다(GUID 유지). 맵 개선 메뉴가 구조물을 더한 뒤에도 부른다.
+        internal static bool RebakeNavMesh(NavMeshSurface surface, string assetPath, out double seconds)
+        {
+            GameObject environment = surface.gameObject;
             Physics.SyncTransforms();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             surface.BuildNavMesh();

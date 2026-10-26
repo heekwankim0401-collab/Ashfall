@@ -92,7 +92,9 @@ namespace Ashfall.Tests.EditMode
 
             // 안개 (§10.2 Dried_Blood / 나머지 TODO)
             Assert.AreEqual(PaletteToken.DriedBlood, a.fogToken);
-            Assert.AreEqual(450f, a.clearVisibilityM, Eps);
+            // 맵 개선 밝기 개정 1 (MapPolish 설계 §2): 가시거리 450 → 600, 태양 0.9 → 2.4·고도 8 → 12·Bone 0.4, 환경광 1 → 3.5·지면 Dried_Blood, 노출 +0.8
+            Assert.AreEqual(1, a.lightingRevision, "밝기 개정 1 적용");
+            Assert.AreEqual(600f, a.clearVisibilityM, Eps);
             Assert.AreEqual(0.05f, a.fogVisibilityThreshold, Eps);
 
             // 하늘 (§10.2 Ash_Black → Rust_Red)
@@ -105,20 +107,21 @@ namespace Ashfall.Tests.EditMode
 
             // 태양
             Assert.AreEqual(245f, a.sunAzimuthDeg, Eps);
-            Assert.AreEqual(8f, a.sunElevationDeg, Eps);
+            Assert.AreEqual(12f, a.sunElevationDeg, Eps);
             Assert.AreEqual(2.5f, a.sunDiskDeg, Eps);
             Assert.AreEqual(18f, a.sunGlowDeg, Eps);
             Assert.AreEqual(0.6f, a.sunHaze, Eps);
             Assert.AreEqual(PaletteToken.Bone, a.sunCoreToken);
             Assert.AreEqual(PaletteToken.Ember, a.sunGlowToken);
             Assert.AreEqual(PaletteToken.Ember, a.sunLightToken);
-            Assert.AreEqual(0.9f, a.sunLightIntensity, Eps);
+            Assert.AreEqual(2.4f, a.sunLightIntensity, Eps);
+            Assert.AreEqual(0.4f, a.sunLightBoneMix, Eps);
 
             // 환경광
             Assert.AreEqual(PaletteToken.RustRed, a.ambientSkyToken);
             Assert.AreEqual(PaletteToken.DriedBlood, a.ambientEquatorToken);
-            Assert.AreEqual(PaletteToken.AshBlack, a.ambientGroundToken);
-            Assert.AreEqual(1f, a.ambientIntensity, Eps);
+            Assert.AreEqual(PaletteToken.DriedBlood, a.ambientGroundToken);
+            Assert.AreEqual(3.5f, a.ambientIntensity, Eps);
 
             // 포스트 (§10.2 채도 −30·그레인 0.3·비네트 0.35)
             Assert.AreEqual(-30f, a.saturation, Eps);
@@ -127,6 +130,7 @@ namespace Ashfall.Tests.EditMode
             Assert.AreEqual(PaletteToken.Ember, a.tintToken);
             Assert.AreEqual(0.15f, a.tintStrength, Eps);
             Assert.AreEqual(10f, a.contrast, Eps);
+            Assert.AreEqual(0.8f, a.postExposureEv, Eps);
             Assert.AreEqual(FilmGrainChoice.Medium1, a.filmGrainType);
             Assert.AreEqual(0.4f, a.vignetteSmoothness, Eps);
             Assert.AreEqual(PaletteToken.AshBlack, a.vignetteToken);

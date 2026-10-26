@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Ashfall.Raid::Ashfall.Raid.AtmosphereConfigSO
   palette: {fileID: 11400000, guid: 0b16f7a0638f4364da79b2c938e383da, type: 2}
   fogToken: 1
-  clearVisibilityM: 450
+  clearVisibilityM: 600
   fogVisibilityThreshold: 0.05
   zenithToken: 0
   horizonToken: 2
@@ -24,7 +24,7 @@ MonoBehaviour:
   skyTextureOverride: {fileID: 0}
   skyGradientExponent: 0.6
   sunAzimuthDeg: 245
-  sunElevationDeg: 8
+  sunElevationDeg: 12
   sunDiskDeg: 2.5
   sunGlowDeg: 18
   sunHaze: 0.6
@@ -32,15 +32,17 @@ MonoBehaviour:
   sunCoreToken: 5
   sunGlowToken: 3
   sunLightToken: 3
-  sunLightIntensity: 0.9
+  sunLightIntensity: 2.4
+  sunLightBoneMix: 0.4
   ambientSkyToken: 2
   ambientEquatorToken: 1
-  ambientGroundToken: 0
-  ambientIntensity: 1
+  ambientGroundToken: 1
+  ambientIntensity: 3.5
   saturation: -30
   tintToken: 3
   tintStrength: 0.15
   contrast: 10
+  postExposureEv: 0.8
   filmGrainIntensity: 0.3
   filmGrainType: 2
   vignetteIntensity: 0.35
@@ -66,3 +68,15 @@ MonoBehaviour:
   ashTextureOverride: {fileID: 0}
   groundNoiseMin: 0.7
   groundTileM: 12
+  fireLight:
+    token: 3
+    boneMix: 0.15
+    intensity: 10
+    rangeM: 12
+  lampLight:
+    token: 5
+    boneMix: 0
+    intensity: 8
+    rangeM: 16
+  maxMapLights: 16
+  lightingRevision: 1

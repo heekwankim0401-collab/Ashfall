@@ -415,6 +415,7 @@ namespace Ashfall.EditorTools
             var colorAdjustments = GetOrAdd<ColorAdjustments>(profile);
             colorAdjustments.saturation.Override(cfg.saturation);
             colorAdjustments.contrast.Override(cfg.contrast);
+            colorAdjustments.postExposure.Override(cfg.postExposureEv); // 맵 개선 §2 (기본 0 = 이전과 같음)
             colorAdjustments.colorFilter.Override(Color.Lerp(Color.white, palette.Get(cfg.tintToken), cfg.tintStrength));
 
             var filmGrain = GetOrAdd<FilmGrain>(profile);

@@ -115,7 +115,8 @@ namespace Ashfall.Tests.PlayMode
             Assert.AreEqual(cfg.sunElevationDeg, Mathf.Asin(toSun.y) * Mathf.Rad2Deg, 0.5f, "태양 고도");
             float azimuth = Mathf.Repeat(Mathf.Atan2(toSun.x, toSun.z) * Mathf.Rad2Deg, 360f);
             Assert.AreEqual(cfg.sunAzimuthDeg, azimuth, 0.5f, "태양 방위 (+Z = 0, 시계 방향)");
-            AssertRgb(cfg.palette.Get(cfg.sunLightToken), sun.color, "태양 색");
+            // 맵 개선 §2: 태양 색 = lerp(토큰, Bone, sunLightBoneMix) (섞임 0 = 토큰 그대로)
+            AssertRgb(Color.Lerp(cfg.palette.Get(cfg.sunLightToken), cfg.palette.Get(PaletteToken.Bone), cfg.sunLightBoneMix), sun.color, "태양 색");
             Assert.AreEqual(1, Object.FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.type == LightType.Directional),
                 "Directional Light 수");
         }

@@ -9,7 +9,7 @@ namespace Ashfall.Tests.EditMode
     // M6 AC3 재 폭풍 일정·단계·값 (§8.3, M6 설계 §1.5·§7 AC3, Q23·Q24·Q26·Q27·Q28)
     public class AshStormTests
     {
-        private const float Clear = 450f;   // AtmosphereConfigSO.clearVisibilityM 기본값
+        private const float Clear = 450f;   // 맑을 때 가시거리 (M6 기본값 — 맵 개선 뒤 SO는 600m, 이 테스트는 값과 무관)
         private AshStormConfigSO config;
 
         [SetUp]

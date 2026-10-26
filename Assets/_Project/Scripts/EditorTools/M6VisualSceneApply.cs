@@ -174,7 +174,7 @@ namespace Ashfall.EditorTools
             go.name = M6Names.SunObject;
             var sun = SetupUtil.GetOrAdd<Light>(go);
             sun.type = LightType.Directional;
-            sun.color = palette.Get(cfg.sunLightToken);
+            sun.color = SunLightColor(cfg, palette);
             sun.intensity = cfg.sunLightIntensity;
             if (sun.shadows == LightShadows.None)
                 sun.shadows = LightShadows.Soft;
@@ -183,6 +183,14 @@ namespace Ashfall.EditorTools
             EditorUtility.SetDirty(sun);
             EditorUtility.SetDirty(go.transform);
             return sun;
+        }
+
+        // 태양 라이트 색 = lerp(토큰, Bone, sunLightBoneMix) (맵 개선 §2, 섞임 0 = 토큰 그대로). 테스트도 이 식으로 기대값을 만든다.
+        public static Color SunLightColor(AtmosphereConfigSO cfg, PaletteSO palette)
+        {
+            Color c = Color.Lerp(palette.Get(cfg.sunLightToken), palette.Get(PaletteToken.Bone), Mathf.Clamp01(cfg.sunLightBoneMix));
+            c.a = 1f;
+            return c;
         }
 
         // Exp² 안개(항상 켬 — 위험 R1 셰이더 변형 유지), 하늘, Trilight 환경광, 태양
@@ -242,10 +250,7 @@ namespace Ashfall.EditorTools
         // 표에 없는 구조물은 바꾸지 않고 경고로 알린다(경계 벽은 Environment 밖이라 대상 아님).
         private static int ApplyBlockout(Scene scene, StringBuilder problems)
         {
-            var materials = new Dictionary<PaletteMaterialMap.Key, Material>();
-            foreach (KeyValuePair<PaletteMaterialMap.Key, PaletteMaterialMap.Spec> pair in PaletteMaterialMap.Materials)
-                materials[pair.Key] = AssetDatabase.LoadAssetAtPath<Material>(pair.Value.Path);
-
+            Dictionary<PaletteMaterialMap.Key, Material> materials = LoadPaletteMaterials();
             int painted = 0;
             GameObject environment = SetupUtil.FindRoot(scene, M4MapSetup.EnvironmentName);
             if (environment == null)
@@ -256,19 +261,7 @@ namespace Ashfall.EditorTools
             {
                 var unknown = new List<string>();
                 foreach (Transform group in environment.transform)
-                foreach (Transform structure in group)
-                {
-                    PaletteMaterialMap.Rule rule;
-                    if (structure.GetComponent<LootContainer>() != null)
-                        rule = PaletteMaterialMap.CrateRule;
-                    else if (!PaletteMaterialMap.TryGetStructureRule(structure.name, out rule))
-                    {
-                        if (structure.GetComponentInChildren<MeshRenderer>(true) != null)
-                            unknown.Add($"{group.name}/{structure.name}");
-                        continue;
-                    }
-                    painted += Paint(structure.gameObject, rule, materials);
-                }
+                    painted += PaintGroup(group, materials, unknown);
                 if (unknown.Count > 0)
                     problems.AppendLine($"매핑 표에 없는 구조물 {unknown.Count}개(그대로 둠): {string.Join(", ", unknown)}");
             }
@@ -276,6 +269,45 @@ namespace Ashfall.EditorTools
             foreach (PowerSwitch powerSwitch in AllInScene<PowerSwitch>(scene))
                 painted += Paint(powerSwitch.gameObject, PaletteMaterialMap.PowerSwitchRule, materials);
             return painted;
+        }
+
+        internal static Dictionary<PaletteMaterialMap.Key, Material> LoadPaletteMaterials()
+        {
+            var materials = new Dictionary<PaletteMaterialMap.Key, Material>();
+            foreach (KeyValuePair<PaletteMaterialMap.Key, PaletteMaterialMap.Spec> pair in PaletteMaterialMap.Materials)
+                materials[pair.Key] = AssetDatabase.LoadAssetAtPath<Material>(pair.Value.Path);
+            return materials;
+        }
+
+        // Environment 그룹 하나의 구조물("{Shape}_{nn}"·상자)을 칠한다. 프리팹 모델을 가진 구조물(맵 개선 랜드마크·광원 소품)은
+        // 프리팹이 자기 팔레트 머티리얼·GroundSurface를 가지므로 건너뛴다(맵 개선 §5). 표에 없는 구조물은 unknown에 더한다.
+        internal static int PaintGroup(Transform group, Dictionary<PaletteMaterialMap.Key, Material> materials, List<string> unknown)
+        {
+            int painted = 0;
+            foreach (Transform structure in group)
+            {
+                if (HasPrefabModel(structure))
+                    continue;
+                PaletteMaterialMap.Rule rule;
+                if (structure.GetComponent<LootContainer>() != null)
+                    rule = PaletteMaterialMap.CrateRule;
+                else if (!PaletteMaterialMap.TryGetStructureRule(structure.name, out rule))
+                {
+                    if (structure.GetComponentInChildren<MeshRenderer>(true) != null)
+                        unknown.Add($"{group.name}/{structure.name}");
+                    continue;
+                }
+                painted += Paint(structure.gameObject, rule, materials);
+            }
+            return painted;
+        }
+
+        private static bool HasPrefabModel(Transform structure)
+        {
+            foreach (Transform child in structure)
+                if (PrefabUtility.IsOutermostPrefabInstanceRoot(child.gameObject))
+                    return true;
+            return false;
         }
 
         // root와 그 아래의 MeshRenderer에 머티리얼, 트리거 아닌 콜라이더가 있는 오브젝트에 GroundSurface. 칠한 렌더러 수.
