@@ -305,7 +305,7 @@ namespace Ashfall.EditorTools
         private static bool HasPrefabModel(Transform structure)
         {
             foreach (Transform child in structure)
-                if (PrefabUtility.IsOutermostPrefabInstanceRoot(child.gameObject))
+                if (!AssetSwapApply.IsSkinObject(child.gameObject) && PrefabUtility.IsOutermostPrefabInstanceRoot(child.gameObject))
                     return true;
             return false;
         }
@@ -317,6 +317,8 @@ namespace Ashfall.EditorTools
             int count = 0;
             foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
             {
+                if (AssetSwapApply.UnderSkin(renderer.transform, root.transform))
+                    continue;   // 에셋 교체 스킨은 자기 머티리얼을 가진다 (AssetSwap 설계 §3)
                 if (material != null && renderer.sharedMaterial != material)
                 {
                     renderer.sharedMaterial = material;

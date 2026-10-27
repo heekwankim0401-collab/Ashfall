@@ -157,11 +157,20 @@ namespace Ashfall.Tests.PlayMode
             int renderers = 0;
             foreach (MeshRenderer renderer in environment.GetComponentsInChildren<MeshRenderer>(true))
             {
+                if (renderer.GetComponentInParent<BlockoutSkin>(true) != null)
+                    continue;   // 에셋 교체 스킨(git 제외 패키지)은 자기 머티리얼 — 블록아웃만 본다 (AssetSwap 설계 §3)
                 string path = AssetDatabase.GetAssetPath(renderer.sharedMaterial);
                 StringAssert.StartsWith(PaletteMaterialFolder, path, $"{renderer.transform.parent?.name}/{renderer.name}: 팔레트 머티리얼이 아니다");
                 renderers++;
             }
             Assert.Greater(renderers, 100, "블록아웃 렌더러가 너무 적다");
+
+            // 에셋 교체: 스킨이 숨기는 블록아웃만 숨겨져 있다 — 패키지 없는 clone(스킨 없음)이면 블록아웃이 전부 보여야 한다(Missing Prefab 자리에 남은 BlockoutSkin은 숨기지 않는다) (AssetSwap 설계 §3)
+            var hidden = new System.Collections.Generic.HashSet<Renderer>(
+                environment.GetComponentsInChildren<BlockoutSkin>(true).Where(s => s.isActiveAndEnabled && s.HasSkinRenderer).SelectMany(s => s.Hidden).Where(r => r != null));
+            foreach (MeshRenderer renderer in environment.GetComponentsInChildren<MeshRenderer>(true))
+                if (renderer.GetComponentInParent<BlockoutSkin>(true) == null && !hidden.Contains(renderer))
+                    Assert.IsFalse(renderer.forceRenderingOff, $"{renderer.transform.parent?.name}/{renderer.name}: 스킨이 없는데 숨겨져 있다");
             int surfaces = 0;
             foreach (MeshRenderer renderer in environment.GetComponentsInChildren<MeshRenderer>(true))
             {

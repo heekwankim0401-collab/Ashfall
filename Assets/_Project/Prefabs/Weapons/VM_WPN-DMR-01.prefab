@@ -516,5 +516,106 @@ Transform:
   - {fileID: 2184343937979576903}
   - {fileID: 8736461305841494928}
   - {fileID: 3239890448772394011}
+  - {fileID: 2155208309588684044}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &3678924215592244671
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 9109244462376400021}
+    m_Modifications:
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.80120945
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.80120945
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.80120945
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.55
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7582081263327428721, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      propertyPath: m_Name
+      value: Skin
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7582081263327428721, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5392566391869293255}
+  m_SourcePrefab: {fileID: 100100000, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+--- !u!4 &2155208309588684044 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 3379666321627527347, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+  m_PrefabInstance: {fileID: 3678924215592244671}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6500625734173955534 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7582081263327428721, guid: ad7b8346200f3b24bb1ffe0fb683bb5e, type: 3}
+  m_PrefabInstance: {fileID: 3678924215592244671}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &5392566391869293255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6500625734173955534}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 869678ba5742c4640a2a77440cbac538, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.BlockoutSkin
+  hidden:
+  - {fileID: 7363246346561786970}
+  - {fileID: 6309469077047039476}
+  - {fileID: 5342073194793590992}
+  - {fileID: 8393799441207725596}
+  - {fileID: 2662387735973814447}

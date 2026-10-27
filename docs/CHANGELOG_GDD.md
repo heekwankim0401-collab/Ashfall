@@ -490,3 +490,20 @@
   **Peak 27.6~29.5 → 29.9ms(평균 +1.4ms, 약 +5%, 약 35 → 33fps).** 이번 측정은 최종 정리(Peak 32.6ms)보다 전체가 낮다 — 같은 빌드 쌍끼리만 비교한다.
   에디터 1080p 렌더 비교(같은 10시점)도 +1.4~1.6ms로 같고, 점광원만 끈 측정과 차이가 잡음 범위 — 증가분은 구조물·밝기 쪽이다. 60fps 미충족 판단(GPU 등급)은 그대로.
   (오래된 `Builds/Windows64Dev` exe는 Windows 스마트 앱 컨트롤에 막혔지만 새로 만든 빌드는 실행됐다.)
+
+## 2026-10-26 — 에셋 교체 설계 결정 (§10, §10.1, §13.2, §17)
+사용자 요청 "자리표시 3D 모델을 에셋스토어 무료 모델로 갈아끼우기". 설계·구현 메모는 `docs/design/AssetSwap_design.md`. 게임 로직·수치·콜라이더·엄폐·NavMesh는 그대로.
+- **에셋 출처·라이선스(사용자 결정):** 에셋스토어 무료 패키지 14개(표준 Unity Asset Store EULA)를 사용자가 Package Manager로 가져왔다. EULA가 원본 재배포를 허용하지 않으므로
+  패키지 폴더와 그 파생물(`Assets/_Project/Skins/` — 스킨 프리팹·URP 머티리얼 사본·Idle 컨트롤러)은 `.gitignore`로 저장소에서 뺀다. 릴리스 빌드(zip)에는 포함한다.
+  가져올 때 딸려 온 `com.unity.postprocessing`(Built-in 데모용)·`UNITY_POST_PROCESSING_STACK_V2` 정의는 되돌렸다.
+- **§13.2 구조 — 스킨 덮개:** 블록아웃은 남기고 그 위에 자식 `Skin`(스킨 프리팹 인스턴스)을 얹는다. 블록아웃 렌더러는 Core 런타임 컴포넌트 `BlockoutSkin`이
+  `Renderer.forceRenderingOff`(직렬화 안 됨)로 숨긴다 — 스킨 모델(자기 아래 렌더러)이 없으면 숨기지 않는다. 10/27 clone 확인: 추가한 컴포넌트는 Missing Prefab 자리에 남아
+  처음 전제("컴포넌트도 사라진다")가 틀렸고(블록아웃 286개 숨김) 위 조건으로 고쳤다. 레이드 씬을 열 때 Missing Prefab 오류 로그가 나므로 clone은 `Apply Asset Swap`을 한 번 실행해
+  깨진 스킨을 지운다(README). 사유: 공개 저장소를 깨지 않고,
+  판정(콜라이더·GroundSurface·엄폐)을 보이는 모델과 분리해 게임 로직을 건드리지 않기 위해. 메뉴 `Ashfall/Setup/Apply Asset Swap`(멱등)·`Asset Swap/Remove Skins`.
+- **§10 배정(제안안 승인):** 무기 1인칭 5종(Low Poly Weapon 시리즈, 총구 끝 = `Muzzle`, 길이 = 자리표시), 적 6종 몸(ithappy 생존자·나무꾼, Shady_3d 방독면·헬멧, Zombie_Mutant —
+  키 1.8m, Idle 반복만)과 적 총, 차량·창고·컨테이너·낮은/높은 벽(타일)·상자·방사능 드럼통·추락기(→ 헬기 잔해). 맞는 무료 모델이 없는 잔해·탱크·고가·송전 기둥·랜드마크 나머지는 블록아웃 유지.
+- **§10.1 팔레트 톤:** 스킨 머티리얼은 URP Lit 사본(Built-in Standard는 변환, URP용은 복사) — 텍스처가 있으면 기본색 × Lerp(흰색, 토큰, 0.35), 단색이면 토큰 쪽으로 0.7,
+  Smoothness ≤ 0.2. 토큰: 무기·구조물·차량 `Rust_Red`, 사람 `Ash_Grey`, 변이체·보스 `Dried_Blood`, 드럼통 `Toxic`. 전부 TODO(GDD-?) "MVP 기본값(플레이 검증 전)".
+- **§17 범위 밖 그대로:** 적 걷기·사격·사망 애니메이션, 1인칭 팔·장전 애니메이션은 하지 않는다(다음 단계). 적은 Idle 자세로 이동하고, 웅크림·사망은 기존처럼 `Body` 변형(스킨이 따라 움직임).
+- **§13.1 성능(10/27 실측):** 이 PC(HD 620) IL2CPP 개발 빌드 1080p 스모크 90초 — 스킨 있음 약 36.9~41.9ms, 스킨 없음 약 25.9~26.2ms(+11~16ms, +40~60%). 기능은 유지하고 최적화를 후속 과제로 둔다(`AssetSwap_design.md` §8·§9). 되돌리려면 `Remove Skins`.

@@ -295,7 +295,17 @@ namespace Ashfall.EditorTools
         {
             var filter = go.GetComponent<MeshFilter>();
             return filter != null && filter.sharedMesh != null && filter.sharedMesh == PrimitiveMesh(primitive)
-                   && go.GetComponent<MeshRenderer>() != null && go.transform.childCount == 0;
+                   && go.GetComponent<MeshRenderer>() != null && NonSkinChildCount(go.transform) == 0;
+        }
+
+        // 에셋 교체 스킨 자식(AssetSwap 설계 §3)은 표시물의 일부가 아니다
+        private static int NonSkinChildCount(Transform t)
+        {
+            int n = 0;
+            foreach (Transform child in t)
+                if (!AssetSwapApply.IsSkinObject(child.gameObject))
+                    n++;
+            return n;
         }
 
         private static readonly Dictionary<PrimitiveType, Mesh> PrimitiveMeshes = new Dictionary<PrimitiveType, Mesh>();
@@ -467,11 +477,15 @@ namespace Ashfall.EditorTools
                     ok = false;
                 }
                 foreach (MeshRenderer r in markers.GetComponentsInChildren<MeshRenderer>(true))
+                {
+                    if (AssetSwapApply.UnderSkin(r.transform) || AssetSwapApply.IsSkinObject(r.gameObject))
+                        continue;   // 에셋 교체 스킨(깨진 것 포함)은 표시물이 아니다
                     if (r.sharedMaterial != toxic || !r.name.StartsWith(M7Names.ToxicMarkerPrefix, StringComparison.Ordinal))
                     {
                         sb.AppendLine($"  {r.name}: 머티리얼·이름이 M_Toxic·{M7Names.ToxicMarkerPrefix}가 아니다");
                         ok = false;
                     }
+                }
             }
             sb.AppendLine($"  RadiationField {fieldCount}, Toxic 표시 {(markers != null ? markers.transform.childCount : 0)}개");
             report = sb.ToString();

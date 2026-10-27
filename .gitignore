@@ -61,3 +61,36 @@ Thumbs.db
 
 # Performance Testing 패키지가 빌드·테스트 중 만드는 임시 파일
 /Assets/Resources/PerformanceTestRun*
+
+# 에셋스토어 패키지(표준 EULA: 원본 재배포 금지) — 로컬 전용, 릴리스 빌드에만 포함
+/Assets/Abandoned buildings/
+/Assets/Abandoned buildings.meta
+/Assets/FREE Low Poly Shipping Container/
+/Assets/FREE Low Poly Shipping Container.meta
+/Assets/Free - Low Poly Weapon Pack/
+/Assets/Free - Low Poly Weapon Pack.meta
+/Assets/H&L Assets/
+/Assets/H&L Assets.meta
+/Assets/Low Poly AR Weapon Pack 1/
+/Assets/Low Poly AR Weapon Pack 1.meta
+/Assets/Low Poly Pistol Weapon Pack 2/
+/Assets/Low Poly Pistol Weapon Pack 2.meta
+/Assets/Low Poly SMG Weapon Pack 2/
+/Assets/Low Poly SMG Weapon Pack 2.meta
+/Assets/Low Poly ShotGun Weapon Pack 2/
+/Assets/Low Poly ShotGun Weapon Pack 2.meta
+/Assets/Low Poly Weapon Pack 4_MW_1/
+/Assets/Low Poly Weapon Pack 4_MW_1.meta
+/Assets/LowPolyBarriersPackFree/
+/Assets/LowPolyBarriersPackFree.meta
+/Assets/Lowpoly_Crates/
+/Assets/Lowpoly_Crates.meta
+/Assets/Shady_3d/
+/Assets/Shady_3d.meta
+/Assets/Zombie_Mutant/
+/Assets/Zombie_Mutant.meta
+/Assets/ithappy/
+/Assets/ithappy.meta
+# 에셋 교체 스킨(위 패키지의 파생물 — Ashfall/Setup/Apply Asset Swap이 만든다)
+/Assets/_Project/Skins/
+/Assets/_Project/Skins.meta

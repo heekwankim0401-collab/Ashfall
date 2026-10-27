@@ -31,6 +31,13 @@
   배치 데이터 `MapPolishLayout`, 점광원 14개(그림자 없음, 상한 `maxMapLights` 16). M4 레이드 씬 메뉴도 저장 전에 부른다. 프리팹을 모델로 바꾸면 `Ashfall/Setup/Map Polish/Rebuild Map Polish (Raid Scene)`.
   이 PC는 Windows 스마트 앱 컨트롤이 켜져 있다 — 2026-10-24에 만든 `Builds/Windows64Dev` exe는 실행이 막혔고 새로 만든 빌드는 실행됐다(막히면 다시 빌드). 보안 설정은 사용자 결정.
   맵 개선 성능(같은 빌드 쌍, 1080p Peak): 약 +1.4ms(+5%).
+- 에셋 교체(2026-10-26, `docs/design/AssetSwap_design.md`): 에셋스토어 무료 패키지 14개(Assets 바로 아래 `ithappy`·`Low Poly * Weapon Pack *`·`Shady_3d` 등)는
+  **`.gitignore`로 저장소에서 뺀다**(EULA 재배포 금지, 릴리스 빌드에만 포함 — 빌드는 패키지가 있는 PC에서). `Ashfall/Setup/Apply Asset Swap`(배치 `AssetSwapSetup.ApplyAll`, 멱등)이
+  스킨 프리팹(`Assets/_Project/Skins/`, git 제외)을 만들어 무기 뷰모델 5·레이드 씬(적 몸·총, 차량·창고·컨테이너·벽, 상자, 드럼통, 추락기)의 블록아웃 위에 자식 `Skin`으로 얹는다.
+  블록아웃(콜라이더·엄폐·GroundSurface·팔레트 머티리얼)은 그대로, Core `BlockoutSkin`이 실행 중 `forceRenderingOff`로 숨긴다 → 패키지 없는 clone은 블록아웃 모습(받은 뒤 `Apply Asset Swap` 한 번 — 깨진 스킨을 지워야 씬 열기 Missing Prefab 오류·PlayMode 실패가 없다).
+  레이드 씬을 M4·M7·맵 개선 메뉴로 다시 만들면 이 메뉴를 다시 실행. 되돌리기 `Ashfall/Setup/Asset Swap/Remove Skins`. 적은 Idle만(걷기·사격 애니메이션 없음).
+  스킨이 얹힌 레이드 씬·VM 프리팹은 **패키지가 있는 PC에서만 커밋**한다(다른 PC에서 메뉴를 돌리면 스킨 프리팹 GUID가 달라진다).
+  성능(10/27, 같은 빌드 쌍 1080p): 스킨 있음 약 37~42ms vs 없음 약 26ms(+11~16ms) — 최적화 후속(`AssetSwap_design.md` §8).
 - 세이브: `Application.persistentDataPath/save.json`(version 3 — 보관함 단계 `stashLevel`·방어구 내구도, v2 = 무기 내구도·튜브, v1·v2는 읽을 때 자동 이전, 에디터 메뉴 `Ashfall/Save/Open Save Folder`·`Delete Save Files`). 테스트는 실제 경로를 쓰지 않는다
   (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
 - 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5/M6/M7 설계 결정", "MVP 마무리 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.
@@ -50,7 +57,8 @@
     MVP 마무리: 방어구 런타임 `ArmorItem`·내구도 공통 `IDurableItem`·`DurabilityRules`(`Items/`), 보관함 단계 `PlayerProfile.StashLevel`·`ItemGrid.TryGrow`, `IHideoutService` 보관함 확장·수리,
     세이브 `ProfileService`(GameManager 소유, 보관함·은신처 장비·탄피·키트·raidInProgress)·`SaveSerializer`·`FileSaveStorage`(`Save/`), id → 정의 `ItemDatabaseSO`).
     M7: 고장·내구도 `JamRules`·`WeaponWear`(`Combat/`), 낱탄 `ILooseAmmoSource`·방사능 구역 `IRadiationField`·생존 등급 `IBodyStatusView.GetSurvivalTier`·제작 `IHideoutService.Recipes/TryCraft`(`Services/`),
-    개발 빌드 진단 `DevDiagnostics`·`FrameTimeStats`·`SmokeRunner`·`SmokeScenario`(`Diagnostics/`, GameManager 오브젝트의 컴포넌트, 개발 빌드에만). 다른 Ashfall 어셈블리를 참조하지 않는다.
+    개발 빌드 진단 `DevDiagnostics`·`FrameTimeStats`·`SmokeRunner`·`SmokeScenario`(`Diagnostics/`, GameManager 오브젝트의 컴포넌트, 개발 빌드에만),
+    에셋 교체 스킨이 블록아웃 렌더러를 숨기는 `BlockoutSkin`(`Visual/`). 다른 Ashfall 어셈블리를 참조하지 않는다.
     여러 기능이 같이 쓰는 타입은 여기 둔다. 기능 간 조회·명령은 레지스트리의 Core 인터페이스로, 변경 알림은 이벤트로.
   - `Player` — `PlayerConfigSO`, 순수 로직 `LocomotionModel`·`StaminaModel`·`BodyHealthModel`(부위 체력·상태이상·전신 피해·최대 HP 배율)·`MedicalUseModel`·`SurvivalModel`(수분·에너지)·`RadiationDoseModel`, 얇은 `PlayerMotor`·`PlayerHealth`.
   - `Weapons` — 순수 로직 `Ballistics`(펠릿)·`MagazineCheckModel`(RULE-04)·`AimSway`·`WeaponSwitchModel`(1/2/3)·`JamClearModel`(T 길게), `ProjectileSystem`(`IProjectileService`), `WeaponController`, `WeaponHandlingConfigSO`(탄약 표), 그레이박스 `HitTarget`·`TestTurret`.

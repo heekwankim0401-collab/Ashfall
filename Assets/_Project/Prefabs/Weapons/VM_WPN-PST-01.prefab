@@ -32,6 +32,7 @@ Transform:
   - {fileID: 7009538006554141213}
   - {fileID: 8042249963488636992}
   - {fileID: 8958721934568809546}
+  - {fileID: 6547838635734173396}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6277367313152843588
@@ -245,3 +246,100 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5303792293192987322}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &8958266302120725315
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 5303792293192987322}
+    m_Modifications:
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.7101895
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.7101895
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 0.7101895
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0.11
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7413811023588623841, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      propertyPath: m_Name
+      value: Skin
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 7413811023588623841, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 792829759853991337}
+  m_SourcePrefab: {fileID: 100100000, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+--- !u!1 &1923321151524834978 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7413811023588623841, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+  m_PrefabInstance: {fileID: 8958266302120725315}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &792829759853991337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1923321151524834978}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 869678ba5742c4640a2a77440cbac538, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Ashfall.Core::Ashfall.Core.BlockoutSkin
+  hidden:
+  - {fileID: 7259333665115046273}
+  - {fileID: 7111607916383685854}
+--- !u!4 &6547838635734173396 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2777805288374373783, guid: d290d8a3c7f90e345803e15e4328ad7e, type: 3}
+  m_PrefabInstance: {fileID: 8958266302120725315}
+  m_PrefabAsset: {fileID: 0}

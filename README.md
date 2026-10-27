@@ -52,6 +52,8 @@
 1. Unity Hub에 **Unity 6000.3.26f1**과 **Windows Build Support (IL2CPP)** 모듈을 설치합니다.
 2. Visual Studio 2022 이상에 **C++를 사용한 게임 개발** 워크로드를 설치합니다.
 3. 이 저장소를 받아 Unity Hub에서 폴더를 엽니다(첫 가져오기는 시간이 걸립니다).
+   - 릴리스 빌드의 3D 모델(에셋스토어 무료 패키지)은 라이선스상 저장소에 없습니다. 받은 저장소에서는 메뉴 `Ashfall/Setup/Apply Asset Swap`을 한 번 실행해
+     빈 모델 자리를 정리하세요(자리표시 블록 모습이 되고, 실행 전에는 레이드 씬을 열 때 Missing Prefab 오류가 납니다).
 4. 메뉴 `File → Build Profiles`에서 Windows로 빌드하거나, 배치모드로 `Ashfall.EditorTools.BuildTools`의 빌드 메서드를 실행합니다.
 
 ## 문서
