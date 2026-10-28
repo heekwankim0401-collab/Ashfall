@@ -21,6 +21,7 @@ namespace Ashfall.Core
         public const string LogTag = "[DevDiagnostics]";
 
         private FrameTimeStats stats;
+        private RenderCounters renderCounters;
         private float nextLogAt;
         private SmokeRunner smoke;
         private bool smokeArgumentError;
@@ -41,6 +42,7 @@ namespace Ashfall.Core
         private void Awake()
         {
             stats = new FrameTimeStats(FrameSampleCapacity);
+            renderCounters = new RenderCounters();
             nextLogAt = Time.realtimeSinceStartup + LogIntervalSec;
             Debug.Log($"{LogTag} 개발 빌드 진단 켜짐 — 프레임 시간 {LogIntervalSec:0}초마다 기록");
 
@@ -49,6 +51,8 @@ namespace Ashfall.Core
             if (!args.Requested)
                 return;
             Application.logMessageReceivedThreaded += OnLogMessage;
+            // 측정용 우회(출시 설정 runInBackground는 그대로): 스모크·성능 실측 중 창이 포커스를 잃어도 멈추지 않게 (AssetSwap 설계 §9)
+            Application.runInBackground = true;
             if (!args.IsValid)
             {
                 smokeArgumentError = true;
@@ -88,16 +92,19 @@ namespace Ashfall.Core
         private void OnDestroy()
         {
             Application.logMessageReceivedThreaded -= OnLogMessage;
+            renderCounters?.Dispose();
         }
 
         private void Update()
         {
             float now = Time.realtimeSinceStartup;
             stats.Add(Time.unscaledDeltaTime * 1000f);
+            renderCounters.Sample();
             if (now >= nextLogAt)
             {
                 LogFrameTimes();
                 stats.Clear();
+                renderCounters.Clear();
                 nextLogAt = now + LogIntervalSec;
             }
 
@@ -129,7 +136,7 @@ namespace Ashfall.Core
             if (s.Count == 0)
                 return;
             Debug.Log($"{LogTag} 프레임 {s.Count}개(전체 {stats.TotalAdded}개, 버퍼 {stats.Capacity}) — 중앙값 {s.MedianMs:0.00}ms, 95% {s.P95Ms:0.00}ms, 99% {s.P99Ms:0.00}ms, " +
-                      $"최대 {s.MaxMs:0.00}ms, fps 약 {s.Fps:0} (평균 {s.MeanMs:0.00}ms)");
+                      $"최대 {s.MaxMs:0.00}ms, fps 약 {s.Fps:0} (평균 {s.MeanMs:0.00}ms) | {renderCounters.Summary()}");
         }
 
         // 스모크 중 처리되지 않은 예외(버스가 삼킨 핸들러 예외 포함 — LogException, 다른 스레드 예외 포함) = 실패.

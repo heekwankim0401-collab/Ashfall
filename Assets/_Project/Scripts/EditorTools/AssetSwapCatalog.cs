@@ -10,11 +10,13 @@ namespace Ashfall.EditorTools
     {
         public const string SkinFolder = "Assets/_Project/Skins";               // git 제외 (EULA 원본의 파생물)
         public const string SkinMaterialFolder = SkinFolder + "/Materials";
+        public const string SkinMeshFolder = SkinFolder + "/Meshes";   // 부품을 합친 메시(사람은 Idle 자세로 구움)
         public const string SkinChild = "Skin";                                  // 블록아웃 위에 얹는 자식 이름 (BlockoutSkin 루트)
         public const float TintStrength = 0.35f;                                 // TODO(GDD-?) 설계 §5: 원본 색 → 팔레트 토큰 섞는 비율
         public const float SolidTintStrength = 0.7f;                             // TODO(GDD-?) 설계 §5: 텍스처 없는 단색 원본을 토큰 쪽으로 당기는 비율
         public const float DefaultSmoothness = 0.1f;                             // TODO(GDD-?) 원본에 광택 값이 없을 때
         public const float MaxSmoothness = 0.2f;                                 // TODO(GDD-?) 설계 §5: 먼지 낀 표면
+        public const int MaxMeshLods = 4;                                        // TODO(GDD-?) 설계 §5.1: 스킨 자동 Mesh LOD 단계 수(성능)
 
         public static string SkinPrefabPath(string id) => SkinFolder + "/SK_" + id + ".prefab";
 
@@ -32,7 +34,7 @@ namespace Ashfall.EditorTools
             public readonly Vector3 Euler;
             public readonly Anchor Anchor;
             public readonly PaletteToken Tint;
-            public readonly bool Character;   // Animator Idle 반복을 붙인다
+            public readonly bool Character;   // 휴머노이드 — Idle 클립 첫 프레임 자세로 정적 메시를 굽는다
             public readonly string[] Extras;  // 같은 원점에 함께 놓는 원본 (예: 폐가 + 지붕)
 
             public Source(string id, string path, Vector3 euler, Anchor anchor, PaletteToken tint, bool character = false, string[] extras = null)
@@ -56,9 +58,9 @@ namespace Ashfall.EditorTools
         private const string Crates = "Assets/Lowpoly_Crates/Meshes";
         private const string Toxic = "Assets/H&L Assets/Radioactive barrel/URP/Prefabs";
 
-        // 사람 Idle 반복 클립 (ithappy 휴머노이드 — 같은 휴머노이드 아바타인 모델이면 다른 패키지도 쓴다)
+        // 사람 자세 클립 — 첫 프레임을 정적 메시로 굽는다 (ithappy 휴머노이드 — 같은 휴머노이드 아바타인 모델이면 다른 패키지도 쓴다)
         public const string IdleClipPath = "Assets/ithappy/Apocalypse_Free/Animations/Adult_Animations/AC_Adult_Idle_Relaxed.anim";
-        public const string IdleControllerPath = SkinFolder + "/AC_SkinIdle.controller";
+        public const string LegacyIdleControllerPath = SkinFolder + "/AC_SkinIdle.controller";   // 예전 버전이 만든 것 — 지운다
 
         // 회전·경로는 원본 경계·방향 조사(2026-10-26 미리보기 렌더 확인)로 정했다. TODO(GDD-?) 전부 MVP 기본값.
         public static readonly IReadOnlyList<Source> Sources = new[]

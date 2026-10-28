@@ -78,7 +78,11 @@ namespace Ashfall.Tests.PlayMode
                 Assert.IsTrue(r.enabled, $"{label}/{r.name}: 블록아웃 렌더러 직렬화 값은 켜진 그대로");
                 Assert.IsTrue(r.forceRenderingOff, $"{label}/{r.name}: 실행 중 숨김");
             }
-            Assert.Greater(skin.GetComponentsInChildren<Renderer>(true).Length, 0, $"{label}: 스킨 렌더러 없음");
+            // 부품을 합친 렌더러 1개(머티리얼별 서브메시, 자동 Mesh LOD), SkinnedMesh·Animator 없음 — 사람은 Idle 자세로 구운 정적 메시 (성능, AssetSwap 설계 §5.1)
+            Renderer[] skinRenderers = skin.GetComponentsInChildren<Renderer>(true);
+            Assert.AreEqual(1, skinRenderers.Length, $"{label}: 스킨 렌더러는 1개");
+            Assert.IsInstanceOf<MeshRenderer>(skinRenderers[0], $"{label}: 정적 MeshRenderer");
+            Assert.AreEqual(0, skin.GetComponentsInChildren<Animator>(true).Length, $"{label}: Animator 없음");
         }
 
         [Test]
@@ -116,10 +120,6 @@ namespace Ashfall.Tests.PlayMode
                 Transform body = enemy.transform.Find("Body");
                 BlockoutSkin skin = body.Find("Skin")?.GetComponent<BlockoutSkin>();
                 AssertSkin(skin, enemy.name);
-                var animator = skin.GetComponentInChildren<Animator>();
-                Assert.IsNotNull(animator, $"{enemy.name}: 사람 스킨 Animator");
-                Assert.IsNotNull(animator.runtimeAnimatorController, $"{enemy.name}: Idle 컨트롤러");
-                Assert.IsTrue(animator.avatar != null && animator.avatar.isHuman, $"{enemy.name}: 휴머노이드 아바타 (없으면 Idle 클립이 안 돈다)");
                 float feet = Bounds(skin.transform).min.y;
                 Assert.Less(Mathf.Abs(feet - enemy.transform.position.y), 0.35f, $"{enemy.name}: 발이 지면 근처");
             }
