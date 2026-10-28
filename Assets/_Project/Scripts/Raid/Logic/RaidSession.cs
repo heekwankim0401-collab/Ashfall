@@ -36,6 +36,8 @@ namespace Ashfall.Raid
         // MVP 마무리 F1: 사인 종류 (HasDeathCause일 때만 의미, 기본 Wound)
         public DeathCauseKind DeathKind { get; private set; } = DeathCauseKind.Wound;
         public int EnemiesKilled { get; private set; }
+        // DEV-RETURN: 개발용 귀환으로 끝났는지 (Outcome은 Extracted, CompletedExtraction은 null)
+        public bool IsDevReturn { get; private set; }
         public IReadOnlyList<ExtractionModel> Extractions => extractions;
 
         // 종료 순간 한 번
@@ -147,6 +149,15 @@ namespace Ashfall.Raid
         {
             if (!IsOver)
                 Finish(RaidOutcome.Abandoned, null);
+        }
+
+        // DEV-RETURN: 개발용 귀환 = 탈출 성공과 같은 결과(Extracted, 반출 전부). 개발 빌드 판정은 호출하는 쪽(RaidController)이 한다.
+        public void DevReturn()
+        {
+            if (IsOver)
+                return;
+            IsDevReturn = true;
+            Finish(RaidOutcome.Extracted, null);
         }
 
         // 디버그 메뉴·테스트용. 종료 판정은 다음 Tick.

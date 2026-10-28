@@ -19,11 +19,18 @@ namespace Ashfall.UI
         private readonly HashSet<ScreenKind> warnedMissing = new HashSet<ScreenKind>();
         private bool subscribed;
         private ScreenKind lastScreen = ScreenKind.None;
-        private bool abandonRequested;
+        // 포기 또는 개발용 귀환을 이미 요청했는지 (둘 다 레이드를 끝낸다 → 한 번만)
+        private bool endRequested;
+        // 일시정지 확인 단계가 무엇을 확인하는지
+        private enum PendingConfirm { None, Abandon, DevReturn }   // DEV-RETURN: DevReturn 값
+        private PendingConfirm pending;
 
         // flow: 세계 정지 대상. null이면(테스트·흐름 없는 씬) 일시정지 화면만 열고 시간은 멈추지 않는다.
-        public GameUIPresenter(EventBus bus, ServiceRegistry services, HudConfigSO config, GameFlow flow = null)
+        // devReturnEnabled: DEV-RETURN — 개발용 귀환 허용 (GameUIRoot가 DevFeatures.IsDevReturnAvailable을 넘긴다. 기본 false = 릴리스와 같음).
+        public GameUIPresenter(EventBus bus, ServiceRegistry services, HudConfigSO config, GameFlow flow = null,
+            bool devReturnEnabled = false)
         {
+            DevReturnEnabled = devReturnEnabled;
             this.bus = bus ?? throw new ArgumentNullException(nameof(bus));
             this.services = services ?? throw new ArgumentNullException(nameof(services));
             Toast = new MagazineCheckToastModel(config);
@@ -50,10 +57,15 @@ namespace Ashfall.UI
         public string RaidEndText { get; private set; }
 
         // 일시정지 화면의 [레이드 포기] 확인 단계 (TODO(GDD-?) Q16: 확인 한 번 더)
-        public bool IsConfirmingAbandon { get; private set; }
+        public bool IsConfirmingAbandon => pending == PendingConfirm.Abandon;
 
         // [레이드 포기]를 보일지: 레이드 중(IRaidInfo 등록)이고 아직 요청하지 않았을 때. 확인 씬에서는 [계속]만.
-        public bool CanAbandon => !abandonRequested && services.TryGet(out IRaidInfo _);
+        public bool CanAbandon => !endRequested && services.TryGet(out IRaidInfo _);
+
+        // DEV-RETURN: 개발용 귀환 (DevFeatures). 릴리스 빌드면 DevReturnEnabled = false라 아래가 모두 false.
+        public bool DevReturnEnabled { get; }
+        public bool IsConfirmingDevReturn => pending == PendingConfirm.DevReturn;
+        public bool CanDevReturn => DevReturnEnabled && !endRequested && services.TryGet(out IRaidInfo _);
 
         // F 프롬프트 앞에 붙는 키 이름 (입력 바인딩 표시 문자열). 루트가 채운다.
         public string InteractKeyLabel { get; set; } = string.Empty;
@@ -137,7 +149,7 @@ namespace Ashfall.UI
                 case ScreenKind.None:
                     return Screens.OpenPause();
                 case ScreenKind.Pause:
-                    if (IsConfirmingAbandon)
+                    if (pending != PendingConfirm.None)
                         return CancelAbandon();
                     return Screens.CloseAll();
                 default:
@@ -151,9 +163,9 @@ namespace Ashfall.UI
         // 일시정지 [레이드 포기] → 확인 단계
         public bool RequestAbandon()
         {
-            if (Screens.Current != ScreenKind.Pause || IsConfirmingAbandon || !CanAbandon)
+            if (Screens.Current != ScreenKind.Pause || pending != PendingConfirm.None || !CanAbandon)
                 return false;
-            SetConfirming(true);
+            SetPending(PendingConfirm.Abandon);
             return true;
         }
 
@@ -162,18 +174,38 @@ namespace Ashfall.UI
         {
             if (Screens.Current != ScreenKind.Pause || !IsConfirmingAbandon || !CanAbandon)
                 return false;
-            abandonRequested = true;
-            SetConfirming(false);
+            endRequested = true;
+            SetPending(PendingConfirm.None);
             bus.Publish(new RaidAbandonRequested());
             return true;
         }
 
-        // 확인 단계 [취소]
+        // DEV-RETURN: 일시정지 [귀환(개발)] → 확인 단계 (포기와 같은 패턴)
+        public bool RequestDevReturn()
+        {
+            if (Screens.Current != ScreenKind.Pause || pending != PendingConfirm.None || !CanDevReturn)
+                return false;
+            SetPending(PendingConfirm.DevReturn);
+            return true;
+        }
+
+        // DEV-RETURN: 확인 단계 [귀환] → DevReturnRequested. Raid가 Extracted로 끝내면 RaidEnded로 종료 오버레이가 뜬다.
+        public bool ConfirmDevReturn()
+        {
+            if (Screens.Current != ScreenKind.Pause || !IsConfirmingDevReturn || !CanDevReturn)
+                return false;
+            endRequested = true;
+            SetPending(PendingConfirm.None);
+            bus.Publish(new DevReturnRequested());
+            return true;
+        }
+
+        // 확인 단계 [취소] (포기·귀환 공통)
         public bool CancelAbandon()
         {
-            if (!IsConfirmingAbandon)
+            if (pending == PendingConfirm.None)
                 return false;
-            SetConfirming(false);
+            SetPending(PendingConfirm.None);
             return true;
         }
 
@@ -277,7 +309,7 @@ namespace Ashfall.UI
                     InventoryService.CloseLoot();
             }
             if (screen != ScreenKind.Pause)
-                IsConfirmingAbandon = false;
+                pending = PendingConfirm.None;
 
             // 세계 정지: 일시정지에 들어가면 멈추고, 나가면 푼다. 종료 오버레이로 넘어가면 Raid가 계속 멈춰 둔다.
             if (screen == ScreenKind.Pause)
@@ -289,11 +321,11 @@ namespace Ashfall.UI
             ScreenChanged?.Invoke(screen);
         }
 
-        private void SetConfirming(bool value)
+        private void SetPending(PendingConfirm value)
         {
-            if (IsConfirmingAbandon == value)
+            if (pending == value)
                 return;
-            IsConfirmingAbandon = value;
+            pending = value;
             PauseDirty?.Invoke();
         }
 
@@ -349,7 +381,7 @@ namespace Ashfall.UI
         private void OnRaidStarted(RaidStarted _)
         {
             ExtractionHud.Clear();
-            abandonRequested = false;
+            endRequested = false;
         }
 
         private void OnExtractionStatusChanged(ExtractionStatusChanged evt)

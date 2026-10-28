@@ -55,10 +55,18 @@ namespace Ashfall.Raid
             }
 
             ExtractionModel completed = extracted ? session.CompletedExtraction : null;
+            string extractionId = completed?.Config.id;
+            string extractionName = completed?.Config.displayName;
+            // DEV-RETURN: 개발용 귀환은 탈출구 없이 Extracted → 결과 화면 "탈출 성공 — 귀환(개발)"
+            if (extracted && completed == null && session.IsDevReturn)
+            {
+                extractionId = DevFeatures.DevReturnExtractionId;
+                extractionName = DevFeatures.DevReturnLabel;
+            }
             // MIA·AdvanceTime으로 경과가 제한을 넘을 수 있다 → 표시는 제한 시간까지.
             float duration = Mathf.Min(session.ElapsedSec, session.TimeLimitSec);
             return new RaidResult(session.Outcome,
-                completed?.Config.id, completed?.Config.displayName,
+                extractionId, extractionName,
                 session.Outcome == RaidOutcome.Killed && session.HasDeathCause, session.DeathCause,
                 duration, session.EnemiesKilled, broughtIn, carriedOut, lost,
                 extracted ? endLoadout : null,

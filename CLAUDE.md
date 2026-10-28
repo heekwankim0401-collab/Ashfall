@@ -39,6 +39,8 @@
   스킨이 얹힌 레이드 씬·VM 프리팹은 **패키지가 있는 PC에서만 커밋**한다(다른 PC에서 메뉴를 돌리면 스킨 프리팹 GUID가 달라진다).
   성능: 스킨은 부품 합치기(렌더러 1개)·자동 Mesh LOD·사람 자세 굽기로 HD 620 1080p 증가분이 실행 간 편차 안(10/28 A/B, `AssetSwap_design.md` §5.1·§9.1).
 - 정조준·탄도(2026-10-28, `docs/design/AdsBallistics_design.md`): `Ashfall/Setup/Weapons/Apply ADS and Ballistics`(배치 `AdsBallisticsSetup.ApplyAll`, 멱등 — 무기 `adsEyeReliefM`·`zeroRangeM`, 탄약 `dragPerM` 파일에 없는 필드만 + VM 프리팹 `SightAnchor`), 앵커만 `Ashfall/Setup/Weapons/Fit Sight Anchors`(Apply Asset Swap·Remove Skins·Apply M7 Content 끝에서도 호출). 배치표 `WeaponSightLayout`, 조사 `Report Sight Geometry`.
+- 개발용 귀환(2026-10-28, GDD §12): 에디터·개발 빌드에서만 일시정지 [귀환(개발)] → 확인 → 탈출 성공과 같은 처리(소지품 유지·세이브 반영). 판정·상수 Core `DevFeatures`,
+  손댄 곳은 주석 `DEV-RETURN`(정식 릴리스에서 지울 때 이 문자열로 검색). 릴리스 빌드는 버튼 없음·요청 무시.
 - 세이브: `Application.persistentDataPath/save.json`(version 3 — 보관함 단계 `stashLevel`·방어구 내구도, v2 = 무기 내구도·튜브, v1·v2는 읽을 때 자동 이전, 에디터 메뉴 `Ashfall/Save/Open Save Folder`·`Delete Save Files`). 테스트는 실제 경로를 쓰지 않는다
   (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
 - 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5/M6/M7 설계 결정", "MVP 마무리 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.

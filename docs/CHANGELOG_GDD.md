@@ -530,3 +530,12 @@
   기존 AI/M3 테스트 회귀 없음. 필요해지면 같은 영점 해법을 Core로 옮겨 쓴다(후속).
 - **§14 새 필드:** `WeaponDefinitionSO.zeroRangeM·adsEyeReliefM`, `AmmoDefinitionSO.dragPerM`. 값 기록 = `Ashfall/Setup/Weapons/Apply ADS and Ballistics`(파일에 없는 필드만, 멱등, Apply M7 Content 끝에서도 호출),
   앵커 = `Ashfall/Setup/Weapons/Fit Sight Anchors`(Apply Asset Swap·Remove Skins 끝에서도 호출).
+
+## 2026-10-28 — 개발용 귀환 결정 (§12, §13.3, RULE-01, RULE-03)
+사용자 요청 "개발 중 레이드에서 소지품을 잃지 않고 은신처로 바로 돌아가기". 사유: 테스트 플레이 때 탈출구까지 가지 않고 은신처 기능(상인·제작·보관함)을 반복 확인하기 위해.
+- **동작(사용자 결정):** 일시정지 메뉴 [귀환(개발)] → 확인 한 번 더(포기와 같은 패턴, 문구 "개발용 귀환: …") → 탈출 성공과 같은 처리.
+  `RaidSession.DevReturn()` = `Extracted`(+ `IsDevReturn`), 반출·`CarriedOutLoadout`·세이브 반영(은신처 진입 시, RULE-03)은 탈출과 같은 경로(RULE-01 판정은 `RaidResultBuilder` 한 곳 그대로).
+  결과의 탈출 지점 id `DEV-RETURN`, 이름 "귀환(개발)"(결과 화면 "탈출 성공 — 귀환(개발)"). 이미 끝난 레이드(사망·포기 후)는 무시.
+- **개발 빌드 전용(사용자 결정):** 에디터와 개발 빌드(`Debug.isDebugBuild`)에서만. 릴리스 빌드는 버튼을 만들지 않고(UXML에 없음, `PauseScreenView`가 코드로 붙임),
+  프레젠터가 요청을 막고, Raid도 요청을 무시한다. 판정·상수는 Core `DevFeatures` 한 곳, 손댄 곳은 모두 주석 `DEV-RETURN` — 정식 릴리스에서 지울 때 이 문자열로 찾는다.
+- §12 화면 목록에 한 줄 추가. 게임 규칙(RULE-*)은 바뀌지 않는다(릴리스 빌드에는 없는 기능).

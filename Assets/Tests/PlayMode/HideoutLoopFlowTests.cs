@@ -345,6 +345,79 @@ namespace Ashfall.Tests.PlayMode
             }
         }
 
+        // DEV-RETURN: Esc → [귀환(개발)] → 확인 [귀환] → 탈출 성공과 같은 처리 — 결과 "탈출 성공 — 귀환(개발)",
+        // 소지품(반입 + 획득) 그대로 은신처 장비, save.json 반영, 보관함 그대로 (에디터 = 개발 기능 켜짐)
+        [UnityTest]
+        [Timeout(240000)]
+        public IEnumerator HideoutToRaid_EscPause_DevReturn_KeepsLoadout_AndSaves()
+        {
+            Assert.IsTrue(DevFeatures.IsDevReturnAvailable, "에디터에서는 개발용 귀환이 켜져 있다");
+            using (var keyboard = new SimKeyboard())
+            using (var pointer = new UiPointer())
+            {
+                var hideout = new M5Hideout();
+                yield return EnterHideoutFromMenu(pointer, hideout);
+                string[] stashBefore = PrepareKitLoadout(hideout, out string[] brought);
+                var raid = new M4Raid();
+                yield return hideout.StartRaid(pointer, raid);
+                Assert.IsTrue(M5Save.Read(storage).raidInProgress);
+                var taken = new List<ItemInstance>();
+                yield return M5Flow.TakeCrateLoot(raid, taken);
+                ItemInstance picked = taken[0];
+                string[] raidEndLoadout = M5Hideout.Describe(raid.Inventory);
+                // 상자를 열며 뜬 인벤토리 화면을 Esc로 닫는다
+                if (raid.Presenter.Screens.Current != ScreenKind.None)
+                    yield return keyboard.Tap(Key.Escape);
+                Assert.AreEqual(ScreenKind.None, raid.Presenter.Screens.Current);
+
+                // Esc → 일시정지: [귀환(개발)] 버튼이 보인다
+                yield return keyboard.Tap(Key.Escape);
+                yield return null;
+                Assert.AreEqual(ScreenKind.Pause, raid.Presenter.Screens.Current);
+                Assert.IsTrue(raid.Presenter.CanDevReturn);
+                Button devReturn = raid.UiRoot.Q<Button>(PauseScreenView.DevReturnName);
+                Assert.IsNotNull(devReturn, "개발 빌드·에디터: [귀환(개발)] 버튼");
+                Assert.IsTrue(UiQuery.IsShown(devReturn));
+
+                RaidResult result;
+                using (var ended = new EventLog<RaidEnded>(raid.Events))
+                {
+                    yield return pointer.Click(devReturn);
+                    Assert.IsTrue(raid.Presenter.IsConfirmingDevReturn, "[귀환(개발)] → 확인 단계");
+                    Assert.AreEqual(UiText.DevReturnConfirm, raid.UiRoot.Q<Label>(PauseScreenView.ConfirmTextName).text);
+                    Assert.AreEqual(0, ended.Count, "확인 전에는 끝나지 않는다");
+                    yield return null;
+                    yield return pointer.Click(raid.UiRoot.Q<Button>(PauseScreenView.ConfirmYesName));
+                    yield return M3Scene.WaitUntil(() => ended.Count > 0, 5f, () => "귀환 → RaidEnded");
+                    Assert.AreEqual(RaidOutcome.Extracted, ended.Last.Outcome);
+                    Assert.AreEqual(DevFeatures.DevReturnLabel, ended.Last.ExtractionName);
+                }
+                yield return AssertEndOverlay(raid, "탈출 성공");
+                result = raid.Controller.LastResult;
+                Assert.IsTrue(raid.Session.IsDevReturn);
+                Assert.IsTrue(result.Survived);
+                Assert.AreEqual(DevFeatures.DevReturnExtractionId, result.ExtractionId);
+                Assert.IsNotNull(result.CarriedOutLoadout, "탈출과 같게 반출 Loadout");
+                CollectionAssert.Contains(result.CarriedOut, picked, "획득품 반출");
+                Assert.AreEqual(0, result.Lost.Count, "잃는 것 없음");
+
+                hideout = new M5Hideout();
+                yield return M5Hideout.Attach(hideout);
+                hideout.AssertResultPanel(result, expectCarriedOut: true);
+                Assert.AreEqual("탈출 성공 — 귀환(개발)", hideout.Text(RaidResultView.TitleName));
+                yield return hideout.ConfirmResult(pointer);
+                CollectionAssert.AreEqual(raidEndLoadout, M5Hideout.Describe(hideout.Inventory), "장비 = 귀환 시점 소지품(위치 그대로)");
+                CollectionAssert.IsSubsetOf(brought, M5Hideout.SortedIds(Loadout.Capture(hideout.Inventory).Entries.Select(e => e.Item)),
+                    "반입 장비를 잃지 않았다");
+                CollectionAssert.AreEqual(stashBefore, hideout.StashIds(), "보관함 그대로");
+                SaveData saved = M5Save.Read(storage);
+                Assert.IsFalse(saved.raidInProgress, "세이브 반영 (RULE-03: 은신처 진입 시 기록)");
+                CollectionAssert.Contains(saved.loadout.Select(r => r.id).ToList(), picked.Definition.id, "save.json 장비에 획득품");
+                Assert.AreEqual(raidEndLoadout.Count(l => !l.StartsWith("quick")), saved.loadout.Count, "save.json 장비 = 귀환 시점 소지품");
+                CollectionAssert.AreEqual(stashBefore, M5Save.SortedIds(saved.stash));
+            }
+        }
+
         // ── 도우미 ──
 
         private IEnumerator EnterHideoutFromMenu(UiPointer pointer, M5Hideout hideout)

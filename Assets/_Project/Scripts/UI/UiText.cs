@@ -22,6 +22,10 @@ namespace Ashfall.UI
         public const string AbandonConfirm = "레이드를 포기하면 가져온 장비를 모두 잃는다.";
         public const string AbandonYes = "포기";
         public const string AbandonNo = "취소";
+        // DEV-RETURN: 개발 빌드 전용 귀환 (DevFeatures). 릴리스 빌드에는 버튼이 없다.
+        public const string PauseDevReturn = DevFeatures.DevReturnLabel;
+        public const string DevReturnConfirm = "개발용 귀환: 지금 가진 장비를 잃지 않고 은신처로 돌아간다 (탈출 성공과 같음).";
+        public const string DevReturnYes = "귀환";
         public const string MapTitle = "지도";
         public const string MainMenuTitle = "ASHFALL";
         // M5 Q20: 메인 메뉴 [은신처] / [종료].

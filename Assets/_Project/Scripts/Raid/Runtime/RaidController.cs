@@ -77,6 +77,7 @@ namespace Ashfall.Raid
             events.Subscribe<PlayerDied>(OnPlayerDied);
             events.Subscribe<EnemyKilled>(OnEnemyKilled);
             events.Subscribe<RaidAbandonRequested>(OnAbandonRequested);
+            events.Subscribe<DevReturnRequested>(OnDevReturnRequested);   // DEV-RETURN
         }
 
         private void OnDisable()
@@ -88,6 +89,7 @@ namespace Ashfall.Raid
             events.Unsubscribe<PlayerDied>(OnPlayerDied);
             events.Unsubscribe<EnemyKilled>(OnEnemyKilled);
             events.Unsubscribe<RaidAbandonRequested>(OnAbandonRequested);
+            events.Unsubscribe<DevReturnRequested>(OnDevReturnRequested);   // DEV-RETURN
         }
 
         private void OnDestroy()
@@ -187,6 +189,17 @@ namespace Ashfall.Raid
         private void OnPlayerDied(PlayerDied evt) => Session?.EndByDeath(evt.Cause, evt.Kind);   // MVP 마무리 F1 사인 종류
         private void OnEnemyKilled(EnemyKilled evt) => Session?.RecordKill();
         private void OnAbandonRequested(RaidAbandonRequested evt) => Session?.Abandon();
+
+        // DEV-RETURN: 에디터·개발 빌드에서만 따른다. 릴리스 빌드면 (UI가 발행하지 않지만) 와도 무시한다.
+        private void OnDevReturnRequested(DevReturnRequested evt)
+        {
+            if (!DevFeatures.IsDevReturnAvailable)
+            {
+                Debug.LogWarning("[RaidController] 릴리스 빌드라 개발용 귀환 요청을 무시한다.", this);
+                return;
+            }
+            Session?.DevReturn();
+        }
 
         // ── 종료 ──
 

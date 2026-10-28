@@ -409,6 +409,10 @@ namespace Ashfall.Core
     // 일시정지 메뉴에서 레이드 포기 확인 → Raid가 Abandoned로 끝낸다 (TODO(GDD-?) Q16).
     public readonly struct RaidAbandonRequested : IGameEvent { }
 
+    // DEV-RETURN: 일시정지 메뉴 [귀환(개발)] 확인 → Raid가 탈출 성공(Extracted)과 같게 끝낸다 (DevFeatures).
+    // 릴리스 빌드에서는 발행되지 않고, 와도 Raid가 무시한다.
+    public readonly struct DevReturnRequested : IGameEvent { }
+
     // ── M7 7D: 개발 빌드 진단(Core SmokeRunner) → Raid ─────
 
     // 재 폭풍을 지금 시작하라 (M7 설계 §1.9 스모크 "폭풍 강제 시작", Q51). Raid(AshStormController)가 개발 빌드·에디터에서만 따른다

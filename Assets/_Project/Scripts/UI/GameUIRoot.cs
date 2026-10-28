@@ -88,7 +88,8 @@ namespace Ashfall.UI
             }
 
             // gm.Flow: 일시정지 화면이 세계를 멈추는 데 쓴다 (timeScale 주체는 GameFlow 하나)
-            presenter = new GameUIPresenter(gm.Events, gm.Services, config, gm.Flow)
+            // DEV-RETURN: 에디터·개발 빌드에서만 [귀환(개발)]
+            presenter = new GameUIPresenter(gm.Events, gm.Services, config, gm.Flow, DevFeatures.IsDevReturnAvailable)
             {
                 InteractKeyLabel = KeyLabel(interactAction),
             };
@@ -208,7 +209,8 @@ namespace Ashfall.UI
             inventoryView = new InventoryScreenView(root, config.dragThresholdPx, quickSlotKeys, IsQuickMoveModifierHeld, config);
             bodyView = new BodyStatusScreenView(root);
             mapView = new MapScreenView(root);
-            pauseView = new PauseScreenView(root, OnResumeClicked, OnAbandonClicked, OnConfirmAbandonClicked, OnCancelAbandonClicked);
+            pauseView = new PauseScreenView(root, OnResumeClicked, OnAbandonClicked, OnConfirmClicked, OnCancelAbandonClicked,
+                presenter.DevReturnEnabled ? OnDevReturnClicked : (System.Action)null);   // DEV-RETURN: 릴리스면 버튼 없음
             raidEndView = new RaidEndOverlayView(root);
             viewsBuilt = true;
             OnScreenChanged(presenter.Screens.Current);
@@ -258,7 +260,18 @@ namespace Ashfall.UI
 
         private void OnAbandonClicked() => presenter?.RequestAbandon();
 
-        private void OnConfirmAbandonClicked() => presenter?.ConfirmAbandon();
+        // 확인 단계 [예]: 포기 또는 DEV-RETURN 귀환 중 지금 확인하는 쪽
+        private void OnConfirmClicked()
+        {
+            if (presenter == null)
+                return;
+            if (presenter.IsConfirmingDevReturn)   // DEV-RETURN
+                presenter.ConfirmDevReturn();
+            else
+                presenter.ConfirmAbandon();
+        }
+
+        private void OnDevReturnClicked() => presenter?.RequestDevReturn();   // DEV-RETURN
 
         private void OnCancelAbandonClicked() => presenter?.CancelAbandon();
 
@@ -281,7 +294,7 @@ namespace Ashfall.UI
         {
             if (!viewsBuilt || presenter.Screens.Current != ScreenKind.Pause)
                 return;
-            pauseView.Render(presenter.IsConfirmingAbandon, presenter.CanAbandon);
+            pauseView.Render(presenter.IsConfirmingAbandon, presenter.CanAbandon, presenter.IsConfirmingDevReturn, presenter.CanDevReturn);
         }
 
         private static void ApplyCursor(ScreenKind screen)

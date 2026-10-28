@@ -397,6 +397,7 @@ namespace Ashfall.Tests.PlayMode
             { nameof(PlayerDied), bus.SubscriberCount<PlayerDied>() },
             { nameof(EnemyKilled), bus.SubscriberCount<EnemyKilled>() },
             { nameof(RaidAbandonRequested), bus.SubscriberCount<RaidAbandonRequested>() },
+            { nameof(DevReturnRequested), bus.SubscriberCount<DevReturnRequested>() },   // DEV-RETURN
             { nameof(RaidEnded), bus.SubscriberCount<RaidEnded>() },
             { nameof(RaidStarted), bus.SubscriberCount<RaidStarted>() },
             { nameof(ExtractionStatusChanged), bus.SubscriberCount<ExtractionStatusChanged>() },

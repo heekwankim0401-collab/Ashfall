@@ -50,7 +50,7 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- Esc 일시정지 (세계 정지). [계속] / [레이드 포기] → 확인. -->
+        <!-- Esc 일시정지 (세계 정지). [계속] / [레이드 포기] → 확인. 개발 빌드에서만 [귀환(개발)]을 코드가 pause-main 끝에 붙인다 (DEV-RETURN). -->
         <ui:VisualElement name="pause-screen" class="screen pause-screen">
             <ui:VisualElement class="panel pause-panel">
                 <ui:Label text="일시정지" class="panel-title" picking-mode="Ignore" />
@@ -59,7 +59,7 @@
                     <ui:Button name="pause-abandon" text="레이드 포기" class="ash-button ash-button--danger" />
                 </ui:VisualElement>
                 <ui:VisualElement name="pause-confirm" class="pause-buttons">
-                    <ui:Label text="레이드를 포기하면 가져온 장비를 모두 잃는다." class="pause-warning" picking-mode="Ignore" />
+                    <ui:Label name="pause-confirm-text" text="레이드를 포기하면 가져온 장비를 모두 잃는다." class="pause-warning" picking-mode="Ignore" />
                     <ui:Button name="pause-confirm-yes" text="포기" class="ash-button ash-button--danger" />
                     <ui:Button name="pause-confirm-no" text="취소" class="ash-button" />
                 </ui:VisualElement>
