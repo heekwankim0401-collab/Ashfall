@@ -24,6 +24,8 @@ namespace Ashfall.Core
         public bool IsReloading { get; private set; }
         public bool IsFastReload { get; private set; }
         public bool IsJammed => Item.IsJammed;
+        // 상시 HUD(B안) 발사 모드 표시. MVP는 모드 전환이 없어 정의의 첫 모드.
+        public FireMode FireMode => fireControl.Mode;
         // 이 무기의 R이 한 발씩 장전인가 (내장 튜브)
         public bool IsTubeReload => Item.HasInternalMagazine;
         // 진행 중(또는 마지막) 튜브 장전에서 넣은 탄 수. 탄창 무기는 0

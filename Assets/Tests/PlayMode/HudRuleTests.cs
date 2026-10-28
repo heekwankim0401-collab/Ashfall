@@ -11,7 +11,9 @@ using UnityEngine.UIElements;
 
 namespace Ashfall.Tests.PlayMode
 {
-    // M2 AC4 — RULE-04(탄수 비표시, T → 0.8초 후 대략치), RULE-05(체력 수치 비표시, H → 부위 상태 화면).
+    // M2 AC4 — RULE-04(T → 0.8초 후 대략치), RULE-05(H → 부위 상태 화면, 등급만).
+    // 2026-10-28 상시 HUD(B안)로 RULE-04·05 개정: HUD 상시 영역에는 탄 수·HP 수치가 보인다. 그래서 "숫자 없음" 단언은
+    // HUD 전체가 아니라 T 확인 문구(hud-toast)와 H 화면에만 남긴다. 상시 HUD 스모크는 아래 BPlan_* 테스트.
     // 가상 키보드로 실제 키 바인딩(T, H)을 거친다. 판정은 UIDocument 트리의 Label 텍스트로 한다.
     public class HudRuleTests
     {
@@ -36,16 +38,16 @@ namespace Ashfall.Tests.PlayMode
         private VisualElement Hud => scene.UiRoot.Q(HudView.RootName);
         private Label Toast => scene.UiRoot.Q<Label>(HudView.ToastName);
 
+        // B안 이후: T 확인 문구는 여전히 대략치만(숫자 없음)
         private void AssertHudHasNoNumbers(string when)
         {
-            foreach (string text in M2Scene.LabelTexts(Hud))
-                Assert.IsFalse(M2Scene.DigitOrPercent.IsMatch(text), $"{when}: HUD에 숫자 \"{text}\" (RULE-04)");
+            Assert.IsFalse(M2Scene.DigitOrPercent.IsMatch(Toast.text ?? string.Empty), $"{when}: 탄창 확인 문구에 숫자 \"{Toast.text}\" (RULE-04)");
         }
 
         private static bool Shown(VisualElement e) => e.resolvedStyle.display != DisplayStyle.None;
 
         [UnityTest]
-        public IEnumerator RULE04_T_ShowsApproximateLevelAfter08Sec_NoRoundCountOnHud()
+        public IEnumerator RULE04_T_ShowsApproximateLevelAfter08Sec_NoRoundCountInToast()
         {
             using var started = new EventLog<MagazineCheckStarted>(scene.Events);
             using var completed = new EventLog<MagazineCheckCompleted>(scene.Events);
@@ -145,6 +147,58 @@ namespace Ashfall.Tests.PlayMode
             yield return keyboard.Tap(Key.H);
             Assert.AreEqual(ScreenKind.None, scene.Ui.Presenter.Screens.Current, "H 다시 → 닫힘");
             Assert.IsFalse(scene.Motor.InputBlocked);
+        }
+
+        // ── 상시 HUD(B안, 2026-10-28) 스모크 ──
+
+        [UnityTest]
+        public IEnumerator BPlan_StatusHud_ShowsHealthAndAmmo_UpdatesOnChange()
+        {
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Shown(scene.UiRoot.Q(HudStatusView.LeftName)), "체력 패널 상시 표시");
+            Label head = scene.UiRoot.Q<Label>(HudStatusView.PartPrefix + (int)BodyPart.Head);
+            int maxHead = Mathf.CeilToInt(scene.Body.GetMaxHp(BodyPart.Head));
+            Assert.AreEqual($"머리 {maxHead}/{maxHead}", head.text);
+
+            Assert.IsTrue(Shown(scene.UiRoot.Q(HudStatusView.WeaponName)), "무기 들면 무기 패널");
+            Magazine mag = scene.Weapon.Model.Current;
+            Label ammo = scene.UiRoot.Q<Label>(HudStatusView.AmmoName);
+            Assert.AreEqual($"{mag.Rounds}/{mag.Capacity}", ammo.text, "RULE-04 개정: 실제 탄 수/용량");
+
+            mag.TakeRound();
+            scene.Body.ApplyDamage(BodyPart.Head, 10f);
+            yield return null;
+            yield return null;
+            Assert.AreEqual($"{mag.Rounds}/{mag.Capacity}", ammo.text, "탄 수 변화 반영");
+            Assert.AreEqual($"머리 {Mathf.CeilToInt(scene.Body.GetHp(BodyPart.Head))}/{maxHead}", head.text, "HP 변화 반영");
+
+            // 화면이 열리면 HUD 전체 숨김 (기존 규칙)
+            yield return keyboard.Tap(Key.Tab);
+            yield return null;
+            Assert.AreEqual(ScreenKind.Inventory, scene.Ui.Presenter.Screens.Current);
+            Assert.IsFalse(Shown(Hud), "인벤토리 열림 → HUD 숨김");
+            yield return keyboard.Tap(Key.Tab);
+            yield return null;
+            Assert.IsTrue(Shown(Hud));
+        }
+
+        [UnityTest]
+        public IEnumerator BPlan_HitFromRight_ShowsRightEdgeThenHides()
+        {
+            yield return null;
+            VisualElement right = scene.UiRoot.Q("hud-edge-right");
+            Assert.IsFalse(Shown(right), "평소 display:none");
+
+            // 오른쪽에서 쏜 탄 = 플레이어 오른쪽에서 왼쪽으로 날아온다
+            Transform t = scene.Health.transform;
+            var info = new DamageInfo(1f, 0, t.position + Vector3.up * 1.0f, -t.right, 10f);
+            scene.Health.ApplyDamage(info);
+            yield return null;
+            yield return null;
+            Assert.IsTrue(Shown(right), "피격 직후 오른쪽 띠");
+            Assert.IsFalse(Shown(scene.UiRoot.Q("hud-edge-left")));
+            yield return M2Scene.WaitUntil(() => !Shown(right), 3f);
         }
     }
 }

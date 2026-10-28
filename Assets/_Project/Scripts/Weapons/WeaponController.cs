@@ -8,7 +8,7 @@ using UnityEngine.InputSystem;
 namespace Ashfall.Weapons
 {
     // 손에 든 무기 하나. 카메라 아래에 두고, 카메라 정면으로 쏜다.
-    // RULE-04: 탄수는 화면에 표시하지 않는다(T로 대략치 확인). RULE-07: 크로스헤어 없음, 조준(ADS) 시에만 퍼짐 0.
+    // RULE-04(2026-10-28 B안 개정): 탄 수는 상시 HUD가 IWeaponHudSource(이 컴포넌트)로 읽어 보인다. T 대략치 확인은 그대로. RULE-07: 크로스헤어 없음, 조준(ADS) 시에만 퍼짐 0.
     // M2:
     // - 인벤토리가 있으면 장착 무기(IInventoryService)와 IMagazineSource(조끼·주머니)를 쓴다.
     //   없으면(M1 씬) 직렬화된 무기·탄창 수만큼 지급한다 (LocalMagazineSource).
@@ -26,7 +26,7 @@ namespace Ashfall.Weapons
     //   고장이 아닐 때 T(누름) = 기존 RULE-04 탄창 확인 (Q9·Q10).
     // 정조준·탄도 (2026-10-28, AB-Q1·Q2, docs/design/AdsBallistics_design.md): 뷰모델 자식 "SightAnchor"가 있고 무기 정의 adsEyeReliefM > 0이면
     //   정조준 자세를 무기마다 계산해 가늠자가 화면 중앙에 오게 한다(없으면 adsLocalPosition 폴백). zeroRangeM > 0이면 영점 방향으로 쏜다(장착 시 1회 계산·캐시).
-    public sealed class WeaponController : MonoBehaviour
+    public sealed class WeaponController : MonoBehaviour, IWeaponHudSource
     {
         [SerializeField] private WeaponDefinitionSO weapon;
         [SerializeField] private AmmoDefinitionSO ammo;
@@ -107,6 +107,9 @@ namespace Ashfall.Weapons
         // 현재 들고 있는 무기. null = 비무장 (든 슬롯이 비었음)
         public WeaponModel Model { get; private set; }
         public bool IsArmed => Model != null;
+        // 상시 HUD(B안, RULE-04 개정) — IWeaponHudSource
+        public WeaponItem CurrentWeapon => Model != null ? Model.Item : null;
+        public FireMode CurrentFireMode => Model != null ? Model.FireMode : FireMode.Semi;
         // 인벤토리 없는 씬에서 쓰는 예비 탄창 목록 (인벤토리가 있으면 null)
         public LocalMagazineSource MagazineSource { get; private set; }
         public MagazineCheckModel MagazineCheck => magazineCheck;
@@ -182,6 +185,7 @@ namespace Ashfall.Weapons
         {
             if (GameManager.Instance == null)
                 return;
+            GameManager.Instance.Services.Register<IWeaponHudSource>(this);
             var events = GameManager.Instance.Events;
             events.Subscribe<EquipmentChanged>(OnEquipmentChanged);
             events.Subscribe<PlayerConditionChanged>(OnConditionChanged);
@@ -194,6 +198,7 @@ namespace Ashfall.Weapons
         {
             if (GameManager.Instance == null)
                 return;
+            GameManager.Instance.Services.Unregister<IWeaponHudSource>(this);
             var events = GameManager.Instance.Events;
             events.Unsubscribe<EquipmentChanged>(OnEquipmentChanged);
             events.Unsubscribe<PlayerConditionChanged>(OnConditionChanged);

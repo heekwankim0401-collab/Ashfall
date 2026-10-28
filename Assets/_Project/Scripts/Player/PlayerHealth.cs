@@ -13,7 +13,7 @@ namespace Ashfall.Player
     // - M7(7C-2a, 설계 §1.5): 수분·에너지(SurvivalModel) 감소, 수분 0 → 머리를 뺀 파괴되지 않은 부위마다 −0.5 HP/s(Q33, 흉부 160초).
     //       방사능률 = 폭풍 률 × (방독면 ? 0 : 1) + 구역 률(IRadiationField, 발 위치)(Q38). 방독면 = 헬멧 슬롯 정의의 blocksStormRadiation,
     //       매 프레임 IInventoryService 조회(할당 없음, 레이드 밖·인벤토리 없음 = 미착용). 선량 ≥ 100 → 최대 HP × 0.8(BodyHealthModel.SyncRadiation, Q35).
-    //       등급 변화는 BodyHealthModel.StatusChanged → PlayerBodyStatusChanged. 수치는 이 어셈블리 밖으로 내지 않는다(RULE-05).
+    //       등급 변화는 BodyHealthModel.StatusChanged → PlayerBodyStatusChanged. 수치는 상시 HUD용 IPlayerHudSource(PlayerHudReadout)로만 낸다(RULE-05 2026-10-28 B안 개정, H 화면 IBodyStatusView는 등급만).
     // - MVP 마무리 F4 (§5.3): 피격 부위를 덮는 헬멧·방탄복(IInventoryService.GetEquipped, ArmorItem)이 있으면 Core ArmorRules로 관통 판정.
     //       방어구 전용 난수(확률 0·1이면 뽑지 않음). 피격음·이벤트·HUD 없음(MF-Q24).
     [RequireComponent(typeof(CharacterController))]
@@ -49,6 +49,8 @@ namespace Ashfall.Player
         public float LastRadiationRatePerSec { get; private set; }
         public bool GasMaskWorn { get; private set; }
         public bool IsDead => Body != null && Body.IsDead;
+        // 상시 HUD(B안) 수치 창구 (IPlayerHudSource). RULE-05 개정으로 HUD에만 수치를 낸다(H 화면은 등급만 그대로).
+        public PlayerHudReadout HudReadout { get; private set; }
 
         private void Awake()
         {
@@ -64,6 +66,7 @@ namespace Ashfall.Player
             Survival = new SurvivalModel(config);
             Body.AttachSurvival(Survival, radiation);
             medical = new MedicalUseModel(Body);
+            HudReadout = new PlayerHudReadout(Body, Survival, radiation, config, GetComponent<PlayerMotor>());
             Body.StatusChanged += OnStatusChanged;
             Body.ModifiersChanged += OnModifiersChanged;
             Body.Died += OnDied;
@@ -74,6 +77,7 @@ namespace Ashfall.Player
             if (Body == null || GameManager.Instance == null)
                 return;
             GameManager.Instance.Services.Register<IBodyStatusView>(Body);
+            GameManager.Instance.Services.Register<IPlayerHudSource>(HudReadout);
             GameManager.Instance.Events.Subscribe<MedicalUseRequested>(OnMedicalUseRequested);
             GameManager.Instance.Events.Subscribe<RaidEnded>(OnRaidEnded);
         }
@@ -83,6 +87,7 @@ namespace Ashfall.Player
             if (Body == null || GameManager.Instance == null)
                 return;
             GameManager.Instance.Services.Unregister<IBodyStatusView>(Body);
+            GameManager.Instance.Services.Unregister<IPlayerHudSource>(HudReadout);
             GameManager.Instance.Events.Unsubscribe<MedicalUseRequested>(OnMedicalUseRequested);
             GameManager.Instance.Events.Unsubscribe<RaidEnded>(OnRaidEnded);
         }
@@ -115,6 +120,9 @@ namespace Ashfall.Player
             ArmorItem armor = FindEquippedArmor(part);
             ArmorHitResult armorHit = ArmorRules.Absorb(armor, armorParams, info.Penetration, info.Amount, armorRandom);
             Body.ApplyHit(part, armorHit.BodyDamage);
+            // 상시 HUD(B안) 피격 방향 붉은 가장자리 (§12)
+            bool hasDirection = PlayerHudReadout.TryRelativeYawDeg(transform.forward, info.Direction, out float yawDeg);
+            Publish(new PlayerHitReceived(yawDeg, hasDirection));
             LogHit(part, armorHit.BodyDamage, armor != null, armorHit.Penetrated);
         }
 

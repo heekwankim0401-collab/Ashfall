@@ -160,6 +160,20 @@ namespace Ashfall.Core
         }
     }
 
+    // 상시 HUD(B안) 피격 방향 붉은 가장자리 (§12). Player(PlayerHealth)가 피해를 받을 때마다 발행한다.
+    // RelativeYawDeg = 플레이어 정면 기준 피해가 온 쪽의 수평 각도(도, -180~180, + = 오른쪽). HasDirection = false면 방향 모름(근접 등).
+    public readonly struct PlayerHitReceived : IGameEvent
+    {
+        public readonly float RelativeYawDeg;
+        public readonly bool HasDirection;
+
+        public PlayerHitReceived(float relativeYawDeg, bool hasDirection)
+        {
+            RelativeYawDeg = relativeYawDeg;
+            HasDirection = hasDirection;
+        }
+    }
+
     // 플레이어 사망 (머리·흉부 0) → 조작 정지, 화면 닫기
     public readonly struct PlayerDied : IGameEvent
     {

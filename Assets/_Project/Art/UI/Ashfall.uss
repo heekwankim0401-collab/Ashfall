@@ -29,6 +29,18 @@
     --hideout-trader-column-width: 360px;
     /* M7 제작 탭 레시피 이름 칸 폭 (TODO(GDD-?): 그레이박스 값) */
     --crafting-name-width: 220px;
+
+    /* 상시 HUD(B안, 2026-10-28). 크기 TODO(GDD-?): 문서에 없음, 그레이박스 값 */
+    --hud-margin: 20px;
+    --hud-font-size: 13px;
+    --hud-left-width: 240px;
+    --hud-bar-label-width: 64px;
+    --hud-bar-height: 6px;
+    --hud-quick-width: 120px;
+    --hud-edge-thickness: 56px;
+    --hud-faded-opacity: 0.35;
+    /* Ash_Black 반투명 (HUD 패널 배경) */
+    --ash-black-hud: rgba(13, 8, 7, 0.55);
 }
 
 .ash-root {
@@ -386,6 +398,232 @@
     -unity-text-align: middle-center;
     -unity-text-outline-width: 1px;
     -unity-text-outline-color: var(--ash-black);
+}
+
+/* ── 상시 HUD (B안, 2026-10-28 — RULE-02·04·05 개정, §12). 그리기: HudStatusView ── */
+
+.hud-time {
+    position: absolute;
+    top: var(--hud-margin);
+    left: 0;
+    right: 0;
+    font-size: 18px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: var(--ash-black);
+}
+
+.hud-left {
+    position: absolute;
+    left: var(--hud-margin);
+    bottom: var(--hud-margin);
+    width: var(--hud-left-width);
+    padding: 6px 8px;
+    background-color: var(--ash-black-hud);
+    font-size: var(--hud-font-size);
+}
+
+.hud-left Label, .hud-right Label, .hud-quickslots Label {
+    font-size: var(--hud-font-size);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: var(--ash-black);
+    padding: 0;
+    margin: 0;
+}
+
+.hud-bar-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 3px;
+}
+
+.hud-bar-label {
+    width: var(--hud-bar-label-width);
+}
+
+.hud-bar {
+    flex-grow: 1;
+    height: var(--hud-bar-height);
+    background-color: var(--ash-black);
+    border-width: 1px;
+    border-color: var(--ash-grey);
+}
+
+.hud-bar-fill {
+    height: 100%;
+    width: 100%;
+    background-color: var(--bone);
+}
+
+.hud-bar-fill--stamina {
+    background-color: var(--bone);
+}
+
+.hud-bar-fill--hydration {
+    background-color: var(--ash-grey);
+}
+
+.hud-bar-fill--energy {
+    background-color: var(--rust-red);
+}
+
+.hud-bar-fill--radiation {
+    background-color: var(--toxic);
+}
+
+.ash-root .hud-radiation-text {
+    color: var(--toxic);
+}
+
+.hud-faded {
+    opacity: var(--hud-faded-opacity);
+}
+
+.hud-parts {
+    margin-top: 4px;
+}
+
+.hud-part-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hud-part {
+    min-width: 110px;
+}
+
+.ash-root .hud-part--warn {
+    color: var(--ember);
+}
+
+.ash-root .hud-part--destroyed {
+    color: var(--ash-grey);
+}
+
+.hud-part-status, .hud-body-effects {
+    color: var(--ember);
+    -unity-font-style: bold;
+    margin-left: 4px;
+}
+
+.ash-root .hud-part-status, .ash-root .hud-body-effects {
+    color: var(--ember);
+}
+
+.hud-right {
+    position: absolute;
+    right: var(--hud-margin);
+    bottom: var(--hud-margin);
+    align-items: flex-end;
+    padding: 6px 8px;
+    background-color: var(--ash-black-hud);
+}
+
+.hud-stance-row {
+    flex-direction: row;
+    margin-bottom: 4px;
+}
+
+.hud-weight {
+    margin-left: 10px;
+}
+
+.ash-root .hud-weight--warn {
+    color: var(--ember);
+}
+
+.ash-root .hud-weight--heavy {
+    color: var(--bone);
+    background-color: var(--rust-red);
+    -unity-font-style: bold;
+}
+
+.hud-weapon {
+    align-items: flex-end;
+}
+
+.hud-ammo-row {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.hud-right .hud-ammo {
+    font-size: 22px;
+    -unity-font-style: bold;
+}
+
+.hud-spare {
+    margin-left: 8px;
+}
+
+.ash-root .hud-condition--worn {
+    color: var(--ember);
+}
+
+.ash-root .hud-condition--critical {
+    color: var(--bone);
+    background-color: var(--rust-red);
+    -unity-font-style: bold;
+}
+
+.hud-quickslots {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: var(--hud-margin);
+    flex-direction: row;
+    justify-content: center;
+}
+
+.hud-quick {
+    width: var(--hud-quick-width);
+    margin: 0 3px;
+    padding: 3px 6px;
+    background-color: var(--ash-black-hud);
+    border-width: 1px;
+    border-color: var(--ash-grey);
+    -unity-text-align: middle-left;
+    overflow: hidden;
+}
+
+.hud-quick--empty {
+    opacity: var(--hud-faded-opacity);
+}
+
+/* 피격 방향 붉은 가장자리 (평소 display:none, HudStatusView가 불투명도만 바꾼다) */
+.hud-edge {
+    position: absolute;
+    background-color: var(--ember);
+    display: none;
+}
+
+.hud-edge-top {
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--hud-edge-thickness);
+}
+
+.hud-edge-bottom {
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--hud-edge-thickness);
+}
+
+.hud-edge-left {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--hud-edge-thickness);
+}
+
+.hud-edge-right {
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: var(--hud-edge-thickness);
 }
 
 /* ── M4: 버튼 (일시정지·메인 메뉴·결과) ───────────── */

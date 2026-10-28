@@ -3,8 +3,91 @@
     <Style src="Ashfall.uss" />
     <ui:VisualElement name="game-ui" class="ash-root" picking-mode="Ignore">
 
-        <!-- §12 HUD: 허용된 일시 표시만 (F 프롬프트, RULE-04 탄창 확인 문구, M4 탈출 카운트다운). 체력·탄수·미니맵·크로스헤어·남은 시간 없음. -->
+        <!-- §12 HUD (2026-10-28 상시 HUD B안, RULE-02·04·05 개정): 상시 — 체력·상태·막대(왼쪽 아래), 자세·무게·무기(오른쪽 아래), 퀵슬롯(아래 가운데), 남은 시간(위 가운데).
+             일시 — F 프롬프트, RULE-04 탄창 확인 문구, M4 탈출 카운트다운, 피격 방향 가장자리. 크로스헤어·나침반·미니맵 없음(RULE-06·07). 그리기: HudView·HudStatusView. -->
         <ui:VisualElement name="hud" class="hud" picking-mode="Ignore">
+            <ui:VisualElement name="hud-edge-top" class="hud-edge hud-edge-top" picking-mode="Ignore" />
+            <ui:VisualElement name="hud-edge-right" class="hud-edge hud-edge-right" picking-mode="Ignore" />
+            <ui:VisualElement name="hud-edge-bottom" class="hud-edge hud-edge-bottom" picking-mode="Ignore" />
+            <ui:VisualElement name="hud-edge-left" class="hud-edge hud-edge-left" picking-mode="Ignore" />
+            <ui:Label name="hud-time" class="hud-time" picking-mode="Ignore" />
+            <ui:VisualElement name="hud-left" class="hud-left" picking-mode="Ignore">
+                <ui:VisualElement name="hud-radiation" class="hud-bar-row" picking-mode="Ignore">
+                    <ui:Label name="hud-radiation-text" class="hud-bar-label hud-radiation-text" picking-mode="Ignore" />
+                    <ui:VisualElement class="hud-bar" picking-mode="Ignore">
+                        <ui:VisualElement name="hud-radiation-fill" class="hud-bar-fill hud-bar-fill--radiation" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-bar-row" picking-mode="Ignore">
+                    <ui:Label text="스태미나" class="hud-bar-label" picking-mode="Ignore" />
+                    <ui:VisualElement name="hud-stamina-bar" class="hud-bar" picking-mode="Ignore">
+                        <ui:VisualElement name="hud-stamina-fill" class="hud-bar-fill hud-bar-fill--stamina" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-bar-row" picking-mode="Ignore">
+                    <ui:Label text="수분" class="hud-bar-label" picking-mode="Ignore" />
+                    <ui:VisualElement name="hud-hydration-bar" class="hud-bar" picking-mode="Ignore">
+                        <ui:VisualElement name="hud-hydration-fill" class="hud-bar-fill hud-bar-fill--hydration" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-bar-row" picking-mode="Ignore">
+                    <ui:Label text="에너지" class="hud-bar-label" picking-mode="Ignore" />
+                    <ui:VisualElement name="hud-energy-bar" class="hud-bar" picking-mode="Ignore">
+                        <ui:VisualElement name="hud-energy-fill" class="hud-bar-fill hud-bar-fill--energy" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="hud-parts" class="hud-parts" picking-mode="Ignore">
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-0" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-0" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-1" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-1" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-2" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-2" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-3" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-3" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-4" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-4" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-5" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-5" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="hud-part-row" picking-mode="Ignore">
+                        <ui:Label name="hud-part-6" class="hud-part" picking-mode="Ignore" />
+                        <ui:Label name="hud-part-status-6" class="hud-part-status" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label name="hud-body-effects" class="hud-body-effects" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="hud-right" class="hud-right" picking-mode="Ignore">
+                <ui:VisualElement class="hud-stance-row" picking-mode="Ignore">
+                    <ui:Label name="hud-posture" class="hud-posture" picking-mode="Ignore" />
+                    <ui:Label name="hud-weight" class="hud-weight" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement name="hud-weapon" class="hud-weapon" picking-mode="Ignore">
+                    <ui:Label name="hud-weapon-name" class="hud-weapon-name" picking-mode="Ignore" />
+                    <ui:VisualElement class="hud-ammo-row" picking-mode="Ignore">
+                        <ui:Label name="hud-ammo" class="hud-ammo" picking-mode="Ignore" />
+                        <ui:Label name="hud-spare" class="hud-spare" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label name="hud-condition" class="hud-condition" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="hud-quickslots" class="hud-quickslots" picking-mode="Ignore">
+                <ui:Label name="hud-quick-0" class="hud-quick" picking-mode="Ignore" />
+                <ui:Label name="hud-quick-1" class="hud-quick" picking-mode="Ignore" />
+                <ui:Label name="hud-quick-2" class="hud-quick" picking-mode="Ignore" />
+                <ui:Label name="hud-quick-3" class="hud-quick" picking-mode="Ignore" />
+            </ui:VisualElement>
             <ui:Label name="hud-prompt" class="hud-prompt" picking-mode="Ignore" />
             <ui:Label name="hud-toast" class="hud-toast" picking-mode="Ignore" />
             <ui:Label name="hud-extract" class="hud-extract" picking-mode="Ignore" />

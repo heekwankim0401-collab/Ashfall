@@ -30,6 +30,24 @@ namespace Ashfall.UI
         [Range(0f, 1f)]
         public float conditionCriticalBelow = 0.25f;
 
+        // ── 상시 HUD(B안, 2026-10-28 — RULE-02·04·05 개정) ──
+        // TODO(GDD-?): 피격 방향 붉은 가장자리 시간·세기가 문서에 없다 — 임시값.
+        [Tooltip("피격 방향 붉은 가장자리 표시 시간 (초). 이 시간 동안 선형으로 사라진다. TODO(GDD-?)")]
+        [Min(0.05f)]
+        public float hitEdgeDurationSec = 1.0f;
+        [Tooltip("피격 직후 가장자리 불투명도 (0~1). TODO(GDD-?)")]
+        [Range(0f, 1f)]
+        public float hitEdgeMaxOpacity = 0.6f;
+
+        // TODO(GDD-?): 부위 HP 색 경계가 문서에 없다 — 임시값. 비율이 이 값 미만이면 Ember, 0이면 파괴(어둡게).
+        [Tooltip("부위 HP 비율이 이 값 미만이면 경고색(Ember). TODO(GDD-?)")]
+        [Range(0f, 1f)]
+        public float partHpWarnBelow = 0.5f;
+
+        // RULE-05 개정 HUD 방사능 누적 표시 상한 (§4.3 선량 0~100)
+        [Tooltip("HUD 방사능 누적 표시 상한 (선량)")]
+        public float radiationDisplayMax = 100f;
+
         private void OnValidate()
         {
             conditionCriticalBelow = Mathf.Min(conditionCriticalBelow, conditionWornBelow);

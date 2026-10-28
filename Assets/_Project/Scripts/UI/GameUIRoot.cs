@@ -19,6 +19,7 @@ namespace Ashfall.UI
         private GameUIPresenter presenter;
 
         private HudView hud;
+        private HudStatusView hudStatus;   // 상시 HUD(B안)
         private InventoryScreenView inventoryView;
         private BodyStatusScreenView bodyView;
         private MapScreenView mapView;
@@ -93,6 +94,7 @@ namespace Ashfall.UI
             {
                 InteractKeyLabel = KeyLabel(interactAction),
             };
+            presenter.SetQuickSlotKeys(quickSlotKeys);
             presenter.ScreenChanged += OnScreenChanged;
             presenter.InventoryDirty += OnInventoryDirty;
             presenter.BodyStatusDirty += OnBodyStatusDirty;
@@ -130,6 +132,7 @@ namespace Ashfall.UI
                 pauseView.Dispose();
             }
             hud = null;
+            hudStatus = null;
             inventoryView = null;
             bodyView = null;
             mapView = null;
@@ -174,6 +177,7 @@ namespace Ashfall.UI
                     mapView.SetTime(presenter.Map.RemainingText);
             }
             hud.Set(presenter.Screens.HudVisible, presenter.Toast.Text, presenter.Prompt.Text, presenter.ExtractionHud.Text);
+            hudStatus.Render(presenter.HudStatus);
         }
 
         private void ReadInput()
@@ -206,6 +210,7 @@ namespace Ashfall.UI
                 return;
 
             hud = new HudView(root);
+            hudStatus = new HudStatusView(root);
             inventoryView = new InventoryScreenView(root, config.dragThresholdPx, quickSlotKeys, IsQuickMoveModifierHeld, config);
             bodyView = new BodyStatusScreenView(root);
             mapView = new MapScreenView(root);

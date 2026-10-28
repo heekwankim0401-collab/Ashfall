@@ -3,9 +3,9 @@ using UnityEngine.UIElements;
 
 namespace Ashfall.UI
 {
-    // §12 HUD: 기본은 아무것도 없다. 허용된 일시 표시만 — F 상호작용 프롬프트, RULE-04 탄창 확인 문구,
-    // M4 탈출 카운트다운(구역 안에서만, 조건 문구 포함).
-    // 체력·탄수·미니맵·크로스헤어·레이드 남은 시간은 만들지 않는다 (RULE-02·04~07, TODO(GDD-?) Q10).
+    // §12 HUD 일시 표시 — F 상호작용 프롬프트, RULE-04 탄창 확인 문구, M4 탈출 카운트다운(구역 안에서만, 조건 문구 포함).
+    // HUD 루트(hud)의 표시·숨김(화면이 열리면 숨김)도 여기서 한다.
+    // 상시 표시(체력·탄·시간 등, 2026-10-28 B안)는 HudStatusView. 미니맵·크로스헤어·나침반은 만들지 않는다 (RULE-06·07).
     public sealed class HudView
     {
         public const string RootName = "hud";

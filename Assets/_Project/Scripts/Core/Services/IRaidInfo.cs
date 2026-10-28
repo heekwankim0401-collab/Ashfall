@@ -19,7 +19,7 @@ namespace Ashfall.Core
     }
 
     // 레이드 정보 (지도·일시정지 화면이 열 때 동기로 읽는다). Raid(RaidController)가 등록한다.
-    // TODO(GDD-?) Q10·Q11: HUD에 남은 시간 없음. 지도 화면에서 분 단위 대략치로만 보여 준다.
+    // RULE-02 표시 개정(2026-10-28 B안): 상시 HUD가 매 프레임 RemainingSec을 읽어 분:초로 보인다. 지도 화면은 분 단위 대략치 그대로.
     public interface IRaidInfo
     {
         float ElapsedSec { get; }

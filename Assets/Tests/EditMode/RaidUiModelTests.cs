@@ -686,7 +686,7 @@ namespace Ashfall.Tests.EditMode
         }
 
         [Test]
-        public void GameUxml_HasM4Views_AndHudHasNoTimerOrNumbersByDefault()
+        public void GameUxml_HasM4Views()   // 2026-10-28 B안: 상시 HUD는 HudStatusViewUxmlTests
         {
             var root = Clone(GameUxml);
             var hud = new HudView(root);

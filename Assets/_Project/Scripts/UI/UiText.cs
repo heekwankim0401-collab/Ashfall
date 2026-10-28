@@ -297,5 +297,74 @@ namespace Ashfall.UI
             string head = string.IsNullOrEmpty(keyLabel) ? verb : keyLabel + "  " + verb;
             return string.IsNullOrEmpty(targetName) ? head : head + ": " + targetName;
         }
+
+        // ── 상시 HUD(B안, 2026-10-28 — RULE-02·04·05 개정) ──
+        public const string HudNoMagazine = "—";
+        public const string HudStaminaLabel = "스태미나";
+        public const string HudHydrationLabel = "수분";
+        public const string HudEnergyLabel = "에너지";
+
+        // "머리 34/35"
+        public static string HudPartHp(string partLabel, int hp, int maxHp) => partLabel + " " + hp + "/" + maxHp;
+
+        // 부위 상태이상 아이콘(문자 표기, 아이콘 에셋 없음). bit 1 = 출혈, 2 = 중출혈, 4 = 골절. 없으면 빈 문자열.
+        // TODO(GDD-?): 아이콘 그림이 없다 — 문구 상자로 대신한다.
+        public static string HudStatusIcons(int statusBits)
+        {
+            string text = string.Empty;
+            if ((statusBits & 2) != 0)
+                text = BodyStatusPresenter.StatusText(StatusEffect.HeavyBleed);
+            else if ((statusBits & 1) != 0)
+                text = BodyStatusPresenter.StatusText(StatusEffect.Bleed);
+            if ((statusBits & 4) != 0)
+                text = text.Length > 0 ? text + " " + BodyStatusPresenter.StatusText(StatusEffect.Fracture) : BodyStatusPresenter.StatusText(StatusEffect.Fracture);
+            return text;
+        }
+
+        // 전신 상태 아이콘: 방사능·탈수·허기 (등급 Normal은 빼고, 있으면 공백으로 잇는다)
+        public static string HudBodyEffects(SurvivalTier radiation, SurvivalTier hydration, SurvivalTier energy)
+        {
+            string text = string.Empty;
+            text = Join(text, SurvivalStatus(SurvivalStat.Radiation, radiation));
+            text = Join(text, SurvivalStatus(SurvivalStat.Hydration, hydration));
+            text = Join(text, SurvivalStatus(SurvivalStat.Energy, energy));
+            return text;
+        }
+
+        private static string Join(string a, string b) =>
+            string.IsNullOrEmpty(b) ? a : (string.IsNullOrEmpty(a) ? b : a + " " + b);
+
+        // "방사능 37"
+        public static string HudRadiation(int dose) => "방사능 " + dose;
+
+        public static string FireModeWord(FireMode mode) => mode == FireMode.Auto ? "자동" : "단발";
+
+        // "AK-74 · 자동"
+        public static string HudWeapon(string weaponName, FireMode mode) => weaponName + " · " + FireModeWord(mode);
+
+        // "27/30"
+        public static string HudAmmo(int rounds, int capacity) => rounds + "/" + capacity;
+
+        // "예비 2"
+        public static string HudSpareMagazines(int count) => "예비 " + count;
+
+        // "4 붕대 (3)" / "4 —"
+        public static string HudQuickSlot(string keyLabel, ItemInstance item)
+        {
+            if (item == null)
+                return keyLabel + " " + HudNoMagazine;
+            string label = keyLabel + " " + ItemLabel(item);
+            return item is MedicalItem medical ? label + " (" + medical.UsesLeft + ")" : label;
+        }
+
+        public static string HudPosture(TargetPosture posture)
+        {
+            switch (posture)
+            {
+                case TargetPosture.Crouching: return "웅크림";
+                case TargetPosture.Prone: return "엎드림";
+                default: return "서기";
+            }
+        }
     }
 }

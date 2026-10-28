@@ -36,6 +36,7 @@ namespace Ashfall.UI
             Toast = new MagazineCheckToastModel(config);
             this.config = config;
             this.flow = flow;
+            HudStatus = new HudStatusModel(config);
             Screens.CanOpen = ResolveServiceFor;
             Screens.Changed += OnScreenChanged;
         }
@@ -45,6 +46,11 @@ namespace Ashfall.UI
         public InteractionPromptModel Prompt { get; } = new InteractionPromptModel();
         public ExtractionHudModel ExtractionHud { get; } = new ExtractionHudModel();
         public MapScreenModel Map { get; } = new MapScreenModel();
+        // 상시 HUD(B안, 2026-10-28 — RULE-02·04·05 개정). Tick에서 레지스트리를 읽어 갱신한다.
+        public HudStatusModel HudStatus { get; private set; }
+
+        // 퀵슬롯 키 표시 문자열(입력 바인딩)로 HUD 모델을 다시 만든다. Enable 전에 루트가 한 번 부른다.
+        public void SetQuickSlotKeys(IReadOnlyList<string> keys) => HudStatus = new HudStatusModel(config, keys);
 
         // 인벤토리 화면을 열 때 레지스트리에서 얻는다. 열기 전에는 null.
         public IInventoryService InventoryService { get; private set; }
@@ -91,6 +97,7 @@ namespace Ashfall.UI
             bus.Subscribe<RaidStarted>(OnRaidStarted);
             bus.Subscribe<ExtractionStatusChanged>(OnExtractionStatusChanged);
             bus.Subscribe<RaidEnded>(OnRaidEnded);
+            bus.Subscribe<PlayerHitReceived>(OnPlayerHitReceived);
         }
 
         // 화면이 열려 있으면(종료 오버레이 포함) 닫고(조작 차단·일시정지 해제) 구독을 끊는다.
@@ -110,7 +117,11 @@ namespace Ashfall.UI
             bus.Unsubscribe<RaidStarted>(OnRaidStarted);
             bus.Unsubscribe<ExtractionStatusChanged>(OnExtractionStatusChanged);
             bus.Unsubscribe<RaidEnded>(OnRaidEnded);
+            bus.Unsubscribe<PlayerHitReceived>(OnPlayerHitReceived);
         }
+
+        // 상시 HUD 피격 방향 붉은 가장자리 (§12)
+        private void OnPlayerHitReceived(PlayerHitReceived evt) => HudStatus.NotifyHit(evt.RelativeYawDeg, evt.HasDirection);
 
         // ── 입력 (GameUIRoot가 호출) ─────────────────────────
 
@@ -229,6 +240,7 @@ namespace Ashfall.UI
         public void Tick(float dt)
         {
             Toast.Tick(dt);
+            HudStatus.Tick(dt, services);
             // 지도가 열려 있는 동안 남은 시간 대략치(분)가 바뀌면 다시 그린다. 일시정지 중엔 지도가 열리지 않는다.
             if (Screens.Current == ScreenKind.Map && RaidInfo != null && Map.RefreshTime(RaidInfo))
                 MapTimeDirty?.Invoke();

@@ -66,7 +66,8 @@ namespace Ashfall.Tests.EditMode
         public ItemInstance GetEquipped(EquipSlot slot) => Equipped.TryGetValue(slot, out var item) ? item : null;
         public ILootView ActiveLoot => Loot;
         public ItemInstance GetQuickSlot(int index) => index >= 0 && index < QuickSlots.Length ? QuickSlots[index] : null;
-        public float TotalWeightKg => 0f;
+        public float WeightKg;   // 상시 HUD 무게 표시 테스트용
+        public float TotalWeightKg => WeightKg;
 
         public bool TryGetLocation(ItemInstance item, out ItemLocation location) =>
             Locations.TryGetValue(item, out location);
