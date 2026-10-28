@@ -25,3 +25,4 @@ MonoBehaviour:
   velocity: 820
   pelletCount: 1
   maxFlightTimeSec: 3
+  dragPerM: 0.0008

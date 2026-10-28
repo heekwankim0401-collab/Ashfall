@@ -38,6 +38,7 @@
   레이드 씬을 M4·M7·맵 개선 메뉴로 다시 만들면 이 메뉴를 다시 실행. 되돌리기 `Ashfall/Setup/Asset Swap/Remove Skins`. 적은 Idle만(걷기·사격 애니메이션 없음).
   스킨이 얹힌 레이드 씬·VM 프리팹은 **패키지가 있는 PC에서만 커밋**한다(다른 PC에서 메뉴를 돌리면 스킨 프리팹 GUID가 달라진다).
   성능: 스킨은 부품 합치기(렌더러 1개)·자동 Mesh LOD·사람 자세 굽기로 HD 620 1080p 증가분이 실행 간 편차 안(10/28 A/B, `AssetSwap_design.md` §5.1·§9.1).
+- 정조준·탄도(2026-10-28, `docs/design/AdsBallistics_design.md`): `Ashfall/Setup/Weapons/Apply ADS and Ballistics`(배치 `AdsBallisticsSetup.ApplyAll`, 멱등 — 무기 `adsEyeReliefM`·`zeroRangeM`, 탄약 `dragPerM` 파일에 없는 필드만 + VM 프리팹 `SightAnchor`), 앵커만 `Ashfall/Setup/Weapons/Fit Sight Anchors`(Apply Asset Swap·Remove Skins·Apply M7 Content 끝에서도 호출). 배치표 `WeaponSightLayout`, 조사 `Report Sight Geometry`.
 - 세이브: `Application.persistentDataPath/save.json`(version 3 — 보관함 단계 `stashLevel`·방어구 내구도, v2 = 무기 내구도·튜브, v1·v2는 읽을 때 자동 이전, 에디터 메뉴 `Ashfall/Save/Open Save Folder`·`Delete Save Files`). 테스트는 실제 경로를 쓰지 않는다
   (EditMode는 `MemorySaveStorage`, PlayMode는 `SaveSandbox` SetUpFixture — PlayMode 테스트는 `Ashfall.Tests.PlayMode` 네임스페이스에 둔다).
 - 구현 중 정한 해석·임시값은 `docs/CHANGELOG_GDD.md`의 "M1 구현 중 결정", "M2/M3/M4/M5/M6/M7 설계 결정", "MVP 마무리 설계 결정"에 있다. GDD에 없는 수치는 `TODO(GDD-?)`.

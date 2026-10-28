@@ -75,6 +75,7 @@ namespace Ashfall.EditorTools
             var ammo = CreateAssetIfMissing<AmmoDefinitionSO>($"{DataFolder}/Weapons/AMMO-556.asset", a =>
             {
                 a.id = "AMMO-556"; a.displayName = "5.56 탄"; a.type = AmmoType.Rifle556;
+                AdsBallisticsSetup.FillNewAmmo(a);   // AB-Q3
                 a.damage = 45f; // §5.2 WPN-RIF-01 피해
                 a.pelletCount = 1;
                 // TODO(GDD-?): 관통력·초기 속도·최대 비행 시간·무게·가격은 GDD에 없는 임시값.
@@ -91,6 +92,7 @@ namespace Ashfall.EditorTools
             CreateAssetIfMissing<WeaponDefinitionSO>($"{DataFolder}/Weapons/WPN-RIF-01.asset", w =>
             {
                 w.id = "WPN-RIF-01"; w.displayName = "군용 소총"; w.cls = WeaponClass.AssaultRifle;
+                AdsBallisticsSetup.FillNewWeapon(w);   // 정조준·탄도 AB-Q1·Q2 (id만 쓴다)
                 w.ammo = AmmoType.Rifle556; w.rpm = 650; w.modes = new[] { FireMode.Auto }; // §5.2
                 // TODO(GDD-?): 반동·조준 시간·재장전 시간·지향 사격 퍼짐·크기·무게는 GDD에 없는 임시값.
                 w.recoilV = 0.6f; w.recoilH = 0.25f; w.adsTime = 0.25f;

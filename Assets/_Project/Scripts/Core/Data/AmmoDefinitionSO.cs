@@ -17,5 +17,10 @@ namespace Ashfall.Core
         // §14에 없는 필드 (CHANGELOG_GDD 2026-10-21). 이 시간이 지나도 맞지 않은 탄은 사라진다.
         [Tooltip("최대 비행 시간 (초)")]
         public float maxFlightTimeSec;
+
+        // 정조준·탄도 필드 (GDD §14에 반영, CHANGELOG_GDD 2026-10-28 AB-Q3). 이차 공기 저항: 가속도 a = g - dragPerM·|v|·v.
+        // 0이면 저항 없음(이전 동작과 같다). 거리 s를 날아간 뒤 탄속 ≈ velocity·e^(-dragPerM·s) (낙차 무시).
+        [Tooltip("공기 저항 계수 (1/m). a = -k·|v|·v. 0 = 저항 없음. TODO(GDD-?) AB-Q3 임시값")]
+        public float dragPerM;
     }
 }

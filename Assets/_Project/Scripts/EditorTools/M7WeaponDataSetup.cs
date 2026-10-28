@@ -83,6 +83,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<AmmoDefinitionSO>(M7Names.Ammo12GaPath, a =>
             {
                 a.id = M7Names.Ammo12GaId; a.displayName = "12ga 탄"; a.type = AmmoType.Gauge12;
+                AdsBallisticsSetup.FillNewAmmo(a);   // AB-Q3
                 a.damage = 18f;      // §5.2 18×8 의 펠릿당 피해 (무기 damage가 0일 때만 쓰는 기본값)
                 a.pelletCount = 8;   // §5.2 18×8
                 // TODO(GDD-?): 아래 전부 임시값 (설계 §3.2)
@@ -94,6 +95,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<AmmoDefinitionSO>(M7Names.Ammo762Path, a =>
             {
                 a.id = M7Names.Ammo762Id; a.displayName = "7.62 탄"; a.type = AmmoType.Rifle762;
+                AdsBallisticsSetup.FillNewAmmo(a);   // AB-Q3
                 a.damage = 110f;     // §5.2 WPN-DMR-01 피해 (기본값)
                 a.pelletCount = 1;
                 // TODO(GDD-?): 아래 전부 임시값 (설계 §3.2)
@@ -153,6 +155,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<WeaponDefinitionSO>(M7Names.ShotgunPath, w =>
             {
                 w.id = M7Names.ShotgunId; w.displayName = "펌프 샷건"; w.cls = WeaponClass.Shotgun;
+                AdsBallisticsSetup.FillNewWeapon(w);   // 정조준·탄도 AB-Q1·Q2
                 w.ammo = AmmoType.Gauge12; w.rpm = 70; w.damage = 18f;   // §5.2 (피해 = 펠릿당, 펠릿 수는 AMMO-12GA)
                 w.internalMagazine = tube;                                // §5.2 튜브 6
                 // TODO(GDD-?): 아래는 GDD에 없는 임시값 (설계 §3.1)
@@ -171,6 +174,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<WeaponDefinitionSO>(M7Names.DmrPath, w =>
             {
                 w.id = M7Names.DmrId; w.displayName = "볼트액션"; w.cls = WeaponClass.Sniper;
+                AdsBallisticsSetup.FillNewWeapon(w);   // 정조준·탄도 AB-Q1·Q2
                 w.ammo = AmmoType.Rifle762; w.rpm = 40; w.damage = 110f;   // §5.2 (탄창 5 = MAG-762-5)
                 // TODO(GDD-?): 아래는 GDD에 없는 임시값 (설계 §3.1)
                 w.modes = new[] { FireMode.Semi };                          // 볼트 동작 = RPM 40 간격

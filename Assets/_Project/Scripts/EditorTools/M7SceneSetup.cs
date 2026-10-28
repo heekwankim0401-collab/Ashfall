@@ -45,6 +45,8 @@ namespace Ashfall.EditorTools
             ApplyToSceneFile(M5SceneSetup.HideoutScenePath, ApplyHideout);
             // MVP 마무리 데이터 (파일에 없는 필드만 명시 기록, 멱등) — Apply M7 Content를 다시 돌려도 빠지지 않게
             MvpFinishDataSetup.ApplyAll();
+            // 정조준·탄도 (AB-Q1~Q3): 데이터(없는 필드만) + VM 프리팹 SightAnchor (멱등)
+            AdsBallisticsSetup.ApplyAll();
             AssetDatabase.SaveAssets();
             Debug.Log($"{Tag} 완료");
         }

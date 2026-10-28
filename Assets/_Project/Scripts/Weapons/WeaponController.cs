@@ -24,6 +24,8 @@ namespace Ashfall.Weapons
     // - 산탄은 펠릿마다 퍼짐 (Q8). 튜브 무기 R = 한 발씩(WeaponModel).
     // - 고장: 고장 순간 WeaponClicked(Jammed), 빈 탄창·고장 중 새 방아쇠 WeaponClicked(DryFire), T 길게(jamClearHoldSec) = 해제 + WeaponClicked(JamCleared).
     //   고장이 아닐 때 T(누름) = 기존 RULE-04 탄창 확인 (Q9·Q10).
+    // 정조준·탄도 (2026-10-28, AB-Q1·Q2, docs/design/AdsBallistics_design.md): 뷰모델 자식 "SightAnchor"가 있고 무기 정의 adsEyeReliefM > 0이면
+    //   정조준 자세를 무기마다 계산해 가늠자가 화면 중앙에 오게 한다(없으면 adsLocalPosition 폴백). zeroRangeM > 0이면 영점 방향으로 쏜다(장착 시 1회 계산·캐시).
     public sealed class WeaponController : MonoBehaviour
     {
         [SerializeField] private WeaponDefinitionSO weapon;
@@ -38,6 +40,7 @@ namespace Ashfall.Weapons
         [SerializeField] private Transform muzzle;
         [SerializeField] private Transform viewModel;
         [SerializeField] private Vector3 hipLocalPosition;
+        // 정조준 위치 폴백: 무기 정의 adsEyeReliefM이 0이거나 뷰모델에 SightAnchor가 없을 때만 쓴다 (정조준·탄도 AB-Q1).
         [SerializeField] private Vector3 adsLocalPosition;
         [SerializeField] private ProjectileSystem projectiles;
 
@@ -46,12 +49,25 @@ namespace Ashfall.Weapons
         {
             public readonly Transform Root;
             public readonly Transform Muzzle;
+            public readonly Transform Sight;   // 자식 "SightAnchor" (없으면 null — 폴백 정조준 위치)
 
-            public ViewInstance(Transform root, Transform muzzle)
+            public ViewInstance(Transform root, Transform muzzle, Transform sight)
             {
                 Root = root;
                 Muzzle = muzzle;
+                Sight = sight;
             }
+        }
+
+        // 정조준·탄도 (AB-Q1·Q2): 무기 정의마다 정조준 뷰모델 자세와 영점 발사 방향. 장착 시 1회 계산해 캐시(탄약이 바뀌면 다시).
+        private struct AdsSolution
+        {
+            public AmmoDefinitionSO Ammo;
+            public float FixedDt;             // 영점을 구한 Time.fixedDeltaTime (프로젝트 0.02 고정이지만 바뀌면 다시 구한다)
+            public Vector3 Position;          // 정조준 뷰모델 루트 로컬 위치 (컨트롤러 기준)
+            public Quaternion Rotation;       // 정조준 뷰모델 루트 로컬 회전 (가늠자 시선이 카메라 정면과 같게)
+            public bool HasZero;
+            public Vector3 ZeroDirection;     // 흔들림 없는 컨트롤러 로컬 발사 방향 (영점)
         }
 
         private InputAction fire, aim, reload, checkMagazine;
@@ -81,8 +97,11 @@ namespace Ashfall.Weapons
         private readonly Dictionary<WeaponItem, WeaponModel> models = new Dictionary<WeaponItem, WeaponModel>();
         private readonly Dictionary<WeaponDefinitionSO, ViewInstance> views = new Dictionary<WeaponDefinitionSO, ViewInstance>();
         private readonly HashSet<AmmoType> missingAmmoWarned = new HashSet<AmmoType>();
+        private readonly Dictionary<WeaponDefinitionSO, AdsSolution> adsSolutions = new Dictionary<WeaponDefinitionSO, AdsSolution>();
         private Transform activeView;
         private Transform activeMuzzle;
+        private Transform activeSight;
+        private AdsSolution activeAds;
         private Vector3[] pelletBuffer = new Vector3[8];
 
         // 현재 들고 있는 무기. null = 비무장 (든 슬롯이 비었음)
@@ -103,6 +122,10 @@ namespace Ashfall.Weapons
         public Transform CurrentViewModel => activeView;
         public Vector3 MuzzlePosition => activeMuzzle != null ? activeMuzzle.position
             : muzzle != null ? muzzle.position : transform.position;
+        // 정조준·탄도 (AB-Q1·Q2, 테스트·확인용): 든 뷰모델의 가늠자 기준점(없으면 null), 영점 적용 여부와 발사 방향(흔들림 없는 컨트롤러 로컬)
+        public Transform CurrentSightAnchor => activeSight;
+        public bool IsZeroed => activeAds.HasZero;
+        public Vector3 ZeroDirectionLocal => activeAds.HasZero ? activeAds.ZeroDirection : Vector3.forward;
 
         private bool InputBlocked => screenOpen || dead || raidOver;
 
@@ -136,6 +159,7 @@ namespace Ashfall.Weapons
             recoilReceiver = GetComponentInParent<IRecoilReceiver>();
             shooterRoot = transform.root;
             baseLocalRotation = transform.localRotation;
+            activeAds = DefaultAds();
             swaySeed = random.Next(0, 1000);
             if (projectiles == null)
                 projectiles = FindFirstObjectByType<ProjectileSystem>();
@@ -313,6 +337,7 @@ namespace Ashfall.Weapons
         {
             Transform view = null;
             Transform viewMuzzle = null;
+            Transform viewSight = null;
             if (definition != null)
             {
                 if (definition.viewModel != null)
@@ -320,6 +345,7 @@ namespace Ashfall.Weapons
                     ViewInstance instance = GetOrCreateView(definition);
                     view = instance.Root;
                     viewMuzzle = instance.Muzzle;
+                    viewSight = instance.Sight;
                 }
                 else
                 {
@@ -335,9 +361,10 @@ namespace Ashfall.Weapons
 
             activeView = view;
             activeMuzzle = viewMuzzle != null ? viewMuzzle : muzzle;
+            activeSight = viewSight;
             // 총구는 MuzzlePosition으로만 읽는다(계층 순서로 "Muzzle"을 찾지 않는다 — M7 리뷰 7A 낮음 7).
-            if (activeView != null)
-                activeView.localPosition = Vector3.Lerp(hipLocalPosition, adsLocalPosition, AimProgress);
+            activeAds = definition != null ? GetOrComputeAds(definition, view, viewSight, activeMuzzle) : DefaultAds();
+            ApplyViewPose();
         }
 
         private ViewInstance GetOrCreateView(WeaponDefinitionSO definition)
@@ -349,14 +376,94 @@ namespace Ashfall.Weapons
             Transform root = go.transform;
             root.localPosition = hipLocalPosition;
             root.localRotation = Quaternion.identity;
-            var instance = new ViewInstance(root, FindChild(root, MuzzleChildName));
+            var instance = new ViewInstance(root, FindChild(root, MuzzleChildName), FindChild(root, SightAnchorChildName));
             views[definition] = instance;
+            adsSolutions.Remove(definition);   // 새 뷰모델 — 정조준 자세를 다시 구한다
             return instance;
+        }
+
+        // 지향 ↔ 정조준 사이 뷰모델 자세 (AimProgress로 보간)
+        private void ApplyViewPose()
+        {
+            if (activeView == null)
+                return;
+            activeView.localPosition = Vector3.Lerp(hipLocalPosition, activeAds.Position, AimProgress);
+            activeView.localRotation = Quaternion.Slerp(Quaternion.identity, activeAds.Rotation, AimProgress);
+        }
+
+        private AdsSolution DefaultAds() => new AdsSolution { Position = adsLocalPosition, Rotation = Quaternion.identity };
+
+        // 정조준·탄도 (AB-Q1·Q2). 무기 정의마다 1회(탄약이 바뀌면 다시) — 사격마다 계산하지 않는다.
+        // 정조준 자세: SightAnchor + adsEyeReliefM > 0이면 앵커가 카메라 정면 축 위 eyeRelief 앞, 앵커 +z = 카메라 정면. 아니면 adsLocalPosition(폴백).
+        // 영점: zeroRangeM > 0이고 탄약이 있으면, 그 정조준 자세의 총구에서 출발한 탄(같은 적분기·드래그·fixedDeltaTime)이
+        //   시선 위 영점 거리 점을 지나는 방향(수평 조준 기준, BallisticZero). 못 구하면 영점 없음(카메라 정면, 이전 동작).
+        // 계산은 순수 함수 AdsAlignment.Solve — 여기서는 Transform에서 값만 모은다.
+        // 캐시 키 = 무기 정의 + 탄약 + fixedDeltaTime(영점 적분 dt가 실행 중 바뀌면 다시 구한다).
+        private AdsSolution GetOrComputeAds(WeaponDefinitionSO definition, Transform root, Transform sight, Transform viewMuzzle)
+        {
+            float fixedDt = Time.fixedDeltaTime;
+            if (adsSolutions.TryGetValue(definition, out AdsSolution cached) && cached.Ammo == CurrentAmmo && cached.FixedDt == fixedDt)
+                return cached;
+
+            var input = new AdsAlignment.Input
+            {
+                FallbackPosition = adsLocalPosition,
+                EyeReliefM = definition.adsEyeReliefM,
+                ZeroRangeM = CurrentAmmo != null ? definition.zeroRangeM : 0f,
+                Gravity = Physics.gravity.magnitude,
+                FixedDt = fixedDt,
+            };
+            EyeFromController(out input.EyeFromControllerPosition, out input.EyeFromControllerRotation);
+            if (root != null && sight != null)
+            {
+                input.HasAnchor = true;
+                input.AnchorInRoot = Vector3.Scale(root.localScale, root.InverseTransformPoint(sight.position));
+                input.AnchorRotationInRoot = Quaternion.Inverse(root.rotation) * sight.rotation;
+            }
+            if (root != null && viewMuzzle != null && CurrentAmmo != null)
+            {
+                input.HasMuzzle = true;
+                input.MuzzleInRoot = Vector3.Scale(root.localScale, root.InverseTransformPoint(viewMuzzle.position));
+                input.Speed = CurrentAmmo.velocity;
+                input.DragPerM = CurrentAmmo.dragPerM;
+                input.MaxFlightSec = CurrentAmmo.maxFlightTimeSec;
+            }
+
+            AdsAlignment.Result result = AdsAlignment.Solve(input);
+            if (result.ZeroFailed)
+                Debug.LogWarning($"[WeaponController] {definition.id}: 영점 {definition.zeroRangeM}m를 구하지 못해(탄속·비행 시간 부족) 카메라 정면으로 쏜다.", this);
+            var solution = new AdsSolution
+            {
+                Ammo = CurrentAmmo,
+                FixedDt = fixedDt,
+                Position = result.Root.Position,
+                Rotation = result.Root.Rotation,
+                HasZero = result.HasZero,
+                ZeroDirection = result.ZeroDirection,
+            };
+            adsSolutions[definition] = solution;
+            return solution;
+        }
+
+        // 눈(카메라) ← 흔들림 없는 컨트롤러 로컬 변환. 카메라가 없거나 컨트롤러 자신이면 항등. 식은 AdsAlignment.EyeFromController.
+        private void EyeFromController(out Vector3 position, out Quaternion rotation)
+        {
+            position = Vector3.zero;
+            rotation = Quaternion.identity;
+            Camera eyeCamera = GetComponentInParent<Camera>();
+            Transform eye = eyeCamera != null ? eyeCamera.transform : transform.parent;
+            if (eye == null || eye == transform)
+                return;
+            Quaternion parentRotation = transform.parent != null ? transform.parent.rotation : Quaternion.identity;
+            AdsAlignment.EyeFromController(eye.position, eye.rotation, eye.lossyScale, transform.position,
+                parentRotation * baseLocalRotation, out position, out rotation);
         }
 
         // 프리팹의 총구 자식 이름. EditorTools M7Names.MuzzleChild와 같은 값 — 바꿀 때 같이 바꿀 것
         // (런타임 어셈블리는 EditorTools를 참조할 수 없어 상수가 둘이다. M7WeaponSceneSmokeTests가 프리팹에 이 이름의 자식이 있는지 본다).
         private const string MuzzleChildName = "Muzzle";
+        // 가늠자 기준점 자식 이름 (정조준·탄도 AB-Q1). EditorTools WeaponSightLayout.AnchorChild와 같은 값 — 바꿀 때 같이 바꿀 것.
+        private const string SightAnchorChildName = "SightAnchor";
 
         private static Transform FindChild(Transform parent, string childName)
         {
@@ -394,8 +501,7 @@ namespace Ashfall.Weapons
             AimProgress = adsTime > 0f
                 ? Mathf.MoveTowards(AimProgress, aimTarget, dt / adsTime)
                 : aimTarget;
-            if (activeView != null)
-                activeView.localPosition = Vector3.Lerp(hipLocalPosition, adsLocalPosition, AimProgress);
+            ApplyViewPose();
 
             bool jammed = Model != null && Model.IsJammed;
             if (canAct && reload.WasPressedThisFrame())
@@ -467,8 +573,10 @@ namespace Ashfall.Weapons
             int pellets = CurrentAmmo != null ? Mathf.Max(1, CurrentAmmo.pelletCount) : 1;
             if (pelletBuffer.Length < pellets)
                 pelletBuffer = new Vector3[pellets];
+            // 정조준·탄도 AB-Q2: 영점이 있으면 총열 방향 = 컨트롤러 회전(흔들림 포함, 설계 D12) × 영점 방향, 없으면 카메라 정면(이전 동작)
+            Vector3 aimForward = activeAds.HasZero ? transform.rotation * activeAds.ZeroDirection : transform.forward;
             // Q8: 지향 퍼짐(조준 시 0)은 묶음 방향 1회, 펠릿마다 pelletSpreadDeg
-            Ballistics.ShotDirections(transform.forward, definition.hipSpreadDeg, AimProgress, definition.pelletSpreadDeg,
+            Ballistics.ShotDirections(aimForward, definition.hipSpreadDeg, AimProgress, definition.pelletSpreadDeg,
                 pellets, random, pelletBuffer);
 
             // 피해 = 무기 값(> 0) 또는 탄약 값 (M3 DamageRules, §5.2 무기별 피해 — 적과 같은 규칙)

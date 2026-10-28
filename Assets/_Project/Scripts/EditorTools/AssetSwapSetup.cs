@@ -52,6 +52,9 @@ namespace Ashfall.EditorTools
             if (result.Problems.Count > 0)
                 throw new InvalidOperationException($"{Tag} 무기 뷰모델 확인 실패(그 프리팹은 저장 안 함):\n  " + string.Join("\n  ", result.Problems));
             AssetDatabase.SaveAssets();
+            // 정조준·탄도 AB-Q1: 스킨이 바뀌었으면 가늠자 기준점도 다시 맞춘다 (멱등)
+            if (!AdsBallisticsSetup.FitSightAnchors())
+                throw new InvalidOperationException($"{Tag} 가늠자 기준점 맞춤 실패 — 위 오류 로그 확인");
             Debug.Log($"{Tag} 완료: 스킨 {skins.Count}/{AssetSwapCatalog.Sources.Count}종, {result}{(result.Changed ? "" : " (바뀐 것 없음)")}");
         }
 
@@ -87,6 +90,9 @@ namespace Ashfall.EditorTools
                 EditorSceneManager.SaveScene(scene);
             }
             AssetDatabase.SaveAssets();
+            // 블록아웃 가늠자 기준점으로 (AB-Q1) — 실패하면 Apply Asset Swap과 같이 예외
+            if (!AdsBallisticsSetup.FitSightAnchors())
+                throw new InvalidOperationException($"{Tag} 가늠자 기준점 맞춤 실패 — 위 오류 로그 확인");
             Debug.Log($"{Tag} 스킨 {result.Removed}개 제거 (블록아웃 모습)");
         }
     }

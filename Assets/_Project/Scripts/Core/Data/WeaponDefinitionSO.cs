@@ -44,5 +44,11 @@ namespace Ashfall.Core
         public float durabilityLossPerShot;
         [Tooltip("적 전용 무기 — 시체·상인·루트에 나오지 않는다 (TODO(GDD-?) Q27)")]
         public bool enemyOnly;
+
+        // 정조준·탄도 필드 (GDD §14에 반영, CHANGELOG_GDD 2026-10-28 AB-Q1·Q2). 플레이어 무기만 쓴다(AI는 조준점으로 직접 쏜다).
+        [Tooltip("영점 거리 (m). 수평 정조준에서 탄이 이 거리의 조준점(화면 중앙)을 지나도록 총열을 위로 기울인다. 0 = 영점 없음(시선과 평행 발사, 이전 동작). TODO(GDD-?) AB-Q2 임시값")]
+        public float zeroRangeM;
+        [Tooltip("정조준 시 눈(카메라)에서 가늠자 기준점(뷰모델 자식 SightAnchor)까지 거리 (m). 0이거나 SightAnchor가 없으면 컨트롤러 adsLocalPosition(폴백). TODO(GDD-?) AB-Q1 임시값")]
+        public float adsEyeReliefM;
     }
 }

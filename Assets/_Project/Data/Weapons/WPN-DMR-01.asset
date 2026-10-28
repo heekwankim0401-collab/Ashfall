@@ -37,3 +37,5 @@ MonoBehaviour:
   pelletSpreadDeg: 0
   durabilityLossPerShot: 0.1
   enemyOnly: 0
+  zeroRangeM: 200
+  adsEyeReliefM: 0.16

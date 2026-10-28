@@ -20,6 +20,7 @@ namespace Ashfall.Weapons
             public float Age;
             public float MaxAge;
             public float Damage;
+            public float Drag;   // AmmoDefinitionSO.dragPerM (정조준·탄도 AB-Q3)
             public int Penetration;
             public Transform ShooterRoot;
         }
@@ -75,6 +76,7 @@ namespace Ashfall.Weapons
                 Velocity = direction.normalized * ammo.velocity,
                 MaxAge = ammo.maxFlightTimeSec,
                 Damage = damage,
+                Drag = ammo.dragPerM,
                 Penetration = ammo.penetration,
                 ShooterRoot = shooterRoot,
             });
@@ -105,7 +107,7 @@ namespace Ashfall.Weapons
             {
                 Projectile p = live[i];
                 Vector3 from = p.Position;
-                Ballistics.Step(ref p.Position, ref p.Velocity, gravity, dt);
+                Ballistics.Step(ref p.Position, ref p.Velocity, gravity, p.Drag, dt);
                 p.Age += dt;
 
                 Vector3 segment = p.Position - from;

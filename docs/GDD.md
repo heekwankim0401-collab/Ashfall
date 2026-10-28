@@ -108,7 +108,8 @@
 ## 5. 무기 (`SYS-WPN-*`)
 
 ### 5.1 공통
-- 히트스캔 아님. **탄도 투사체**(중력·초기속도). 50m 이내는 성능 위해 레이캐스트+낙차 근사 허용.
+- 히트스캔 아님. **탄도 투사체**(중력·초기속도·공기 저항 `AmmoDefinitionSO.dragPerM`). 50m 이내는 성능 위해 레이캐스트+낙차 근사 허용.
+- 정조준(ADS): 무기별 가늠자 기준점(뷰모델 `SightAnchor`)이 화면 중앙에 온다(눈 거리 `adsEyeReliefM`). 무기별 영점 거리 `zeroRangeM`에서 탄착 = 조준점(수평 기준). 수치는 SO(CHANGELOG 2026-10-28 AB-Q1~Q4).
 - 탄창은 개별 아이템. 탄창마다 탄 수를 실제로 저장.
 - 재장전: 빠른 재장전(탄창 바닥에 버림) / 일반 재장전(탄창 인벤토리 회수).
 - 고장(Jam): 내구도 < 50%일 때 발당 확률 `(50-내구도)*0.1%`. `T` 길게 눌러 해제.
@@ -301,8 +302,8 @@ docs/
 ```csharp
 // 모든 SO는 Assets/_Project/Data/ 하위, CreateAssetMenu 경로 "Ashfall/..."
 class ItemDefinitionSO   { string id; string displayName; Vector2Int size; float weightKg; Rarity rarity; int basePrice; Sprite icon; }
-class WeaponDefinitionSO : ItemDefinitionSO { WeaponClass cls; AmmoType ammo; int rpm; FireMode[] modes; float recoilV; float recoilH; float adsTime; GameObject viewModel; }
-class AmmoDefinitionSO   : ItemDefinitionSO { AmmoType type; float damage; int penetration; float velocity; int pelletCount; }
+class WeaponDefinitionSO : ItemDefinitionSO { WeaponClass cls; AmmoType ammo; int rpm; FireMode[] modes; float recoilV; float recoilH; float adsTime; GameObject viewModel; float zeroRangeM; float adsEyeReliefM; }
+class AmmoDefinitionSO   : ItemDefinitionSO { AmmoType type; float damage; int penetration; float velocity; int pelletCount; float dragPerM; }
 class MagazineDefinitionSO : ItemDefinitionSO { AmmoType ammo; int capacity; }
 class ArmorDefinitionSO  : ItemDefinitionSO { int armorClass; float maxDurability; BodyPart[] covers; }
 class MedicalDefinitionSO : ItemDefinitionSO { StatusEffect[] cures; float healAmount; float useTime; int uses; }

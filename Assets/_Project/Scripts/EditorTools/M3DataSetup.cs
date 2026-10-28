@@ -121,6 +121,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<AmmoDefinitionSO>(Ammo9mmPath, a =>
             {
                 a.id = "AMMO-9MM"; a.displayName = "9mm 탄"; a.type = AmmoType.Pistol9mm;
+                AdsBallisticsSetup.FillNewAmmo(a);   // AB-Q3
                 a.pelletCount = 1;
                 // TODO(GDD-?): 아래 전부 임시값. damage는 무기 damage가 0일 때만 쓰는 기본값(DamageRules).
                 a.damage = 30f;
@@ -145,6 +146,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<WeaponDefinitionSO>(PistolPath, w =>
             {
                 w.id = "WPN-PST-01"; w.displayName = "녹슨 권총"; w.cls = WeaponClass.Pistol;
+                AdsBallisticsSetup.FillNewWeapon(w);   // 정조준·탄도 AB-Q1·Q2
                 w.ammo = AmmoType.Pistol9mm; w.rpm = 400; w.damage = 35f; // §5.2
                 // TODO(GDD-?): §5에 무기별 사격 모드가 없다. 권총은 반자동으로 둔다.
                 w.modes = new[] { FireMode.Semi };
@@ -159,6 +161,7 @@ namespace Ashfall.EditorTools
             SetupUtil.CreateAssetIfMissing<WeaponDefinitionSO>(SmgPath, w =>
             {
                 w.id = "WPN-SMG-01"; w.displayName = "개조 SMG"; w.cls = WeaponClass.Smg;
+                AdsBallisticsSetup.FillNewWeapon(w);   // 정조준·탄도 AB-Q1·Q2
                 w.ammo = AmmoType.Pistol9mm; w.rpm = 800; w.damage = 30f; // §5.2
                 // TODO(GDD-?): §5에 무기별 사격 모드가 없다. SMG는 자동으로 둔다.
                 w.modes = new[] { FireMode.Auto };
