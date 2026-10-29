@@ -23,6 +23,10 @@ namespace Ashfall.EditorTools
             Toxic,    // M7 7C-2c: 정유소 방사능 구역 표시(드럼통·경고 기둥)
             EmberGlow, // 맵 개선 §3: 불타는 드럼통·잔불·신호 비컨 (강한 발광 — Bloom이 받는다)
             LampGlow,  // 맵 개선 §3: 깨진 가로등 등
+            DeadWood,        // 맵 밀도 §6.2: 죽은 나무·통나무 (재 묻은 회색)
+            CharredWood,     // 맵 밀도 §6.2: 불탄 죽은 나무 (검게 탄 줄기)
+            DryGrass,        // 맵 밀도 §6.2: 마른 풀(짧은 층)·덤불 — 녹슨 붉은색
+            DryGrassTall,    // 맵 밀도 §6.2: 마른 풀(긴 층) — 재 회색
         }
 
         // 머티리얼 한 개의 사양. 색은 토큰(+ 알파), 셰이더 속성은 URP Lit/Unlit 이름 그대로.
@@ -37,10 +41,15 @@ namespace Ashfall.EditorTools
             public readonly float Metallic;
             public readonly float Smoothness;
             public readonly float Emission;       // _EmissionColor = 토큰 × 이 값 (0 = 발광 없음)
+            public readonly bool Instancing;      // Material.enableInstancing (맵 밀도 산포물)
+            public readonly bool DoubleSided;     // URP _Cull = Off (풀 잎)
 
             public Spec(string name, string path, PaletteToken token, float alpha = 1f, bool transparent = false, bool unlit = false,
-                float metallic = 0f, float smoothness = 0.5f, float emission = 0f)
+                float metallic = 0f, float smoothness = 0.5f, float emission = 0f,
+                bool instancing = false, bool doubleSided = false)
             {
+                Instancing = instancing;
+                DoubleSided = doubleSided;
                 Name = name;
                 Path = path;
                 Token = token;
@@ -88,6 +97,15 @@ namespace Ashfall.EditorTools
             // 맵 개선 설계 §3: 광원 소품·랜드마크 신호등 발광면. TODO(GDD-?) 발광 배율 자리표시
             { Key.EmberGlow, new Spec("M_EmberGlow", PalettePath("M_EmberGlow"), PaletteToken.Ember, smoothness: 0.2f, emission: 1.6f) },
             { Key.LampGlow, new Spec("M_LampGlow", PalettePath("M_LampGlow"), PaletteToken.Bone, smoothness: 0.2f, emission: 1.5f) },
+            // 맵 밀도 설계 §6.2·§8.1: 산포물. 나무는 SRP Batcher(인스턴싱 켬은 GRD를 켤 때만 효과), 풀은 Terrain Detail GPU 인스턴싱(필수)·양면.
+            // 풀 그림자: Terrain Detail에는 그림자 API가 없고, ShadowCaster 패스를 끄면 URP 머티리얼 검증이 다시 켠다(구현 메모) — 풀 프리팹 렌더러 그림자 끔으로 둔다.
+            // TODO(GDD-?) 토큰·광택 자리표시 (설계 "Ash_Black ↔ Ash_Grey" = 나무 변형마다 두 머티리얼 번갈아, "Rust_Red·Ash_Grey 섞음" = 풀 두 층)
+            { Key.DeadWood, new Spec("M_DeadWood", PalettePath("M_DeadWood"), PaletteToken.AshGrey, smoothness: 0.05f, instancing: true) },
+            { Key.CharredWood, new Spec("M_CharredWood", PalettePath("M_CharredWood"), PaletteToken.AshBlack, smoothness: 0.1f, instancing: true) },
+            { Key.DryGrass, new Spec("M_DryGrass", PalettePath("M_DryGrass"), PaletteToken.RustRed, smoothness: 0f,
+                instancing: true, doubleSided: true) },
+            { Key.DryGrassTall, new Spec("M_DryGrassTall", PalettePath("M_DryGrassTall"), PaletteToken.AshGrey, smoothness: 0f,
+                instancing: true, doubleSided: true) },
         };
 
         // M7 저격 섬광 (설계 §1.4·§2.2, Q23): URP Unlit, _BaseColor = Bone × Emission(HDR — Bloom이 받는다), 그림자 없음.
@@ -139,6 +157,11 @@ namespace Ashfall.EditorTools
             { "Post", new Rule(Key.RustMetal, SurfaceKind.Metal) },
             { "Flat", new Rule(Key.RustMetal, SurfaceKind.Metal) },
             { "Container", new Rule(Key.RustMetal, SurfaceKind.Metal) },   // 맵 개선 §4.2
+            // 맵 밀도 §6.2 새 도형 (TODO(GDD-?) 자리표시 — 모델은 AssetSwap 스킨 ④)
+            { "Sandbag", new Rule(Key.Debris, SurfaceKind.Debris) },
+            { "Fence", new Rule(Key.RustMetal, SurfaceKind.Metal) },
+            { "Pole", new Rule(Key.RustMetal, SurfaceKind.Metal) },
+            { "Debris", new Rule(Key.Debris, SurfaceKind.Debris) },
         };
 
         public static IEnumerable<string> ShapeNames => ShapeRules.Keys;

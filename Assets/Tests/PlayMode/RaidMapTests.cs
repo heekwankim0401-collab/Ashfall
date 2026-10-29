@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Ashfall.AI;
 using Ashfall.Core;
 using Ashfall.Raid;
 using Ashfall.UI;
@@ -87,12 +88,11 @@ namespace Ashfall.Tests.PlayMode
                 foreach (string id in active)
                 {
                     Assert.IsTrue(NavMesh.SamplePosition(raid.Zone(id).transform.position, out NavMeshHit to, 2f, NavMesh.AllAreas), $"{id} NavMesh");
-                    var path = new NavMeshPath();
-                    Assert.IsTrue(NavMesh.CalculatePath(from.position, to.position, NavMesh.AllAreas, path), $"{spawn.Id}→{id} 경로 계산");
-                    Assert.AreEqual(NavMeshPathStatus.PathComplete, path.status, $"{spawn.Id}→{id} 경로");
-                    float length = 0f;
-                    for (int i = 1; i < path.corners.Length; i++)
-                        length += Vector3.Distance(path.corners[i - 1], path.corners[i]);
+                    // 맵 밀도: 나무 줄기 구멍으로 NavMesh가 촘촘해져 긴 경로(약 900m)가 A* 노드 한도에서 PathPartial이 될 수 있다.
+                    // 이 테스트는 "플레이어가 걸어서 탈출구에 닿는가"(연결성)라 부분 경로 끝에서 이어 찾는다 — 배치 확인과 같은 함수(NavPathProbe),
+                    // 진짜로 끊기면 끝이 목표에 가까워지지 않아 실패. 적 경로(한 번의 질의)는 MapDensitySceneSmokeTests가 본다. 근거: 설계 §14.4.
+                    Assert.IsTrue(NavPathProbe.TryConnected(from.position, to.position, new NavMeshPath(),
+                        out float length, out _), $"{spawn.Id}→{id} 경로");
                     report.Add($"{spawn.Id}→{id} {length:0}m");
                 }
             }

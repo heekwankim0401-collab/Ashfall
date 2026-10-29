@@ -245,11 +245,19 @@ namespace Ashfall.Core
         // RULE-06: UI에 표시하지 말 것(스폰 이름·위치는 내 위치 단서). 테스트·로그·(M6) 연출 선택용으로만 둔다.
         public readonly string SpawnId;
         public readonly float TimeLimitSec;
+        // 맵 밀도 §5.3: 레이드 시드에서 파생한 루트 활성화 시드(SeedMath.Mix(쓴 시드, StableHash("LOOT")), 0 아님).
+        // 0 = 발행자가 주지 않음(기존 생성자) — 받는 쪽(Inventory LootSpawnDirector, ③)이 직렬화된 테이블 그대로 둔다.
+        public readonly int LootSeed;
 
-        public RaidStarted(string spawnId, float timeLimitSec)
+        public RaidStarted(string spawnId, float timeLimitSec) : this(spawnId, timeLimitSec, 0)
+        {
+        }
+
+        public RaidStarted(string spawnId, float timeLimitSec, int lootSeed)
         {
             SpawnId = spawnId;
             TimeLimitSec = timeLimitSec;
+            LootSeed = lootSeed;
         }
     }
 

@@ -5,7 +5,8 @@ namespace Ashfall.AI
     // ILineOfSight 물리 구현 (M3 설계 §1.5, §1.7). RaycastNonAlloc + 고정 버퍼 8, 루트 비교. 할당 없음.
     // 새 레이어를 만들지 않으므로(D11) 모든 레이어를 보고 트리거는 무시한다.
     // 레이 원점이 콜라이더 안이면 PhysX가 그 콜라이더를 보고하지 않는다(자기 캡슐 안의 눈).
-    // TODO(GDD-?): 한 레이에 9개 이상 맞으면 버퍼 밖 충돌은 놓친다(그레이박스 규모에서는 충분).
+    // 맵 밀도(나무 1,500): 가장 가까운 충돌을 먼저 보고(Physics.Raycast), 그것이 무시 대상일 때만 전체 수집(버퍼 8)으로 넘어간다.
+    // TODO(GDD-?): 그 전체 수집에서 9개 이상 맞으면 버퍼 밖 충돌은 놓친다(가장 가까운 것이 자기 몸인 드문 경우만).
     public sealed class PhysicsLineOfSight : ILineOfSight
     {
         private const int BufferSize = 8;
@@ -24,7 +25,16 @@ namespace Ashfall.AI
             if (distance < 1e-4f)
                 return true;
 
-            int count = Physics.RaycastNonAlloc(from, delta / distance, buffer, distance, layerMask, QueryTriggerInteraction.Ignore);
+            Vector3 direction = delta / distance;
+            // 가장 가까운 충돌을 먼저 본다(맵 밀도 리뷰 M2): 무시 대상이 아니면 그것이 답이다 — 버퍼 8개 넘는 충돌(숲)에서 가까운 가림막을 놓치지 않는다.
+            // 가장 가까운 것이 무시 대상(자기 몸)일 때만 아래 전체 수집으로 그 뒤 첫 충돌을 찾는다.
+            if (!Physics.Raycast(from, direction, out RaycastHit first, distance, layerMask, QueryTriggerInteraction.Ignore))
+                return true;
+            Transform firstRoot = first.collider.transform.root;
+            if (ignoreRoot == null || firstRoot != ignoreRoot)
+                return targetRoot != null && firstRoot == targetRoot;
+
+            int count = Physics.RaycastNonAlloc(from, direction, buffer, distance, layerMask, QueryTriggerInteraction.Ignore);
             int nearest = -1;
             float nearestDistance = float.MaxValue;
             for (int i = 0; i < count; i++)
@@ -51,7 +61,16 @@ namespace Ashfall.AI
             if (distance < 1e-4f)
                 return false;
 
-            int count = Physics.RaycastNonAlloc(from, delta / distance, buffer, distance, layerMask, QueryTriggerInteraction.Ignore);
+            Vector3 direction = delta / distance;
+            // 맵 밀도(나무 1,500): 긴 레이가 콜라이더를 많이 지나 모든 충돌 수집이 비싸졌다 → 가장 가까운 충돌을 먼저 본다.
+            // 그것이 무시 대상이 아니면 막힘(결과 같음), 무시 대상이거나 없으면 아래 전체 검사(이전 동작)로 확정한다.
+            if (!Physics.Raycast(from, direction, out RaycastHit first, distance, layerMask, QueryTriggerInteraction.Ignore))
+                return false;
+            Transform firstRoot = first.collider.transform.root;
+            if ((ignoreA == null || firstRoot != ignoreA) && (ignoreB == null || firstRoot != ignoreB))
+                return true;
+
+            int count = Physics.RaycastNonAlloc(from, direction, buffer, distance, layerMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < count; i++)
             {
                 Transform root = buffer[i].collider.transform.root;

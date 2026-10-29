@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49b222e34712af1488edc20c07cd3e22, type: 3}
+  m_Name: MapDensityConfig
+  m_EditorClassIdentifier: Ashfall.Raid::Ashfall.Raid.MapDensityConfigSO
+  treeCount: 1500
+  treeMinSpacingM: 5
+  treeGroveNoiseScaleM: 90
+  treeGroveThreshold: 0.45
+  treeScatterShare: 0.25
+  treeScaleRange: {x: 0.8, y: 1.3}
+  treeMaxSlopeDeg: 30
+  bushCount: 400
+  logCount: 120
+  bushMaxHeightM: 1
+  grassCoverage: 0.4
+  grassMaxPerM2: 1.2
+  grassDistanceM: 50
+  grassHeightRange: {x: 0.3, y: 0.8}
+  detailResolution: 1024
+  detailResolutionPerPatch: 32
+  grassNoiseScaleM: 40
+  treeLod1DistanceM: 60
+  treeCullDistanceM: 260
+  bushCullDistanceM: 90
+  logCullDistanceM: 120
+  smallStructureCullDistanceM: 180
+  carCullDistanceM: 300
+  buildingCullDistanceM: 450
+  crateCullDistanceM: 120
+  shadowMinHeightM: 1.5
+  treeLod1Shadows: 0
+  maxNewCoverPoints: 700
+  maxTotalCoverPoints: 1200
+  newCoverMinSpacingM: 4

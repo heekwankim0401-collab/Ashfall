@@ -152,7 +152,7 @@ namespace Ashfall.Tests.EditMode
         [Test]
         public void BlockoutMap_CoversEveryM4Shape()
         {
-            Type shapeEnum = typeof(M4MapSetup).GetNestedType("Shape", BindingFlags.NonPublic);
+            Type shapeEnum = typeof(M4MapSetup).GetNestedType("Shape", BindingFlags.Public | BindingFlags.NonPublic);   // 맵 밀도: 테스트용으로 public이 됐다
             Assert.IsNotNull(shapeEnum, "M4MapSetup.Shape enum을 찾지 못했다(이름이 바뀌었으면 이 테스트도 고칠 것)");
             var mapped = new HashSet<string>(PaletteMaterialMap.ShapeNames);
             foreach (string shape in Enum.GetNames(shapeEnum))

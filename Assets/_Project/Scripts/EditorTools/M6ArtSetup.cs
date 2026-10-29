@@ -291,6 +291,12 @@ namespace Ashfall.EditorTools
                 }
             }
             SetSurface(m, spec.Transparent);
+            // 맵 밀도 §8.1 산포물 속성 — 기존 머티리얼은 기본값(인스턴싱 끔·한면)과 같아 바뀌지 않는다
+            if (m.enableInstancing != spec.Instancing)
+                m.enableInstancing = spec.Instancing;
+            float cull = spec.DoubleSided ? (float)CullMode.Off : (float)CullMode.Back;
+            if (m.HasProperty("_Cull") && !Mathf.Approximately(m.GetFloat("_Cull"), cull))
+                m.SetFloat("_Cull", cull);
             EditorUtility.SetDirty(m);
         }
 

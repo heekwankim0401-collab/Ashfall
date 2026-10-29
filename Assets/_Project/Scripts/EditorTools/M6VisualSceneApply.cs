@@ -286,7 +286,8 @@ namespace Ashfall.EditorTools
             int painted = 0;
             foreach (Transform structure in group)
             {
-                if (HasPrefabModel(structure))
+                // 맵 밀도 산포물(나무·덤불·통나무)은 그룹 바로 아래가 프리팹 인스턴스 — 프리팹이 자기 팔레트 머티리얼을 가진다
+                if (HasPrefabModel(structure) || PrefabUtility.IsOutermostPrefabInstanceRoot(structure.gameObject))
                     continue;
                 PaletteMaterialMap.Rule rule;
                 if (structure.GetComponent<LootContainer>() != null)

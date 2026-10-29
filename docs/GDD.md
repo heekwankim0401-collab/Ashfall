@@ -167,6 +167,7 @@
 - 구역(POI): 붕괴된 고속도로 / 방사능 정유소 / 매몰된 마을 외곽 / 송전탑 언덕 / 말라붙은 저수지.
 - 실내 없음. 구조물은 엄폐용 외벽·잔해·차량 무더기(속을 채운 외곽 구조물).
 - 랜드마크(멀리서 방향 잡기): 급수탑·기울어진 송전탑·추락한 항공기·녹슨 광고판·끊어진 고가·정유소 플레어 스택·라디오 마스트. POI 사이 길목에 중간 구조물(무너진 담·컨테이너·버스 잔해). 배치는 임시(`MapPolishLayout`).
+- 밀도(맵 밀도, 임시): 속 찬 건물 약 90(길목 "작은 마을"·외곽 외딴 농가 포함)·소형 구조물·차량 약 90, 죽은 나무 1,500(군락)·덤불·쓰러진 통나무, 마른 풀(Terrain Detail, 걷는 지형 약 40%). 배치는 seed 고정 생성(`MapDensityLayout`), 수치는 `MapDensityConfigSO`. 풀·덤불은 낮게(≤ 0.8·1.0m) — 시야 규칙(§7)은 그대로. 작은 산포물은 그림자 없음·거리 컬링.
 
 ### 8.2 탈출 지점 (`EXT-*`)
 | ID | 이름 | 조건 | 소요 |
@@ -316,6 +317,8 @@ class LootTableSO        { List<(ItemDefinitionSO item, float weight)> entries; 
 class PlayerConfigSO     { /* §4 수치 전부 */ }
 class RaidConfigSO       { float timeLimitSec = 1500; ExtractionPointConfig[] extractions; }
 class PaletteSO          { /* §10.1 토큰 */ }
+class MapDensityConfigSO { /* §8.1 밀도: 산포 수·간격·풀·컬링 거리·그림자·엄폐 상한 (맵 밀도) */ }
+class LootSpawnConfigSO  { /* §6 루트 지점: 구역별 목표·활성 비율·테이블·비활성 처리 (맵 밀도) */ }
 ```
 
 ---

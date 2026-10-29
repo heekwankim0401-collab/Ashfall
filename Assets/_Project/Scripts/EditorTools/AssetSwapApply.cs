@@ -394,10 +394,16 @@ namespace Ashfall.EditorTools
             }
 
             hide.RemoveAll(r => r == null);
+            bool changed;
             if (wanted.Count == 0)
-                return RemoveSkins(structure, result);
-            result.Structures++;
-            return Sync(structure, wanted, hide.ToArray(), skins, result);
+                changed = RemoveSkins(structure, result);
+            else
+            {
+                result.Structures++;
+                changed = Sync(structure, wanted, hide.ToArray(), skins, result);
+            }
+            // 맵 밀도 §8.1: 구조물 컬 LODGroup이 있으면 스킨 렌더러도 같은 LOD에 넣는다(멀어지면 스킨도 같이 컬)
+            return MapDensitySceneApply.IncludeRenderers(structure.GetComponent<LODGroup>()) | changed;
         }
 
         // 블록 발자국에 맞춘 스킨 하나. fill = 축마다 상자를 채움(건물·컨테이너), 아니면 수평 균등 비율(차량).

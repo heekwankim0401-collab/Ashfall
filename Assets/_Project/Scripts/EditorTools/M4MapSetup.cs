@@ -242,11 +242,13 @@ namespace Ashfall.EditorTools
                         ok = false;
                         continue;
                     }
-                    bool found = NavMesh.CalculatePath(from, to, NavMesh.AllAreas, path);
-                    float length = PathLength(path);
-                    bool complete = found && path.status == NavMeshPathStatus.PathComplete;
-                    sb.AppendLine($"  {spawn.Id} → {zone.Id}: {(complete ? "Complete" : path.status.ToString())}, " +
-                                  $"코너 {path.corners.Length}, 길이 {length:0}m (직선 {Vector3.Distance(from, to):0}m)");
+                    var corners = new List<Vector3>();
+                    bool complete = TryPath(from, to, path, out float length, out int continued, corners);
+                    // 이어 찾았으면 상태·코너 수는 이어 붙인 전체 경로 기준 (마지막 조각만 보이지 않게)
+                    string status = complete ? (continued > 0 ? $"Complete(연결 — 한 번 질의는 {NavMeshPathStatus.PathPartial}, 이어 찾기 {continued})" : "Complete")
+                        : $"{path.status}(이어 찾기 {continued} 뒤에도 끊김)";
+                    sb.AppendLine($"  {spawn.Id} → {zone.Id}: {status}, " +
+                                  $"코너 {corners.Count}, 길이 {length:0}m (직선 {Vector3.Distance(from, to):0}m)");
                     ok &= complete;
                 }
             }
@@ -286,14 +288,11 @@ namespace Ashfall.EditorTools
             return found;
         }
 
-        private static float PathLength(NavMeshPath path)
-        {
-            float sum = 0f;
-            Vector3[] corners = path.corners;
-            for (int i = 1; i < corners.Length; i++)
-                sum += Vector3.Distance(corners[i - 1], corners[i]);
-            return sum;
-        }
+        // 연결성 확인 (플레이어가 걸어서 닿는가). 구현은 Ashfall.AI.NavPathProbe(테스트와 같은 규칙) — 적 경로는 한 번의 질의로 확인한다.
+        public static bool TryPath(Vector3 from, Vector3 to, NavMeshPath path, out float length, out int continued, List<Vector3> corners = null) =>
+            NavPathProbe.TryConnected(from, to, path, out length, out continued, corners);
+
+        public static bool TryPath(Vector3 from, Vector3 to, NavMeshPath path) => NavPathProbe.TryConnected(from, to, path);
 
         private static void WarnMissing(MapAssets assets)
         {
@@ -476,7 +475,7 @@ namespace Ashfall.EditorTools
 
         // ---------- 블록아웃 (설계 §2.3) ----------
 
-        internal enum Shape
+        public enum Shape
         {
             LowWall,      // Low 엄폐 앞뒤 (긴 벽은 CoverSpacingM 간격)
             HighWall,     // High 엄폐 앞뒤 양 끝 + peek (M3 규칙)
@@ -490,9 +489,13 @@ namespace Ashfall.EditorTools
             Post,         // 송전탑·배수구 기둥 (가는 높은 박스), 엄폐 없음
             Flat,         // 낮은 띠(철로·착륙장 테두리), 엄폐 없음
             Container,    // 맵 개선 §4.2: 컨테이너(녹슨 금속 박스), High 엄폐 앞뒤
+            Sandbag,      // 맵 밀도 §6.2: 모래주머니 벽, Low 엄폐 앞뒤
+            Fence,        // 맵 밀도 §6.2: 철망·판자 울타리(얇은 박스), 엄폐 없음(보이는 틈)
+            Pole,         // 맵 밀도 §6.2: 전봇대(가는 높은 박스), 엄폐 없음
+            Debris,       // 맵 밀도 §6.2: 고철·잡동사니 더미, Rubble 규칙(≤ 1.3m Low)
         }
 
-        internal readonly struct Piece
+        public readonly struct Piece
         {
             public readonly Shape Shape;
             public readonly Vector2 XZ;
@@ -607,6 +610,19 @@ namespace Ashfall.EditorTools
                 list.Add(P(Shape.Flat, 473f, z, RailSize));
             }
             return list.ToArray();
+        }
+
+        // 지형과 무관한 고정 블록아웃 조각 전부 (POI 5 + 탈출) — 맵 밀도 EditMode 테스트가 씬 없이 장애물로 쓴다(흩어진 잔해는 지형 경사에 달려 빠진다).
+        internal static List<Piece> FixedPieces()
+        {
+            var list = new List<Piece>();
+            list.AddRange(HighwayPieces());
+            list.AddRange(RefineryPieces());
+            list.AddRange(VillagePieces());
+            list.AddRange(PylonPieces());
+            list.AddRange(ReservoirPieces());
+            list.AddRange(ExtractionPieces());
+            return list;
         }
 
         private static void CreateBlockout(BlockoutBuilder b)
@@ -767,6 +783,8 @@ namespace Ashfall.EditorTools
                         return;
                     case Shape.Post:
                     case Shape.Flat:
+                    case Shape.Pole:
+                    case Shape.Fence:
                         Block(structure, "Block", PrimitiveType.Cube, piece.XZ, minY - SinkM, maxY + size.y, size, yaw);
                         return;
                 }
@@ -783,7 +801,11 @@ namespace Ashfall.EditorTools
                         CoversFrontBack(structure, size, CoverHeight.High);
                         break;
                     case Shape.Rubble:
+                    case Shape.Debris:
                         CoversFrontBack(structure, size, size.y <= LowCoverMaxHeightM ? CoverHeight.Low : CoverHeight.High);
+                        break;
+                    case Shape.Sandbag:
+                        CoversFrontBack(structure, size, CoverHeight.Low);
                         break;
                     case Shape.Vehicle:
                         CoversAround(structure, size);
