@@ -46,6 +46,9 @@ namespace Ashfall.Raid
         // ── 테스트·디버그 ──
         public RaidSession Session { get; private set; }
         public string SpawnId { get; private set; }
+        // 맵 밀도 ③: 이번 레이드가 쓴 시드와 거기서 파생한 루트 활성화 시드(RaidStarted.LootSeed). 시작 전 0.
+        public int UsedSeed { get; private set; }
+        public int LootSeed { get; private set; }
         public IReadOnlyList<string> ActiveExtractionIds => activeIds;
         public IReadOnlyList<ItemDefinitionSO> BroughtIn => broughtIn;
         public RaidResult LastResult { get; private set; }
@@ -122,7 +125,11 @@ namespace Ashfall.Raid
                 return;
             }
 
-            var random = new System.Random(seed != 0 ? seed : UnityEngine.Random.Range(1, int.MaxValue));
+            // 맵 밀도 ③(설계 §5.3): 쓴 시드를 기억해 루트 활성화 시드를 파생한다 — Random 소비 순서는 그대로(스폰·탈출구 선택 회귀 없음).
+            int usedSeed = seed != 0 ? seed : UnityEngine.Random.Range(1, int.MaxValue);
+            UsedSeed = usedSeed;
+            LootSeed = SeedMath.RaidLootSeed(usedSeed);
+            var random = new System.Random(usedSeed);
 
             // TODO(GDD-?) Q2: 고정 스폰 중 무작위 1곳
             int spawnIndex = ActiveExtractionPicker.PickSpawnIndex(spawns.Length, random);
@@ -152,7 +159,7 @@ namespace Ashfall.Raid
             RaidResultBuilder.ToDefinitions(snapshot, broughtIn);
             snapshot.Clear();
 
-            gm.Events.Publish(new RaidStarted(SpawnId, config.timeLimitSec));
+            gm.Events.Publish(new RaidStarted(SpawnId, config.timeLimitSec, LootSeed));
         }
 
         private void Update()

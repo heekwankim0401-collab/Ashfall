@@ -89,6 +89,13 @@ namespace Ashfall.EditorTools
             new Source("Crate1", Crates + "/Crate_01.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
             new Source("Crate2", Crates + "/Crate_02.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
             new Source("Crate5", Crates + "/Crate_05.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
+            // 맵 밀도 ③: 상자 133개라 변형을 늘린다(설계 §4 "6종 이상"). 같은 팩 Crate_03·04·06·07 + Military 상자 2종 — 방향은 미리보기 렌더로 확인
+            new Source("Crate3", Crates + "/Crate_03.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
+            new Source("Crate4", Crates + "/Crate_04.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
+            new Source("Crate6", Crates + "/Crate_06.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
+            new Source("Crate7", Crates + "/Crate_07.fbx", CrateUpright, Anchor.Bottom, PaletteToken.RustRed),
+            new Source("MilBox3", Military + "/Decorations/Box_003.prefab", Vector3.zero, Anchor.Bottom, PaletteToken.RustRed),
+            new Source("MilBox5", Military + "/Decorations/Box_005.prefab", Vector3.zero, Anchor.Bottom, PaletteToken.RustRed),
             new Source("ToxicDrum1", Toxic + "/barrel_toxic_01.prefab", Vector3.zero, Anchor.Bottom, PaletteToken.Toxic),
             new Source("ToxicDrum2", Toxic + "/barrel_toxic_02.prefab", Vector3.zero, Anchor.Bottom, PaletteToken.Toxic),
             new Source("Helicopter", Military + "/Vehicles/Helicopter_001.prefab", Vector3.zero, Anchor.Bottom, PaletteToken.RustRed),
@@ -127,7 +134,7 @@ namespace Ashfall.EditorTools
 
         public static readonly string[] CarSkins = { "Car", "Hummer" };
         public static readonly string[] HouseSkins = { "HouseAband", "HouseRuined" };
-        public static readonly string[] CrateSkins = { "Crate1", "Crate2", "Crate5" };
+        public static readonly string[] CrateSkins = { "Crate1", "Crate2", "Crate5", "Crate3", "Crate4", "Crate6", "Crate7", "MilBox3", "MilBox5" };
         public static readonly string[] DrumSkins = { "ToxicDrum1", "ToxicDrum2" };
         public const string ContainerSkin = "Container";
         public const string LowWallSkin = "Barrier";

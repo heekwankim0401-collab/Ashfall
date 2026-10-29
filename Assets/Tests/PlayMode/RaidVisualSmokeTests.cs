@@ -182,8 +182,15 @@ namespace Ashfall.Tests.PlayMode
             }
             Assert.Greater(surfaces, 100, "GroundSurface 수");
 
+            // 맵 밀도 ③: 차량 트렁크는 렌더러가 없다(차체 안 콜라이더, 설계 §5.4) — 재질만 금속을 보고 M_Crate는 상자만
             foreach (LootContainer crate in environment.GetComponentsInChildren<LootContainer>(true))
             {
+                if (crate.GetComponent<LootSpawnSlot>() != null && crate.GetComponent<LootSpawnSlot>().Kind == LootSlotKind.Trunk)
+                {
+                    Assert.AreEqual(SurfaceKind.Metal, crate.GetComponent<GroundSurface>().Kind, $"{crate.name} 재질(트렁크)");
+                    Assert.IsNull(crate.GetComponent<MeshRenderer>(), $"{crate.name}: 트렁크는 렌더러 없음");
+                    continue;
+                }
                 Assert.AreEqual(SurfaceKind.Metal, crate.GetComponent<GroundSurface>().Kind, $"{crate.name} 재질");
                 Assert.AreEqual("M_Crate", crate.GetComponent<MeshRenderer>().sharedMaterial.name);
             }

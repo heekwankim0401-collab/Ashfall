@@ -14,7 +14,8 @@ namespace Ashfall.EditorTools
     // 실패는 예외 — 반쯤 적용된 씬을 저장하지 않고 배치 종료 코드로 드러난다.
     // 배치모드: -batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.MapDensitySetup.ApplyAll -logFile setup.log
     //   (RebuildAll / RefreshAll / CreateData 도 같은 방식)
-    // ③ 상자·트렁크·루트(LootSpawnConfig·LT-CRATE-LOW·LT-TRUNK)는 다음 단계 — 이 메뉴는 아직 만들지 않는다.
+    // ③ 상자·트렁크·루트: 데이터(LootSpawnConfig·LT-CRATE-LOW·LT-TRUNK, 없을 때만 — MapDensityDataSetup)는 CreateData가, 씬(새 상자·트렁크·슬롯·지휘자)은
+    //   MapDensitySceneApply.ApplyRaid → MapDensityLootApply가 만든다. 경제 확인은 Ashfall/Tools/Simulate Loot Economy(LootEconomySimulator).
     public static class MapDensitySetup
     {
         private const string Tag = "[MapDensitySetup]";
@@ -41,11 +42,12 @@ namespace Ashfall.EditorTools
             Debug.Log($"{Tag} 풀·컬링 갱신 {changed}\n{report}");
         }
 
-        // MapDensityConfig (없을 때만 — 기획 조정 보존). 값 = SO 필드 초기값(설계 §5.1).
+        // MapDensityConfig·LootSpawnConfig·LT-CRATE-LOW·LT-TRUNK (없을 때만 — 기획 조정 보존). 값 = SO 필드 초기값(설계 §5.1)·MapDensityDataSetup 표(§5.2).
         [MenuItem("Ashfall/Setup/Create Map Density Data")]
         public static void CreateData()
         {
             SetupUtil.CreateAssetIfMissing<MapDensityConfigSO>(MapDensitySceneApply.ConfigPath, _ => { }, Tag);
+            MapDensityDataSetup.CreateLootData();
             AssetDatabase.SaveAssets();
         }
 

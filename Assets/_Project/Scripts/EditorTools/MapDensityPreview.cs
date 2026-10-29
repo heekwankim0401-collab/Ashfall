@@ -74,12 +74,78 @@ namespace Ashfall.EditorTools
         {
             string outDir = WeaponSightProbe.ArgValue("-ashfallPreviewOut");
             string tag = WeaponSightProbe.ArgValue("-ashfallPreviewTag") ?? "view";
+            Scene scene = OpenForPreview(outDir, out Terrain terrain);
+            var shots = new List<(string name, Vector3 position, Quaternion rotation)>();
+            foreach (var view in Views())
+            {
+                float y = M4MapSetup.GroundY(terrain, view.xz.x, view.xz.y) + EyeHeightM;
+                shots.Add((view.name, new Vector3(view.xz.x, y, view.xz.y), Quaternion.Euler(4f, view.yaw, 0f)));
+            }
+            Render(scene, shots, outDir, tag);
+        }
+
+        // 맵 밀도 ③ 루트 지점 시점: 상자(POI·길목)·트렁크를 사람 눈높이에서 비스듬히 본다 — 파일 이름 {tag}_{시점}.png (기본 tag = loot).
+        // -batchmode -quit -projectPath . -executeMethod Ashfall.EditorTools.MapDensityPreview.RenderLootViews -ashfallPreviewOut <폴더>
+        public static void RenderLootViews()
+        {
+            string outDir = WeaponSightProbe.ArgValue("-ashfallPreviewOut");
+            string tag = WeaponSightProbe.ArgValue("-ashfallPreviewTag") ?? "loot";
+            Scene scene = OpenForPreview(outDir, out Terrain terrain);
+            var slots = MapDensityLootApply.AllSlots(scene);
+            var shots = new List<(string name, Vector3 position, Quaternion rotation)>();
+            void Add(string name, Inventory.LootSpawnSlot slot, float distance, float sideDeg)
+            {
+                if (slot == null)
+                    return;
+                Vector3 target = slot.GetComponent<Collider>().bounds.center;
+                Vector3 outward = OpenSide(slot);
+                Vector3 dir = Quaternion.Euler(0f, sideDeg, 0f) * outward;
+                Vector3 p = target + dir * distance;
+                p.y = M4MapSetup.GroundY(terrain, p.x, p.z) + EyeHeightM;
+                shots.Add((name, p, Quaternion.LookRotation(target - p)));
+                Debug.Log($"{Tag} {name}: {slot.SlotKey} ({target.x:0}, {target.z:0})");
+            }
+            Inventory.LootSpawnSlot Pick(System.Func<Inventory.LootSpawnSlot, bool> filter)
+            {
+                foreach (Inventory.LootSpawnSlot s in slots)
+                    if (filter(s))
+                        return s;
+                return null;
+            }
+            Add("crate_poi", Pick(s => s.ZoneId == "POI-VIL" && s.SlotKey.StartsWith(MapDensityLootLayout.NamePrefix)), 4.5f, 25f);
+            Add("trunk", Pick(s => s.Kind == Inventory.LootSlotKind.Trunk && s.ZoneId == "POI-HWY"), 3.5f, 35f);
+            Add("crate_route", Pick(s => s.ZoneId == LootZoneRules.Route && s.SlotKey.StartsWith(MapDensityLootLayout.NamePrefix)), 5f, -20f);
+            Render(scene, shots, outDir, tag);
+        }
+
+        // 컨테이너를 볼 쪽: 트렁크 = 바깥(로컬 +x), 상자 = 네 면 중 4m 안에 막는 것이 없는 쪽(벽 반대)
+        private static Vector3 OpenSide(Inventory.LootSpawnSlot slot)
+        {
+            Transform t = slot.transform;
+            Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z).normalized;
+            if (slot.Kind == Inventory.LootSlotKind.Trunk)
+                return Flat(t.right);
+            Vector3 c = slot.GetComponent<Collider>().bounds.center;
+            foreach (Vector3 d in new[] { Flat(t.forward), -Flat(t.forward), Flat(t.right), -Flat(t.right) })
+                if (!Physics.Raycast(c + d * 0.6f, d, 4f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                    return d;
+            return Flat(t.forward);
+        }
+
+        private static Scene OpenForPreview(string outDir, out Terrain terrain)
+        {
             if (string.IsNullOrEmpty(outDir))
                 throw new System.ArgumentException("-ashfallPreviewOut <폴더> 필요");
             Directory.CreateDirectory(outDir);
             Scene scene = EditorSceneManager.OpenScene(M4SceneSetup.RaidScenePath, OpenSceneMode.Single);
             SceneManager.SetActiveScene(scene);
-            Terrain terrain = Object.FindFirstObjectByType<Terrain>();
+            Physics.SyncTransforms();
+            terrain = Object.FindFirstObjectByType<Terrain>();
+            return scene;
+        }
+
+        private static void Render(Scene scene, List<(string name, Vector3 position, Quaternion rotation)> shots, string outDir, string tag)
+        {
             Camera player = null;
             foreach (Camera c in Object.FindObjectsByType<Camera>(FindObjectsSortMode.None))
                 if (c.CompareTag("MainCamera"))
@@ -89,6 +155,9 @@ namespace Ashfall.EditorTools
             if (player != null)
                 foreach (Renderer r in player.transform.root.GetComponentsInChildren<Renderer>(true))
                     r.enabled = false;
+            // 배치 렌더는 시간이 흐르지 않아 LOD 크로스페이드가 디더 중간에 멈춘다 — 미리보기 동안만 끈다(씬 저장 안 함)
+            foreach (LODGroup lod in Object.FindObjectsByType<LODGroup>(FindObjectsSortMode.None))
+                lod.fadeMode = LODFadeMode.None;
             var go = new GameObject("PreviewCamera");
             var cam = go.AddComponent<Camera>();
             if (player != null)
@@ -98,10 +167,9 @@ namespace Ashfall.EditorTools
             data.renderPostProcessing = true;
             var rt = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 1 };
             cam.targetTexture = rt;
-            foreach (var view in Views())
+            foreach (var shot in shots)
             {
-                float y = M4MapSetup.GroundY(terrain, view.xz.x, view.xz.y) + EyeHeightM;
-                go.transform.SetPositionAndRotation(new Vector3(view.xz.x, y, view.xz.y), Quaternion.Euler(4f, view.yaw, 0f));
+                go.transform.SetPositionAndRotation(shot.position, shot.rotation);
                 // 크로스페이드·스킨 숨김 등이 첫 렌더에 맞춰지도록 두 번 그린다
                 cam.Render();
                 cam.Render();
@@ -111,16 +179,16 @@ namespace Ashfall.EditorTools
                 tex.ReadPixels(new Rect(0, 0, Width, Height), 0, 0);
                 tex.Apply();
                 RenderTexture.active = prev;
-                string path = Path.Combine(outDir, $"{tag}_{view.name}.png");
+                string path = Path.Combine(outDir, $"{tag}_{shot.name}.png");
                 File.WriteAllBytes(path, tex.EncodeToPNG());
                 Object.DestroyImmediate(tex);
-                Debug.Log($"{Tag} {path} ({view.xz.x:0}, {view.xz.y:0}) yaw {view.yaw:0}");
+                Debug.Log($"{Tag} {path} ({shot.position.x:0}, {shot.position.z:0})");
             }
             cam.targetTexture = null;
             rt.Release();
             Object.DestroyImmediate(rt);
             Object.DestroyImmediate(go);
-            Debug.Log($"{Tag} 완료: {outDir} (씬 저장 안 함)");
+            Debug.Log($"{Tag} 완료: {outDir} (씬 저장 안 함, {scene.name})");
         }
     }
 }

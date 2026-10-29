@@ -44,5 +44,12 @@ namespace Ashfall.Core
         }
 
         public static int NonZero(int seed) => seed == 0 ? 1 : seed;
+
+        // 루트 활성화 시드 이름 (설계 §5.3). 바꾸면 모든 레이드의 활성 집합이 바뀐다.
+        public const string LootSeedSalt = "LOOT";
+
+        // 레이드가 쓴 시드(RaidController의 seed 또는 뽑은 값) → RaidStarted.LootSeed (③, 0 아님).
+        // 스폰·탈출구 선택의 System.Random 소비 순서와 무관하게 시드 값에서만 파생한다(기존 선택 회귀 없음).
+        public static int RaidLootSeed(int usedRaidSeed) => Mix(usedRaidSeed, StableHash(LootSeedSalt));
     }
 }

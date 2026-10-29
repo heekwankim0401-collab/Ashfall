@@ -267,7 +267,10 @@ namespace Ashfall.Tests.PlayMode
 
             var enemies = Object.FindObjectsByType<EnemyAgent>(FindObjectsSortMode.None);
             var targets = enemies.Select(e => (name: e.name, position: e.transform.position))
-                .Concat(Object.FindObjectsByType<Ashfall.Inventory.LootContainer>(FindObjectsSortMode.None).Select(c => (name: c.name, position: c.transform.position)))
+                // 상자 = M4 기존 21개(Environment/LootCrates)만. 맵 밀도 ③ 새 상자·트렁크 182곳은 적 경로 목표가 아니다(적은 컨테이너로 가지 않는다 —
+                // 트렁크 중심은 차체 안). 루트 지점 도달은 플레이어 기준으로 MapDensityLootApply가 접근점에서 확인한다(설계 §7 3).
+                .Concat(Object.FindObjectsByType<Ashfall.Inventory.LootContainer>(FindObjectsSortMode.None)
+                    .Where(c => c.transform.parent != null && c.transform.parent.name == "LootCrates").Select(c => (name: c.name, position: c.transform.position)))
                 .Concat(Object.FindObjectsByType<PatrolRoute>(FindObjectsSortMode.None).SelectMany(r => r.Points.Select(p => (name: r.name, position: p)))).ToList();
             int checkedPaths = 0;
             float longest = 0f;

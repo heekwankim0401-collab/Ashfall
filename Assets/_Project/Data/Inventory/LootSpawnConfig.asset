@@ -1,0 +1,71 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1174015217517e48a16940bfdf408cf, type: 3}
+  m_Name: LootSpawnConfig
+  m_EditorClassIdentifier: Ashfall.Inventory::Ashfall.Inventory.LootSpawnConfigSO
+  zones:
+  - zoneId: POI-HWY
+    crateTargetCount: 14
+    trunkTargetCount: 7
+    crateActiveRatio: 0.4
+    trunkActiveRatio: 0.5
+    crateTable: {fileID: 11400000, guid: fbbfc6f2e1039db428796032e6864d71, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  - zoneId: POI-REF
+    crateTargetCount: 16
+    trunkTargetCount: 4
+    crateActiveRatio: 0.4
+    trunkActiveRatio: 0.5
+    crateTable: {fileID: 11400000, guid: fbbfc6f2e1039db428796032e6864d71, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  - zoneId: POI-VIL
+    crateTargetCount: 16
+    trunkTargetCount: 4
+    crateActiveRatio: 0.4
+    trunkActiveRatio: 0.5
+    crateTable: {fileID: 11400000, guid: fbbfc6f2e1039db428796032e6864d71, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  - zoneId: POI-PYL
+    crateTargetCount: 12
+    trunkTargetCount: 2
+    crateActiveRatio: 0.4
+    trunkActiveRatio: 0.5
+    crateTable: {fileID: 11400000, guid: fbbfc6f2e1039db428796032e6864d71, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  - zoneId: POI-RES
+    crateTargetCount: 13
+    trunkTargetCount: 4
+    crateActiveRatio: 0.4
+    trunkActiveRatio: 0.5
+    crateTable: {fileID: 11400000, guid: fbbfc6f2e1039db428796032e6864d71, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  - zoneId: ROUTE
+    crateTargetCount: 36
+    trunkTargetCount: 35
+    crateActiveRatio: 0.3
+    trunkActiveRatio: 0.3
+    crateTable: {fileID: 11400000, guid: f8b31a1c9313719488d504b8a00308de, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  - zoneId: OUTSKIRT
+    crateTargetCount: 26
+    trunkTargetCount: 14
+    crateActiveRatio: 0.3
+    trunkActiveRatio: 0.3
+    crateTable: {fileID: 11400000, guid: f8b31a1c9313719488d504b8a00308de, type: 2}
+    trunkTable: {fileID: 11400000, guid: 8184b12f138a0cb4c9920820ecf513f9, type: 2}
+  minActivePerZone: 1
+  inactiveMode: 0
+  inactiveTable: {fileID: 0}
+  crateGridSize: {x: 6, y: 4}
+  trunkGridSize: {x: 5, y: 3}
+  crateDisplayName: "\uBCF4\uAE09 \uC0C1\uC790"
+  trunkDisplayName: "\uCC28\uB7C9 \uD2B8\uB801\uD06C"

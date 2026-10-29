@@ -18,8 +18,50 @@ namespace Ashfall.Inventory
         [SerializeField] private int seed;
 
         public LootContainerModel Model { get; private set; }
-        public LootTableSO LootTable => lootTable;
-        public int Seed => seed;
+        // 이번 레이드에 실제로 쓸 테이블·시드 (지휘자가 정했으면 그 값, 아니면 직렬화 값)
+        public LootTableSO LootTable => hasRaidOverride ? raidTable : lootTable;
+        public int Seed => hasRaidOverride ? raidSeed : seed;
+        // 직렬화된(씬에 저장된) 원본 — 지휘자는 이것을 바꾸지 않는다(리뷰 L1)
+        public LootTableSO SerializedLootTable => lootTable;
+        public string DisplayName => displayName;
+        public Vector2Int GridSize => gridSize;
+        public IReadOnlyList<ItemDefinitionSO> FixedContents => contents;
+        // 맵 밀도 ③: 이번 레이드에 LootSpawnDirector가 비활성으로 정한 빈 컨테이너 (열 수 있고 비어 있다 — Q1 A)
+        public bool IsEmptyForRaid { get; private set; }
+
+        // 레이드 설정(런타임 전용, 직렬화 안 함 — 직렬화 필드는 원본 그대로 둔다)
+        private bool hasRaidOverride;
+        private bool raidSkipFixed;
+        private LootTableSO raidTable;
+        private int raidSeed;
+
+        // 맵 밀도 ③ (설계 §5.3): 레이드 시작 때 지휘자가 이번 레이드의 테이블·내용물 시드를 정한다. 고정 내용물(신호탄 상자)은 그대로 쓴다
+        // (앞서 ConfigureEmpty를 불렀으면 고정 내용물은 계속 건너뛴다 — JunkOnly). 처음 열기(Model 생성) 전에만 유효 — 이미 열었으면 false.
+        // seed 0은 1로(0 = "매번 무작위"와 섞이지 않게).
+        public bool ConfigureForRaid(LootTableSO table, int contentSeed)
+        {
+            if (Model != null)
+                return false;
+            hasRaidOverride = true;
+            raidTable = table;
+            raidSeed = SeedMath.NonZero(contentSeed);
+            IsEmptyForRaid = false;
+            return true;
+        }
+
+        // 맵 밀도 ③ 비활성 = 빈 컨테이너 (Q1 A): 이번 레이드에는 고정 내용물·테이블을 쓰지 않는다(직렬화 필드는 그대로).
+        // 오브젝트·콜라이더·프롬프트는 그대로라 겉으로는 구분되지 않는다. 처음 열기 전에만 유효. 열면 빈 그리드 → 검색이 바로 끝난다.
+        public bool ConfigureEmpty()
+        {
+            if (Model != null)
+                return false;
+            hasRaidOverride = true;
+            raidSkipFixed = true;
+            raidTable = null;
+            raidSeed = 0;
+            IsEmptyForRaid = true;
+            return true;
+        }
 
         public InteractionKind Kind => InteractionKind.OpenContainer;
         public string TargetName => displayName;
@@ -38,8 +80,9 @@ namespace Ashfall.Inventory
         {
             if (Model != null)
                 return Model;
-            var random = new System.Random(seed != 0 ? seed : Random.Range(1, int.MaxValue));
-            Model = new LootContainerModel(displayName, gridSize, CreateContents(contents, lootTable, random),
+            int s = Seed;
+            var random = new System.Random(s != 0 ? s : Random.Range(1, int.MaxValue));
+            Model = new LootContainerModel(displayName, gridSize, CreateContents(raidSkipFixed ? null : contents, LootTable, random),
                 searchTimePerItemSec);
             return Model;
         }

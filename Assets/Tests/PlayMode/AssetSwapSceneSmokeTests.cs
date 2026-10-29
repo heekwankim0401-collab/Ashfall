@@ -130,7 +130,9 @@ namespace Ashfall.Tests.PlayMode
             Assert.Greater(skins.Length, 100, "구조물·상자 스킨 수");
             foreach (BlockoutSkin s in skins)
                 AssertSkin(s, s.transform.parent.name);
-            foreach (LootContainer crate in environment.GetComponentsInChildren<LootContainer>(true))
+            // 맵 밀도 ③: 차량 트렁크(LootSlotKind.Trunk)는 렌더러 없는 차체 안 콜라이더 — 겉모습은 차량 스킨이라 상자 스킨이 없다(설계 §5.4)
+            foreach (LootContainer crate in environment.GetComponentsInChildren<LootContainer>(true)
+                         .Where(c => c.GetComponent<LootSpawnSlot>() == null || c.GetComponent<LootSpawnSlot>().Kind != LootSlotKind.Trunk))
             {
                 AssertSkin(crate.transform.Find("Skin")?.GetComponent<BlockoutSkin>(), crate.name);
                 Assert.IsNotNull(crate.GetComponent<Collider>(), $"{crate.name}: 상자 콜라이더(상호작용)는 블록아웃");

@@ -953,8 +953,10 @@ namespace Ashfall.EditorTools
         {
             var container = box.AddComponent<LootContainer>();
             var so = new SerializedObject(container);
-            so.FindProperty("displayName").stringValue = CrateDisplayName;
-            so.FindProperty("gridSize").vector2IntValue = CrateGridSize;
+            // 맵 밀도 ③(설계 §5.1): 이름·그리드는 LootSpawnConfig가 있으면 그 값(기본값이 이 상수와 같다 — 기존 21개 바이트 그대로)
+            var spawnConfig = AssetDatabase.LoadAssetAtPath<LootSpawnConfigSO>(MapDensityDataSetup.LootSpawnConfigPath);
+            so.FindProperty("displayName").stringValue = spawnConfig != null ? spawnConfig.crateDisplayName : CrateDisplayName;
+            so.FindProperty("gridSize").vector2IntValue = spawnConfig != null ? spawnConfig.crateGridSize : CrateGridSize;
             SerializedProperty contents = so.FindProperty("contents");
             contents.arraySize = fixedItem != null ? 1 : 0;
             if (fixedItem != null)

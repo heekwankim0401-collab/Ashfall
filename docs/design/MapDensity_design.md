@@ -279,7 +279,7 @@ URP 에셋 `GPU Resident Drawer = Instanced Drawing`(Forward+ 조건 충족) + G
 - (측정 뒤) GPU Resident Drawer를 켤지는 §8.2 A/B 결과를 보고 다시 묻는다.
 
 ## 14. 구현 메모 — ⓪ 계약 · ① 구조물·건물 · ② 산포 (2026-10-29)
-범위: ⓪①②만. ③ 상자·트렁크·루트(새 상자 112·트렁크 67·`LootSpawnConfig` 에셋·`LT-CRATE-LOW`·`LT-TRUNK`·지휘자 동작·`RaidController` 한 줄·시뮬레이터)와 ④ 스킨 변형 추가·⑤ 리뷰는 다음 단계.
+범위: ⓪①②(14.1~14.7). ③ 상자·트렁크·루트는 §14.8(같은 날 이어서). ④ 스킨 측정·⑤ 리뷰는 다음 단계.
 원본 프로젝트(`Ashfall`)에서 바로 작업했다(사본 없음). 커밋은 하지 않았다.
 
 ### 14.1 파일
@@ -367,3 +367,95 @@ URP 에셋 `GPU Resident Drawer = Instanced Drawing`(Forward+ 조건 충족) + G
 - L8 `LootActivationPlanner.GroupKey` = `"{구역 id 길이}:{구역 id}|{종류}"` — 구분자가 id 안에 있어도 키가 겹치지 않는다(③ 전이라 시드 변경 영향 없음).
 - 5(설계 확인): **비율 0이어도 지점이 있으면 `minActivePerZone`(기본 1)이 적용된다. 구역을 끄려면 `LootSpawnConfigSO.zones`에서 그 구역을 뺀다**(구역 없음 = 활성 0). EditMode 테스트로 고정.
 - `NavState`는 맵 개선과 공용이라 맵 개선 `Rebuild`도 같은 적 경로 규칙(한 번의 질의)을 받는다(이전보다 엄격).
+
+### 14.8 ③ 상자·트렁크·루트 (2026-10-29)
+사용자 결정: Q1 A(꺼진 컨테이너 = 빈 컨테이너), Q2 A(레이드당 기대 판매가치 = 지금 맵의 1.3~1.5배). 원본 프로젝트에서 작업, 커밋 안 함.
+
+**파일**
+- 런타임: Core `SeedMath.RaidLootSeed`(= Mix(쓴 시드, StableHash("LOOT"))), Raid `RaidController`(쓴 시드 기억 → `UsedSeed`·`LootSeed`, `RaidStarted`에 실어 발행 — `System.Random` 소비 순서 그대로),
+  Inventory `LootContainer.ConfigureForRaid/ConfigureEmpty`(+ `IsEmptyForRaid`, 처음 열기 전에만), `LootSpawnAssignment`(순수: 항상 활성·활성·비활성(Empty/JunkOnly) → 컨테이너 설정),
+  `LootSpawnDirector`(OnEnable에 `RaidStarted` 구독 → 계획·적용, 연 컨테이너 건너뜀, 개발 빌드 한 줄 로그). 새 asmdef 없음.
+- 에디터: `MapDensityLootLayout`(순수 상자 생성기), `MapDensityLootApply`(씬 적용·도달 확인·롤백), `MapDensityDataSetup`(데이터, 없을 때만), `LootEconomySimulator`(시뮬레이션 + 메뉴 + 배치 전용 `SweepRatios`),
+  `MapDensityPreview.RenderLootViews`. 수정: `MapDensitySceneApply`(구조물 뒤 루트 → Refresh 순서, Rebuild가 루트도 지움, 새 상자 컬 LODGroup), `MapDensitySetup.CreateData`(루트 데이터),
+  `MapPlacementChecks`(새 상자 자신을 지점에서 뺌, `PlacementRules.PointScale`, `NavState`는 M4 상자 21개만), `M4MapSetup.SetupCrate`(이름·그리드 = SO), `AssetSwapApply.ApplyCrate`(트렁크 제외, 컬 LODGroup에 스킨 포함),
+  `AssetSwapCatalog.CrateSkins` 3 → 9종(Crate_03·04·06·07, Military Box_003·005 추가).
+- 데이터: `Data/Inventory/LootSpawnConfig.asset`, `Data/Loot/LT-CRATE-LOW.asset`·`LT-TRUNK.asset`. 씬: `Environment/MapDensity_Loot`(새 상자 112), 승용차 70대 아래 `Trunk_{zone}_{nnn}`, 기존 21 상자에 슬롯, 최상위 `LootSpawnDirector`.
+
+**설계와 달라진 점**
+- 트렁크 **70**(승용차 실제 수 — 설계 추정 67). 상자는 설계대로 133 → 합계 **203**. 구역별 트렁크 목표는 실제 승용차 수(HWY 7·REF 4·VIL 4·PYL 2·RES 4·길목 35·외곽 14 — 설계 표의 14·4·6·3·4·22·14와 다르다:
+  ①이 승용차를 길목 작은 마을·도로 옆에 많이 두었다).
+- 상자 ↔ 엄폐·적·순찰·상자 지점 최소 거리 **1.5m**(2.5m × 0.6, `MapDensityLootLayout.CratePointScale`). 2.5m에서는 외곽 후보가 38개(목표 26)라 부족했다 — 엄폐 지점이 벽마다 촘촘해 벽 앞 자리를 거의 다 막는다.
+  상자는 1m라 엄폐 자리를 막지 않는다. 스폰·탈출 25m·스위치 10m·순찰 구간 3m·기존 경로 통로 2m·보스 거점 25m·저격 시선은 그대로.
+- 트렁크 "뒤"는 길이 축 음의 끝을 먼저 보고, 접근점이 막혔으면 앞 끝(2대). 확인은 굽기 전(트렁크 자리)·뒤(전체) 두 번.
+- 활성 비율(경제 시뮬레이션): POI 상자 0.40(초안 그대로), **POI 트렁크 0.50**(초안 0.40), 길목·외곽 0.30 → 레이드당 활성 **75**(신호탄 2 포함, 표본 추출이라 레이드마다 같은 수).
+- `NavState`(맵 개선과 공용 굽기 회귀 확인)는 M4 상자 21개만 본다 — 새 상자·트렁크는 적 경로 목표가 아니고(트렁크 중심은 차체 안이라 중심 샘플링이 차 지붕 섬을 잡는다), 도달은 아래 접근점 확인이 본다.
+  같은 이유로 PlayMode `RaidScene_AgentPaths_SingleQueryComplete`의 상자 목표도 M4 21개로 좁혔다.
+
+**적용 결과** (`Apply Map Density` → `Apply Asset Swap`)
+| 구역 | 상자(기존 + 새) | 트렁크 | 합 | 활성/레이드 (상자 + 트렁크) |
+|---|---|---|---|---|
+| POI-HWY | 14 (4 + 10) | 7 | 21 | 6 + 4 |
+| POI-REF | 16 (4 + 신호탄 1 + 11) | 4 | 20 | 6 + 1(신호탄) + 2 |
+| POI-VIL | 16 (4 + 12) | 4 | 20 | 6 + 2 |
+| POI-PYL | 12 (3 + 9) | 2 | 14 | 5 + 1 |
+| POI-RES | 13 (4 + 신호탄 1 + 8) | 4 | 17 | 5 + 1(신호탄) + 2 |
+| 길목 | 36 | 35 | 71 | 11 + 11 |
+| 외곽 | 26 | 14 | 40 | 8 + 4 |
+| **합** | **133** | **70** | **203** | **75** |
+- 상자 후보 3,828(구조물 면 432개, 2m 간격) → 규칙 통과 1,634(거절: 엄폐 916·기존 경로 통로 809·콜라이더 171·탈출 119·도로 81 등). 도달 **203/203**(접근점 NavMesh 1m 안 + 기준 스폰에서 연결 +
+  눈높이 1.68m 레이가 2m 안에서 그 컨테이너를 처음 맞춤). 굽기 뒤 엄폐 1060/1060·적 34/34·순찰 28/28·적 근거리 665/665(한 번의 질의)·순찰 경로 증가 0.0%. NavMesh 굽기 11.9초.
+- 파일: NavMesh 2.74 → 2.79MB, 레이드 씬 15.3 → 16.6MB, TerrainData 같은 크기(풀 제외 칸만 바뀜 — 상자 접근 1.5m). 스킨: 상자 133(트렁크 제외), 구조물 317 그대로.
+- 멱등: `Apply Map Density`·`Apply Asset Swap` 두 번째 실행에서 `Assets/_Project`·`ProjectSettings` 1,110개 파일 바이트 동일(스킨 폴더 제외).
+- 미리보기(`RenderLootViews`, 1080p 눈높이): 마을 새 상자·고속도로 트렁크(험비 뒤)·길목 상자. 배치 렌더는 시간이 흐르지 않아 LOD 크로스페이드가 디더 중간에 멈춰 보이던 것을 미리보기 동안 크로스페이드 끔으로 고쳤다(씬 저장 안 함 — 기존 `RenderViews`도 같이 적용).
+
+**경제 시뮬레이션** (`Ashfall/Tools/Simulate Loot Economy`, seed 1..1000, 판매가치 = `PriceRules` 탄피, 칸 제한 안에서 고른 반출 — 칸이 차면 탄피/칸이 높은 것으로 바꿔 담는다)
+- 기준(지금 맵) = 기존 상자 21(전부 활성, 내용물 seed 파생) + 시체 34(`CorpseLootBuilder`). 새 맵 = 루트 지점 203(계획대로 활성) + 같은 시체. 장비: 표준 = 주머니 4 + 조끼 4×2 + 배낭 4×5, 부랑자 = 주머니 4(1×1만).
+  이동 = 직선 × 1.3 / walkSpeed 3m/s, 컨테이너 = 1초 + 아이템 × 0.5초, ①은 가장 가까운 POI의 컨테이너(활성 여부 모름) 전부, ②는 가장 가까운 미방문부터 15분.
+
+| 측정 | 전략 | 장비 | 지금 평균 | 새 평균 | 새 중앙값 | 새 P90 | **배수** | 연 컨테이너/레이드 |
+|---|---|---|---|---|---|---|---|---|
+| 컨테이너만 | ① POI 털이 | 표준 | 863 | 1234 | 1156 | 1824 | **1.43** | 4.7 → 19.0 |
+| 컨테이너만 | ① POI 털이 | 부랑자 | 248 | 313 | 300 | 472 | 1.26 | 4.7 → 19.0 |
+| 컨테이너만 | ② 탐욕 순회 | 표준 | 2721 | 1811 | 1780 | 2536 | 0.67 | 17.7 → 46.3 |
+| 컨테이너만 | ② 탐욕 순회 | 부랑자 | 456 | 375 | 320 | 520 | 0.82 | 17.7 → 46.3 |
+| 시체 포함 | ① POI 털이 | 표준 | 4770 | 4806 | 4482 | 7648 | 1.01 | 11.7 → 26.0 |
+| 시체 포함 | ① POI 털이 | 부랑자 | 1427 | 1451 | 460 | 3680 | 1.02 | 11.7 → 26.0 |
+| 시체 포함 | ② 탐욕 순회 | 표준 | 7721 | 6660 | 7136 | 7937 | 0.86 | 31.7 → 52.7 |
+| 시체 포함 | ② 탐욕 순회 | 부랑자 | 2705 | 2611 | 3520 | 3800 | 0.97 | 31.7 → 52.7 |
+- 레이드당 활성 상자·트렁크 21 → 75, 맵 전체 신호탄/레이드(시체 포함) 2.84 → 3.22, MIA 0.
+- **해석:** 사용자 기준(지금 맵 = 21상자 + 시체)으로 반출 가치를 보면 칸이 시체 무기·탄창(탄피/칸이 상자 아이템보다 높다)으로 먼저 차서 상자·트렁크를 늘려도 **1.0배 안팎** —
+  비율·테이블로는 움직이지 않는다(인플레이션 없음). 상자·트렁크가 주는 몫(컨테이너만)이 비율·테이블에 반응하므로 이것을 조정 지표로 썼다: **① POI 털이·표준 1.43배**(목표 안).
+  ② 탐욕 순회는 지금 맵에서 15분 안에 맵의 좋은 상자 21개를 거의 다 도는 반면, 새 맵은 가장자리 스폰 주변의 외곽·길목(고철 위주·70% 비활성)부터 돌아 0.67배.
+  비율·테이블 훑기(`SweepRatios`, N = 200): 길목·외곽·트렁크를 전부 `LT-CRATE`로 바꾸고 비율 0.5로 올려도 ②는 **최대 1.11배** → ②를 1.3배로 올리려면 길목이 POI보다 좋아져야 해 설계 의도(POI가 보상)와 충돌.
+  **②·시체 포함·부랑자는 목표 밖(기록만)으로 두었다 — 사용자 확인 필요.**
+- 훑기 요약(컨테이너만·표준, POI 트렁크 = 트렁크 비율): POI 상자 0.35/0.40/0.45 → ① 1.22/1.34/1.48(트렁크 0.3), 트렁크 0.5면 +0.05~0.06. 길목 비율은 ①에 영향 없음.
+- EditMode 회귀 `EconomySimulation_PoiRaid_ContainerValue_WithinTarget_NoCorpseInflation`(N = 200): ① 표준 컨테이너만 1.3~1.5, 시체 포함 4개 ≤ 1.5, MIA 0.
+
+**테스트**
+- EditMode 새 `MapDensityLootTests` 13(레이드 루트 시드, `ConfigureForRaid/Empty`, 배정 규칙, 지휘자 결정성·활성 수·연 컨테이너·설정 없음, 상자 후보·생성 결정성·간격·접근 콜백, 데이터 2, 경제 1).
+- PlayMode 새 `MapDensityLootSceneTests` 5(개수·구조, 고정 seed 계획 = 활성·빈 컨테이너·같은 seed 재시작 = 같은 집합·내용물, 빈 컨테이너 열기, 승용차 뒤 F 레이캐스트 → 트렁크 열림, 레이드 중 세이브 파일 변화 없음).
+- 고친 기존 테스트: `AssetSwapSceneSmokeTests`·`RaidVisualSmokeTests`(트렁크 제외 — 렌더러가 없는 차체 안 콜라이더라 상자 스킨·`M_Crate`가 없다, 트렁크는 금속 재질·렌더러 없음을 따로 확인),
+  `MapDensitySceneSmokeTests.RaidScene_AgentPaths_SingleQueryComplete`(상자 목표 = M4 21개, 위 NavState와 같은 이유).
+
+**남은 위험**
+- 경제 목표는 ①(컨테이너만)만 맞췄다. ②·시체 포함은 구조적으로 1배 안팎 — 사용자가 "전체 반출 1.3배"를 원하면 상자 테이블을 시체보다 탄피/칸이 높게(해독제·방독면·헬멧 비중) 바꿔야 해 희소 아이템 빈도가 오른다.
+- 빈 컨테이너가 70%대(길목·외곽)라 허탕 피로 — Q1 B(`JunkOnly`)는 `inactiveMode`만 바꾸면 된다(테이블 하나 필요).
+- 시뮬레이션은 전투·위험·무게를 보지 않는다. 사람 플레이 확인 필요(특히 트렁크를 뒤에서 여는 감각, 벽 앞 상자 위치).
+- 새 상자 스킨 6종(Crate_03·04·06·07, Military Box_003·005)은 방향을 Crate_01과 같다고 보고 넣었다 — 미리보기 3장에서 본 것은 Crate 계열 2종뿐(Military 상자는 눈으로 확인 안 함).
+- 새 상자·트렁크도 `MapPlacementChecks`의 2.5m 거리 기준점이 된다. ③이 있는 상태에서 MapPolish 그룹을 다시 만들면 벽 앞 상자 때문에 배치 확인이 실패할 수 있다(추정, 드문 경로).
+- 첫 IL2CPP 빌드가 Windows 스마트 앱 컨트롤의 `Burst.Backend.dll` 차단으로 실패, 재시도로 성공(코드 원인 아님).
+
+**결정 (사용자, 2026-10-29)**
+- **경제 판단: 사용자 A안 채택 — POI 털이 상자·트렁크 몫 1.43배를 목표 달성으로 인정.** 전체 반출(시체 포함) 1.01배, 탐욕 순회 0.67배는 남은 사항(기록만, 위 표).
+- **Q1 A(빈 상자) 유지 결정** — 비활성 루트 지점은 열 수 있고 비어 있다(`inactiveMode = Empty`). `JunkOnly`로 바꾸지 않는다.
+
+**리뷰 반영 (code-reviewer, 2026-10-29)**
+- M1 롤백을 단계 사이까지: `ApplyRaid` 맨 앞에서 NavMesh·TerrainData 바이트를 잡고, 어느 단계(구조물·산포 → 루트 지점 → 풀)에서 실패하든 이번에 만든 구조물 그룹·루트 지점을 지우고 두 파일을
+  적용 전 바이트로 되돌린다(메모리에서만 바뀐 TerrainData는 내려 다시 읽음). 대화형 모드는 더럽혀진 씬을 버린다(파일에서 다시 열기). 확인: 임시 강제 실패로 `Rebuild`를 두 번(루트 단계 실패 / 풀 뒤 실패)
+  돌려 `Assets/_Project`·`ProjectSettings` 파일이 적용 전과 바이트 동일(대화형 다시 열기는 배치에서 확인 못 함).
+  이 과정에서 `Rebuild` 뒤(구조물 배치가 조금 달라짐) 외곽 상자가 25/26으로 모자라는 것을 발견 → 생성기에 모자랄 때만 도는 단계(구조물당 3개, 그다음 간격 6m)를 더했다. 지금 씬 배치는 그대로(앞 단계에서 다 찬다).
+- M2 PlayMode `RaidScene_AllLootPoints_ReachableFromSpawn_EyeRayHitsContainerFirst`: 저장된 씬의 203곳 전부 접근점 NavMesh 1m·기준 스폰 연결(`NavPathProbe.TryConnected`)·눈높이 레이 첫 충돌 = 그 컨테이너.
+- L1 `ConfigureEmpty`·`ConfigureForRaid`는 직렬화 필드를 바꾸지 않는다(런타임 덮어쓰기 + `SerializedLootTable`). L2 테스트 활성 판정 = `WasActive`. L3 LootSeed 0 경로 테스트(`HandleRaidStarted`), 입력 순서 섞기.
+- L4 새 루트 지점 182곳의 직렬화 테이블은 비운다 — 지휘자가 동작하지 못하면 기존 21 상자만 루트가 있다("루트 적음" 쪽 실패). 활성 수 = 계획은 PlayMode가 고정.
+- L5 기존 상자 이름·그리드 맞춤도 루트 단계 롤백 대상. L6 `IsComplete`는 지휘자 설정이 `LootSpawnConfig.asset`인지 본다. L7 꺼진 콜라이더는 벽 후보에서 뺀다. L9 데이터 원천이 없으면 예외.
+  L11 설계와 다른 레벨 상수(엄폐 거리 0.6배·POI 트렁크 0.50·트렁크 70 등)에 TODO(GDD-?) 표시.

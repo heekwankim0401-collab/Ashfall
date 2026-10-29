@@ -443,6 +443,10 @@ namespace Ashfall.EditorTools
 
         private static bool ApplyCrate(Transform crate, IReadOnlyDictionary<string, GameObject> skins, Result result)
         {
+            // 맵 밀도 ③ 트렁크(설계 §5.4): 렌더러 없는 차량 안 콜라이더 — 겉모습은 차량 스킨 그대로, 상자 스킨을 얹지 않는다
+            var slot = crate.GetComponent<LootSpawnSlot>();
+            if (slot != null && slot.Kind == LootSlotKind.Trunk)
+                return RemoveSkins(crate, result);
             string id = C.Pick(C.CrateSkins, crate.name);
             var renderer = crate.GetComponent<Renderer>();
             if (renderer == null || !skins.TryGetValue(id, out GameObject prefab))
@@ -452,7 +456,9 @@ namespace Ashfall.EditorTools
             float bottom = crate.position.y - crate.lossyScale.y * 0.5f;
             var p = new Placement(id, new Vector3(crate.position.x, bottom, crate.position.z), crate.rotation, Vector3.one * s);
             result.Crates++;
-            return Sync(crate, new[] { p }, new[] { renderer }, skins, result);
+            bool changed = Sync(crate, new[] { p }, new[] { renderer }, skins, result);
+            // 맵 밀도 ③ 새 상자의 컬 LODGroup(설계 §8.1)에 스킨 렌더러도 넣는다
+            return MapDensitySceneApply.IncludeRenderers(crate.GetComponent<LODGroup>()) | changed;
         }
 
         private static bool IsDrum(string name) =>

@@ -38,6 +38,7 @@ namespace Ashfall.EditorTools
             public Vector2? KeepOutCenter;      // 보스 거점 등 — 이 원 안에 새 콜라이더 금지
             public float KeepOutRadiusM;
             public string KeepOutName;
+            public float PointScale;            // > 0이면 엄폐·상자·적·순찰 지점 최소 거리(2.5m)에 곱한다(맵 밀도 ③ 상자 0.6). 0 = 그대로. 스폰·탈출·스위치는 늘 그대로
         }
 
         // ---------- 되돌리기 ----------
@@ -148,7 +149,8 @@ namespace Ashfall.EditorTools
                     if (!IsUnder(cover.transform, newRoots))
                         points.Add(($"엄폐 {cover.transform.parent?.name}/{cover.name}", cover.transform.position, MapPolishLayout.MinDistanceFromPointsM));
                 foreach (LootContainer crate in root.GetComponentsInChildren<LootContainer>(true))
-                    points.Add(($"상자 {crate.name}", crate.transform.position, MapPolishLayout.MinDistanceFromPointsM));
+                    if (!IsUnder(crate.transform, newRoots))   // 맵 밀도 ③: 확인 대상인 새 상자 자신은 지점이 아니다(이전 호출자는 새 루트에 상자가 없어 같다)
+                        points.Add(($"상자 {crate.name}", crate.transform.position, MapPolishLayout.MinDistanceFromPointsM));
                 foreach (EnemyAgent enemy in root.GetComponentsInChildren<EnemyAgent>(true))
                     points.Add(($"적 {enemy.name}", enemy.transform.position, MapPolishLayout.MinDistanceFromPointsM));
                 foreach (PatrolRoute route in root.GetComponentsInChildren<PatrolRoute>(true))
@@ -189,11 +191,12 @@ namespace Ashfall.EditorTools
                 {
                     // 지면 높이 지점이 OBB 아래로 빠지지 않게 수평 거리로 본다 (구조물 바닥이 지면 아래로 묻혀 있다)
                     float d = obb.HorizontalDistance(point.position);
-                    if (d < point.minDistance)
+                    float min = rules.PointScale > 0f && point.minDistance <= MapPolishLayout.MinDistanceFromPointsM ? point.minDistance * rules.PointScale : point.minDistance;
+                    if (d < min)
                     {
                         string key = $"{Owner(c)} ↔ {point.name}";
                         if (reported.Add(key))
-                            problems.AppendLine($"  가까움: {key} {d:0.0}m < {point.minDistance}m (지점 {point.position.x:0.0}, {point.position.z:0.0})");
+                            problems.AppendLine($"  가까움: {key} {d:0.0}m < {min}m (지점 {point.position.x:0.0}, {point.position.z:0.0})");
                     }
                 }
                 foreach (var segment in segments)
@@ -225,6 +228,13 @@ namespace Ashfall.EditorTools
                     if (IsUnder(hit.collider.transform, newRoots))
                         problems.AppendLine($"  저격 시선 {from}→{to}을 {Owner(hit.collider)}가 막는다");
             }
+        }
+
+        // 맵 밀도 ③이 만든 루트 지점(새 상자 LootCrate_*·트렁크)인가
+        internal static bool IsMapDensityLootPoint(LootContainer c)
+        {
+            var slot = c.GetComponent<LootSpawnSlot>();
+            return slot != null && (slot.Kind == LootSlotKind.Trunk || (slot.SlotKey ?? "").StartsWith(MapDensityLootLayout.NamePrefix, System.StringComparison.Ordinal));
         }
 
         // 구조물 이름 (그룹 바로 아래 조상)
@@ -432,6 +442,10 @@ namespace Ashfall.EditorTools
                     }
                     foreach (LootContainer crate in root.GetComponentsInChildren<LootContainer>(true))
                     {
+                        // 맵 밀도 ③ 루트 지점(새 상자·트렁크)은 빼고 M4 상자만 — 적 경로 목표가 아니고(트렁크 중심은 차체 안),
+                        // 플레이어 도달은 MapDensityLootApply가 접근점에서 확인한다. ③ 전에는 모든 컨테이너가 M4 상자라 결과가 같다.
+                        if (IsMapDensityLootPoint(crate))
+                            continue;
                         state.crateTotal++;
                         state.objects[crate.GetInstanceID()] = crate;
                         if (!NavMesh.SamplePosition(crate.transform.position, out NavMeshHit ch, AgentOnMeshM, NavMesh.AllAreas))

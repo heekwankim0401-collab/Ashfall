@@ -22,7 +22,7 @@ namespace Ashfall.EditorTools
     //   MapDensity_Buildings: 속 찬 건물 "House_{nn}" (M4 블록아웃 생성기 — M6 칠하기·AssetSwap 스킨이 이름으로 붙는다) + 엄폐 지점
     //   MapDensity_Structures: 소형 구조물·차량 "{Shape}_{nn}" + 엄폐 지점
     //   MapDensity_Vegetation: 죽은 나무·덤불·통나무 프리팹 인스턴스(Prefabs/Scatter/SC_*)
-    //   (MapDensity_Loot = ③ 상자·트렁크, 이 파일은 만들지 않는다)
+    //   (MapDensity_Loot·트렁크·LootSpawnDirector = ③ 루트 지점 — MapDensityLootApply가 그 뒤에 만든다. 구조물 그룹을 다시 만들면 같이 다시)
     // 만들면: 배치 확인(겹침·회피·순찰 통로·보스 거점·저격 시선 3D) → NavMesh 다시 굽기 → 경로·엄폐·적·순찰(길이 +20% 이내)·상자·구멍·엄폐 상한 확인.
     // 실패 = 예외: 만든 그룹을 지우고 NavMesh·TerrainData를 적용 전 바이트로 되돌린 뒤 던진다(씬 저장 안 함).
     // 그룹이 이미 있으면 구조물 자리 NavMesh 구멍만 확인(아니면 예외 — Rebuild 메뉴).
@@ -60,9 +60,10 @@ namespace Ashfall.EditorTools
             yield return MapDensityLayout.VegetationGroup;
         }
 
-        // Rebuild 메뉴: 세 그룹을 지운다(다음 ApplyRaid가 다시 만들고 다시 굽는다).
+        // Rebuild 메뉴: 세 그룹과 ③ 루트 지점(그룹·트렁크·슬롯·지휘자)을 지운다(다음 ApplyRaid가 다시 만들고 다시 굽는다).
         public static void RemoveGroups(Scene scene)
         {
+            MapDensityLootApply.Remove(scene);
             GameObject environment = SetupUtil.FindRoot(scene, M4MapSetup.EnvironmentName);
             if (environment == null)
                 return;
@@ -92,35 +93,107 @@ namespace Ashfall.EditorTools
             if (terrain == null || surface == null)
                 throw new InvalidOperationException($"{Tag} {scene.name}: Terrain 또는 NavMeshSurface 없음");
 
-            var groups = new List<Transform>();
-            foreach (string name in GroupNames())
-                groups.Add(environment.transform.Find(name));
-            if (groups.Contains(null))
+            // 리뷰 M1: 단계(구조물·산포 → 루트 지점 → 풀) 사이에서도 되돌릴 수 있게 맨 앞에서 NavMesh·TerrainData 바이트를 한 번 잡는다.
+            byte[] navBackup = MapPlacementChecks.ReadBytes(M4MapSetup.NavMeshPath);
+            byte[] terrainBackup = MapPlacementChecks.ReadBytes(M4MapSetup.TerrainDataPath);
+            bool builtStructures = false;
+            try
             {
-                foreach (Transform partial in groups)
-                    if (partial != null)
+                var groups = new List<Transform>();
+                foreach (string name in GroupNames())
+                    groups.Add(environment.transform.Find(name));
+                if (groups.Contains(null))
+                {
+                    // ③ 루트 지점은 구조물(벽·승용차)에 기대므로 구조물을 다시 만들면 같이 다시 만든다
+                    MapDensityLootApply.Remove(scene);
+                    foreach (Transform partial in groups)
+                        if (partial != null)
+                        {
+                            Debug.LogWarning($"{Tag} 일부 그룹만 있다 — 지우고 다시 만든다: {partial.name}");
+                            Object.DestroyImmediate(partial.gameObject);
+                        }
+                    builtStructures = true;
+                    BuildOrRollBack(scene, environment, terrain, surface, cfg);
+                }
+                else
+                {
+                    // 그룹은 있는데 NavMesh가 옛것(구조물 자리에 구멍 없음)이면 굳은 상태 — 다시 만들기를 안내한다(맵 개선 리뷰 H2와 같다).
+                    var carvedReport = new StringBuilder();
+                    bool carved = true;
+                    foreach (Transform group in new[] { groups[0], groups[1] })
                     {
-                        Debug.LogWarning($"{Tag} 일부 그룹만 있다 — 지우고 다시 만든다: {partial.name}");
-                        Object.DestroyImmediate(partial.gameObject);
+                        carved &= MapPlacementChecks.CheckCarved(group, terrain, out string report);
+                        carvedReport.Append(report);
                     }
-                BuildOrRollBack(scene, environment, terrain, surface, cfg);
+                    if (!carved)
+                        throw new InvalidOperationException($"{Tag} {scene.name}: 맵 밀도 그룹은 있는데 NavMesh에 구조물이 반영되지 않았다 — " +
+                                                            $"Ashfall/Setup/Map Density/Rebuild Map Density (Raid Scene)\n{carvedReport}");
+                    Debug.Log($"{Tag} {scene.name}: 맵 밀도 그룹 있음 — 배치·NavMesh 그대로 ({carvedReport.ToString().Trim()})");
+                }
+                ApplyLootAndRefresh(scene, cfg);
                 return true;
             }
-
-            // 그룹은 있는데 NavMesh가 옛것(구조물 자리에 구멍 없음)이면 굳은 상태 — 다시 만들기를 안내한다(맵 개선 리뷰 H2와 같다).
-            var carvedReport = new StringBuilder();
-            bool carved = true;
-            foreach (Transform group in new[] { groups[0], groups[1] })
+            catch
             {
-                carved &= MapPlacementChecks.CheckCarved(group, terrain, out string report);
-                carvedReport.Append(report);
+                RollBackAll(scene, environment, terrain, surface, builtStructures, navBackup, terrainBackup);
+                throw;
             }
-            if (!carved)
-                throw new InvalidOperationException($"{Tag} {scene.name}: 맵 밀도 그룹은 있는데 NavMesh에 구조물이 반영되지 않았다 — " +
-                                                    $"Ashfall/Setup/Map Density/Rebuild Map Density (Raid Scene)\n{carvedReport}");
+        }
+
+        // 리뷰 M1: 어느 단계에서 실패하든 적용 전 상태로. 이번에 만든 구조물 그룹(+ 루트 지점)을 지우고 NavMesh·TerrainData를 적용 전 바이트로 되돌린다
+        // (파일이 같아도 메모리에서 바뀐 TerrainData는 내려 다시 읽게 한다). 대화형 모드는 더럽혀진 씬을 버린다(파일에서 다시 연다). 씬 저장은 하지 않는다.
+        private static void RollBackAll(Scene scene, GameObject environment, Terrain terrain, NavMeshSurface surface, bool builtStructures,
+            byte[] navBackup, byte[] terrainBackup)
+        {
+            try
+            {
+                if (builtStructures && environment != null)
+                {
+                    MapDensityLootApply.Remove(scene);
+                    foreach (string name in GroupNames())
+                    {
+                        Transform group = environment.transform.Find(name);
+                        if (group != null)
+                            Object.DestroyImmediate(group.gameObject);
+                    }
+                }
+                byte[] navNow = MapPlacementChecks.ReadBytes(M4MapSetup.NavMeshPath);
+                if (navBackup != null && surface != null && (navNow == null || !navNow.AsSpan().SequenceEqual(navBackup)))
+                    MapPlacementChecks.RestoreNavMesh(surface, M4MapSetup.NavMeshPath, navBackup);
+                if (terrainBackup != null && terrain != null)
+                {
+                    TerrainData data = terrain.terrainData;
+                    byte[] terrainNow = MapPlacementChecks.ReadBytes(M4MapSetup.TerrainDataPath);
+                    bool fileChanged = terrainNow == null || !terrainNow.AsSpan().SequenceEqual(terrainBackup);
+                    if (fileChanged)
+                        System.IO.File.WriteAllBytes(System.IO.Path.GetFullPath(M4MapSetup.TerrainDataPath), terrainBackup);
+                    if (fileChanged || (data != null && EditorUtility.IsDirty(data)))
+                    {
+                        AssetDatabase.ImportAsset(M4MapSetup.TerrainDataPath, ImportAssetOptions.ForceUpdate);
+                        if (data != null && EditorUtility.IsDirty(data))
+                            Resources.UnloadAsset(data);   // 저장 안 된 메모리 변경(풀 층)을 버린다 — 다음 접근 때 파일에서 다시 읽는다
+                    }
+                }
+                Debug.LogError($"{Tag} 실패 — {(builtStructures ? "이번에 만든 구조물·산포 그룹과 " : "")}루트 지점을 지우고 NavMesh·TerrainData를 적용 전 바이트로 되돌렸다(씬 저장 안 함)");
+                if (!Application.isBatchMode && !string.IsNullOrEmpty(scene.path))
+                    EditorSceneManager.OpenScene(scene.path, OpenSceneMode.Single);   // 더럽혀진 씬 버리기
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"{Tag} 되돌리기 중 오류(원래 예외를 이어서 던진다): {e}");
+            }
+        }
+
+        // ③ 상자·트렁크·루트 지점(LootSpawnConfig가 있을 때, 없으면 건너뜀 — MapDensityLootApply) → 풀(상자 접근 제외 포함)·LOD·그림자.
+        // 루트 지점 실패는 그 단계(그룹·트렁크·슬롯·NavMesh)를 되돌린 뒤 던지고, ApplyRaid의 RollBackAll이 이번에 만든 구조물·NavMesh·TerrainData까지 되돌린다(리뷰 M1).
+        // 풀(TerrainData)·LOD·그림자는 배치·확인이 모두 성공한 뒤에만 맞춘다(리뷰 M3) — Build는 TerrainData를 건드리지 않으므로 되돌릴 TerrainData가 없다.
+        // Refresh가 도중에 던지면 씬은 저장되지 않고(호출자), 메모리의 TerrainData는 저장되지 않은 채 배치 프로세스와 함께 버려진다.
+        // 산포 프리팹 LOD·그림자 갱신은 SO에서 다시 계산되는 파생값이라 되돌리지 않는다(다음 실행이 같은 값으로 맞춘다).
+        private static void ApplyLootAndRefresh(Scene scene, MapDensityConfigSO cfg)
+        {
+            MapDensityLootApply.Apply(scene);
             int changed = Refresh(scene, cfg, out string refreshReport);
-            Debug.Log($"{Tag} {scene.name}: 맵 밀도 그룹 있음 — 배치·NavMesh 그대로 ({carvedReport.ToString().Trim()}), 풀·컬링 갱신 {changed}\n{refreshReport}");
-            return true;
+            Debug.Log($"{Tag} 풀·컬링·그림자 맞춤 {changed}\n{refreshReport}");
         }
 
         // ---------- 생성 ----------
@@ -146,11 +219,7 @@ namespace Ashfall.EditorTools
                 Debug.LogError($"{Tag} 실패 — 만든 그룹 {created.Count}개를 지우고{(rebaked ? " NavMesh를 되돌렸다" : "")}");
                 throw;
             }
-            // 풀(TerrainData)·LOD·그림자는 배치·확인이 모두 성공한 뒤에만 맞춘다(리뷰 M3) — Build는 TerrainData를 건드리지 않으므로 되돌릴 TerrainData가 없다.
-            // Refresh가 도중에 던지면 씬은 저장되지 않고(호출자), 메모리의 TerrainData는 저장되지 않은 채 배치 프로세스와 함께 버려진다.
-            // 산포 프리팹 LOD·그림자 갱신은 SO에서 다시 계산되는 파생값이라 되돌리지 않는다(다음 실행이 같은 값으로 맞춘다).
-            int changed = Refresh(scene, cfg, out string refreshReport);
-            Debug.Log($"{Tag} 풀·컬링·그림자 맞춤 {changed}\n{refreshReport}");
+            // 풀·LOD·그림자는 호출자(ApplyLootAndRefresh)가 ③ 루트 지점 뒤에 맞춘다
         }
 
         private static void Build(Scene scene, GameObject environment, Terrain terrain, NavMeshSurface surface, MapDensityConfigSO cfg,
@@ -639,6 +708,21 @@ namespace Ashfall.EditorTools
                 }
             }
             sb.AppendLine($"  구조물 컬 LODGroup {culled}(그림자 끔 {unshadowed}, 높이 < {cfg.shadowMinHeightM}m), 갱신 {sceneChanges}");
+
+            // ③ 새 상자: 컬 LODGroup(crateCullDistanceM), 그림자 = 높이 정책(1m 상자 < shadowMinHeightM → 끔)
+            Transform loot = environment.transform.Find(MapDensityLayout.LootGroup);
+            if (loot != null)
+            {
+                int crateChanges = 0, crates = 0;
+                foreach (Transform crate in loot)
+                {
+                    bool shadows = HeightAboveGround(crate, terrain) >= cfg.shadowMinHeightM;
+                    crateChanges += EnsureCullLod(crate, cfg.crateCullDistanceM, shadows, fov, bias);
+                    crates++;
+                }
+                sceneChanges += crateChanges;
+                sb.AppendLine($"  상자 컬 LODGroup {crates}({cfg.crateCullDistanceM}m), 갱신 {crateChanges}");
+            }
 
             int terrainChanges = RefreshGrass(scene, environment, terrain, cfg, sb);
             if (sceneChanges > 0 || terrainChanges > 0)
